@@ -1,0 +1,1397 @@
+openapi: 3.1.0
+info:
+  title: User Management API
+  version: 0.1.0
+  description: Enterprise user management with advanced filtering, caching, and export capabilities
+
+tags:
+  - name: users
+    description: User management operations
+
+paths:
+  # ─── LIST USERS ──────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users with advanced filtering
+      description: |
+        Get paginated list of users with advanced filtering options.
+        Supports search, status, role, date range, and sorting.
+        Requires `users:read` permission.
+        Data is cached for 5 minutes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by username, first name, last name, telegram ID, or email
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, blocked, deleted, suspended]
+          description: Filter by user status
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: Filter by user role
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+        - name: isBlocked
+          in: query
+          schema:
+            type: boolean
+          description: Filter by blocked status
+        - name: isDeleted
+          in: query
+          schema:
+            type: boolean
+          description: Filter by deleted status
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created after this date (ISO 8601)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created before this date (ISO 8601)
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, lastLoginAt, username]
+            default: createdAt
+          description: Sort field
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of users per page
+        - name: includeDeleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include soft-deleted users
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden - Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── GET USER ────────────────────────────────────────────────────────────────
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      description: |
+        Get detailed user information including profile and stats.
+        Requires `users:read` permission.
+        Data is cached for 5 minutes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+        - name: includeDeleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include soft-deleted user
+      responses:
+        "200":
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetailResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      description: |
+        Update user profile, status, or role.
+        Requires `users:update` permission.
+        Cannot update own role or status if it would lock you out.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete user
+      description: |
+        Soft delete or permanently delete a user.
+        Requires `users:delete` permission.
+        Cannot delete yourself.
+        Soft-deleted users can be restored.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+        - name: soft
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Soft delete (true) or permanent delete (false)
+      responses:
+        "200":
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "User soft deleted successfully"
+                  timestamp:
+                    type: string
+                    format: date-time
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── GET CURRENT USER ─────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user
+      description: |
+        Get the currently authenticated user's information.
+        Requires authentication.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetailResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── BLOCK USER ─────────────────────────────────────────────────────────────
+  /users/{id}/block:
+    post:
+      operationId: blockUser
+      tags: [users]
+      summary: Block or unblock user
+      description: |
+        Block or unblock a user. Blocked users cannot access the platform.
+        Requires `users:block` permission.
+        Cannot block yourself.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockUserInput"
+      responses:
+        "200":
+          description: User blocked/unblocked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── GRANT USER SUBSCRIPTION ───────────────────────────────────────────────────
+  /users/{id}/subscription/grant:
+    post:
+      operationId: grantUserSubscription
+      tags: [users, subscriptions]
+      summary: Grant a subscription to a user
+      description: |
+        Manually grant a subscription plan to a user.
+        Requires `subscriptions:grant` permission.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantSubscriptionInput"
+      responses:
+        "201":
+          description: Subscription granted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User or plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── SEARCH USERS ─────────────────────────────────────────────────────────────
+  /users/search:
+    get:
+      operationId: searchUsers
+      tags: [users]
+      summary: Search users
+      description: |
+        Full-text search across users with advanced filters.
+        Requires `users:read` permission.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Search query (min 2 characters)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, blocked, deleted, suspended]
+          description: Filter by user status
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: Filter by user role
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of users per page
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── EXPORT USERS ───────────────────────────────────────────────────────────
+  /users/export:
+    post:
+      operationId: exportUsers
+      tags: [users]
+      summary: Export users
+      description: |
+        Export users in JSON or CSV format.
+        Requires `users:export` permission.
+        Maximum export limit is 10,000 users.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+          description: Export format
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Filter by search query
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, blocked, deleted, suspended]
+          description: Filter by user status
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: Filter by user role
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created after this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created before this date
+      responses:
+        "200":
+          description: Export successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResponse"
+            application/csv:
+              schema:
+                type: string
+                description: CSV file content
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── USER STATISTICS ────────────────────────────────────────────────────────
+  /users/stats:
+    get:
+      operationId: getUserStats
+      tags: [users]
+      summary: Get user statistics
+      description: |
+        Get aggregated user statistics.
+        Requires `users:read` permission.
+        Data is cached for 10 minutes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, blocked, deleted, suspended]
+          description: Filter by user status
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: Filter by user role
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created after this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter users created before this date
+      responses:
+        "200":
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStatsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── USER ACTIVITY ──────────────────────────────────────────────────────────
+  /users/{id}/activity:
+    get:
+      operationId: getUserActivity
+      tags: [users]
+      summary: Get user activity
+      description: |
+        Get user activity timeline and statistics.
+        Requires `users:read` permission.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+          description: Number of days to look back
+      responses:
+        "200":
+          description: User activity retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActivityResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+# ==================== SCHEMAS ====================
+components:
+  schemas:
+    # ─── USER ──────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required:
+        - id
+        - telegramId
+        - status
+        - role
+        - isActive
+        - isBlocked
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique user ID
+          example: "usr_abc123_def456"
+        telegramId:
+          type: string
+          description: Telegram user ID
+          example: "123456789"
+        email:
+          type: string
+          nullable: true
+          format: email
+          description: User email
+          example: "user@example.com"
+        phone:
+          type: string
+          nullable: true
+          description: User phone number
+          example: "+998901234567"
+        username:
+          type: string
+          nullable: true
+          description: Username
+          example: "john_doe"
+        firstName:
+          type: string
+          nullable: true
+          description: First name
+          example: "John"
+        lastName:
+          type: string
+          nullable: true
+          description: Last name
+          example: "Doe"
+        fullName:
+          type: string
+          description: Full name (first + last)
+          example: "John Doe"
+        languageCode:
+          type: string
+          description: User language preference
+          example: "en"
+        status:
+          type: string
+          enum: [active, inactive, blocked, deleted, suspended]
+          description: User status
+          example: "active"
+        role:
+          type: string
+          enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: User role
+          example: "user"
+        isActive:
+          type: boolean
+          description: Whether user is active
+          example: true
+        isBlocked:
+          type: boolean
+          description: Whether user is blocked
+          example: false
+        blockedReason:
+          type: string
+          nullable: true
+          description: Reason for blocking
+          example: "Violated terms of service"
+        lastLoginAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Last login timestamp
+          example: "2026-01-15T10:30:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-01-01T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2026-01-15T10:30:00Z"
+        dailyCodeLimit:
+          type: integer
+          nullable: true
+          description: Daily video-code limit
+          example: 10
+        dailyCodeUsed:
+          type: integer
+          nullable: true
+          description: Daily video-code usage count
+          example: 5
+        weeklyCodeLimit:
+          type: integer
+          nullable: true
+          description: Weekly video-code limit
+          example: 50
+        weeklyCodeUsed:
+          type: integer
+          nullable: true
+          description: Weekly video-code usage count
+          example: 12
+        monthlyCodeLimit:
+          type: integer
+          nullable: true
+          description: Monthly video-code limit
+          example: 200
+        monthlyCodeUsed:
+          type: integer
+          nullable: true
+          description: Monthly video-code usage count
+          example: 32
+        trialExpiresAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Free trial access expiry
+        referralRewardTier:
+          type: integer
+          nullable: true
+          description: Referral reward tier
+          example: 1
+        referralCode:
+          type: string
+          nullable: true
+          description: Unique referral code
+          example: "REF123"
+        referredBy:
+          type: string
+          nullable: true
+          description: Referrer's user ID
+          example: "usr_xyz789"
+        acquisitionSource:
+          type: string
+          nullable: true
+          description: How user was acquired
+          example: "telegram"
+        activeSubscription:
+          $ref: "#/components/schemas/UserSubscription"
+          nullable: true
+
+    UserDetail:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            profile:
+              $ref: "#/components/schemas/UserProfile"
+            stats:
+              $ref: "#/components/schemas/UserStats"
+            activeSubscription:
+              $ref: "#/components/schemas/UserSubscription"
+              nullable: true
+            permissions:
+              type: array
+              items:
+                type: string
+              description: User permissions
+            watchCount:
+              type: integer
+              nullable: true
+              description: Total watch sessions count (from stats)
+            totalWatchMinutes:
+              type: integer
+              nullable: true
+              description: Total watch time in minutes (from stats)
+
+    UserProfile:
+      type: object
+      properties:
+        displayName:
+          type: string
+          description: Display name
+          example: "John Doe"
+        bio:
+          type: string
+          nullable: true
+          description: User biography
+          example: "Software developer and movie enthusiast"
+        avatar:
+          type: string
+          nullable: true
+          description: Avatar URL
+          example: "https://example.com/avatar.jpg"
+        coverImage:
+          type: string
+          nullable: true
+          description: Cover image URL
+          example: "https://example.com/cover.jpg"
+        location:
+          type: string
+          nullable: true
+          description: User location
+          example: "Tashkent, Uzbekistan"
+        website:
+          type: string
+          nullable: true
+          description: Personal website
+          example: "https://example.com"
+        age:
+          type: integer
+          nullable: true
+          description: User age
+          example: 25
+        gender:
+          type: string
+          nullable: true
+          enum: [male, female, other, prefer_not_to_say]
+          description: Gender
+          example: "male"
+
+    UserStats:
+      type: object
+      properties:
+        totalWatchTime:
+          type: integer
+          description: Total watch time in minutes
+          example: 12345
+        totalWatchSessions:
+          type: integer
+          description: Total watch sessions
+          example: 456
+        totalMoviesWatched:
+          type: integer
+          description: Total movies watched
+          example: 234
+        totalSeriesWatched:
+          type: integer
+          description: Total series watched
+          example: 45
+        totalEpisodesWatched:
+          type: integer
+          description: Total episodes watched
+          example: 678
+        totalFavorites:
+          type: integer
+          description: Total favorites
+          example: 89
+        totalRatings:
+          type: integer
+          description: Total ratings given
+          example: 123
+        averageRating:
+          type: number
+          format: double
+          description: Average rating given
+          example: 4.5
+        lastWatchDate:
+          type: string
+          format: date-time
+          description: Last watch date
+          example: "2026-01-15T10:30:00Z"
+        activeStreak:
+          type: integer
+          description: Current active streak in days
+          example: 7
+        longestStreak:
+          type: integer
+          description: Longest active streak in days
+          example: 30
+        totalSubscriptions:
+          type: integer
+          description: Total subscriptions
+          example: 5
+        activeSubscriptionCount:
+          type: integer
+          description: Active subscriptions
+          example: 1
+        totalReferrals:
+          type: integer
+          description: Total referrals
+          example: 10
+        referralRewards:
+          type: integer
+          description: Referral rewards earned
+          example: 100
+        watchCount:
+          type: integer
+          description: Total watch sessions count
+          example: 456
+        totalWatchMinutes:
+          type: integer
+          description: Total watch time in minutes (alias for totalWatchTime)
+          example: 12345
+
+    UserSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Subscription ID
+        planId:
+          type: string
+          description: Subscription plan ID
+        planName:
+          type: string
+          description: Subscription plan name
+        status:
+          type: string
+          description: Subscription status
+        startDate:
+          type: string
+          format: date-time
+          description: Subscription start date
+        endDate:
+          type: string
+          format: date-time
+          description: Subscription end date
+        autoRenew:
+          type: boolean
+          description: Whether subscription auto-renews
+
+    # ─── REQUESTS ─────────────────────────────────────────────────────────────
+    UpdateUserInput:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: New username
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: New first name
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: New last name
+        languageCode:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: New language code (e.g., 'en', 'ru')
+        isActive:
+          type: boolean
+          description: Activate or deactivate user
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          description: New user status
+        role:
+          type: string
+          enum: [superadmin, admin, manager, moderator, user, viewer]
+          description: New user role
+        dailyCodeLimit:
+          type: integer
+          nullable: true
+          description: Daily video-code limit
+        weeklyCodeLimit:
+          type: integer
+          nullable: true
+          description: Weekly video-code limit
+        monthlyCodeLimit:
+          type: integer
+          nullable: true
+          description: Monthly video-code limit
+        accountStatus:
+          type: string
+          enum: [active, blocked]
+          description: Account status
+        referralRewardTier:
+          type: integer
+          nullable: true
+          description: Referral reward tier
+
+    BlockUserInput:
+      type: object
+      required:
+        - blocked
+      properties:
+        blocked:
+          type: boolean
+          description: True to block, false to unblock
+        reason:
+          type: string
+          nullable: true
+          description: Reason for blocking
+
+    GrantSubscriptionInput:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          description: Subscription plan ID
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Subscription end date (optional, defaults to plan duration)
+        durationDays:
+          type: integer
+          nullable: true
+          description: Override duration in days (optional, defaults to plan duration)
+        autoRenew:
+          type: boolean
+          nullable: true
+          description: Whether to auto-renew subscription (optional, defaults to false)
+
+    # ─── RESPONSES ────────────────────────────────────────────────────────────
+    UserListResponse:
+      type: object
+      required:
+        - success
+        - data
+        - meta
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        meta:
+          type: object
+          required:
+            - total
+            - page
+            - limit
+            - totalPages
+            - hasNext
+            - hasPrevious
+          properties:
+            total:
+              type: integer
+              description: Total number of users
+              example: 15234
+            page:
+              type: integer
+              description: Current page
+              example: 1
+            limit:
+              type: integer
+              description: Items per page
+              example: 20
+            totalPages:
+              type: integer
+              description: Total pages
+              example: 762
+            hasNext:
+              type: boolean
+              description: Whether there is a next page
+              example: true
+            hasPrevious:
+              type: boolean
+              description: Whether there is a previous page
+              example: false
+            cached:
+              type: boolean
+              description: Whether response came from cache
+              example: false
+            cachedAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: Cache timestamp
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    UserDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/UserDetail"
+        timestamp:
+          type: string
+          format: date-time
+
+    UserStatsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/UserStatsAggregated"
+        timestamp:
+          type: string
+          format: date-time
+
+    UserStatsAggregated:
+      type: object
+      required:
+        - total
+        - byStatus
+        - byRole
+        - active
+        - blocked
+        - newToday
+        - newThisWeek
+        - newThisMonth
+      properties:
+        total:
+          type: integer
+          description: Total users
+          example: 15234
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Users by status
+          example:
+            active: 8234
+            inactive: 234
+            blocked: 56
+            deleted: 12
+            suspended: 45
+        byRole:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Users by role
+          example:
+            superadmin: 2
+            admin: 23
+            manager: 45
+            user: 14567
+            viewer: 597
+        active:
+          type: integer
+          description: Active users
+          example: 8234
+        blocked:
+          type: integer
+          description: Blocked users
+          example: 56
+        newToday:
+          type: integer
+          description: New users today
+          example: 156
+        newThisWeek:
+          type: integer
+          description: New users this week
+          example: 892
+        newThisMonth:
+          type: integer
+          description: New users this month
+          example: 3421
+
+    UserActivityResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            timeline:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                    description: Date
+                  watchCount:
+                    type: integer
+                    description: Number of watch sessions
+                  watchTime:
+                    type: integer
+                    description: Total watch time in minutes
+                  favorites:
+                    type: integer
+                    description: Number of favorites added
+                  ratings:
+                    type: integer
+                    description: Number of ratings given
+            summary:
+              type: object
+              properties:
+                totalDays:
+                  type: integer
+                  description: Total active days
+                averageDailyWatchTime:
+                  type: integer
+                  description: Average daily watch time in minutes
+                mostActiveDay:
+                  type: string
+                  format: date
+                  description: Most active day
+                totalWatchSessions:
+                  type: integer
+                  description: Total watch sessions
+        timestamp:
+          type: string
+          format: date-time
+
+    ExportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Export format
+              example: "json"
+            count:
+              type: integer
+              description: Number of exported users
+              example: 1000
+            filename:
+              type: string
+              description: Export filename
+              example: "users-export-2026-01-15.json"
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - timestamp
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              description: Error message
+              example: "Invalid input data"
+            details:
+              type: array
+              nullable: true
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    description: Field name
+                  message:
+                    type: string
+                    description: Field error message
+              description: Detailed error information
+            timestamp:
+              type: string
+              format: date-time
+              description: Error timestamp
+
+# ==================== SECURITY ====================
+security:
+  - bearerAuth: []

@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Telegram API
+  version: 0.1.0
+  description: Telegram bot & storage management
+
+tags:
+  - name: telegram
+    description: Telegram bot & storage management
+
+paths:
+  /telegram/config:
+    get:
+      operationId: getTelegramConfig
+      tags: [telegram]
+      summary: Get Telegram bot configuration
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Telegram config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramConfig"
+
+    patch:
+      operationId: updateTelegramConfig
+      tags: [telegram]
+      summary: Update Telegram bot configuration
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramConfig"
+
+  /telegram/status:
+    get:
+      operationId: getTelegramStatus
+      tags: [telegram]
+      summary: Get Telegram bot status (online/offline, stats)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramStatus"
+
+  /telegram/channels:
+    get:
+      operationId: listTelegramChannels
+      tags: [telegram]
+      summary: List registered Telegram storage channels
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Channels list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TelegramChannel"
+
+    post:
+      operationId: createTelegramChannel
+      tags: [telegram]
+      summary: Register a new storage channel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramChannelInput"
+      responses:
+        "201":
+          description: Created channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramChannel"
+
+components:
+  schemas:
+    TelegramConfig:
+      type: object
+      required: [id, isActive]
+      properties:
+        id:
+          type: string
+        botToken:
+          type: ["string", "null"]
+        botUsername:
+          type: ["string", "null"]
+        defaultChannelId:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        webhookUrl:
+          type: ["string", "null"]
+        requiredChannelId:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    TelegramConfigUpdate:
+      type: object
+      properties:
+        botToken:
+          type: string
+        defaultChannelId:
+          type: string
+        webhookUrl:
+          type: string
+        isActive:
+          type: boolean
+        requiredChannelId:
+          type: ["string", "null"]
+
+    TelegramStatus:
+      type: object
+      required: [isOnline, botUsername, totalUsers, totalMessages]
+      properties:
+        isOnline:
+          type: boolean
+        botUsername:
+          type: ["string", "null"]
+        totalUsers:
+          type: integer
+        totalMessages:
+          type: integer
+        storageFilesCount:
+          type: integer
+        lastActivity:
+          type: ["string", "null"]
+          format: date-time
+
+    TelegramChannel:
+      type: object
+      required: [id, channelId, title, type, isActive]
+      properties:
+        id:
+          type: string
+        channelId:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        isActive:
+          type: boolean
+        filesCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    TelegramChannelInput:
+      type: object
+      required: [channelId, title, type]
+      properties:
+        channelId:
+          type: string
+        title:
+          type: string
+        type:
+          type: string

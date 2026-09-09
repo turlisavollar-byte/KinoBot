@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: Auth API
+  version: 0.1.0
+  description: Legacy identity & authentication (deprecated - use identity-auth)
+
+tags:
+  - name: auth
+    description: Legacy identity & authentication (deprecated - use identity-auth)
+
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+components:
+  schemas:
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+          description: Legacy random token (deprecated)
+        user:
+          $ref: "#/components/schemas/LegacyAdminUser"
+
+    LegacyAdminUser:
+      type: object
+      required: [id, email, role, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          description: User role (admin, manager, operator, viewer)
+        createdAt:
+          type: string
+          format: date-time

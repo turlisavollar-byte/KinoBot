@@ -1,0 +1,204 @@
+openapi: 3.1.0
+info:
+  title: Video Codes API
+  version: 0.1.0
+  description: Video code management
+
+tags:
+  - name: video-codes
+    description: Video code management
+
+paths:
+  /video-codes:
+    get:
+      operationId: listVideoCodes
+      tags: [video-codes]
+      summary: List video codes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, pending, expired] }
+      responses:
+        "200":
+          description: Video codes list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VideoCode"
+
+  /video-codes/upload:
+    post:
+      operationId: uploadVideoCode
+      tags: [video-codes]
+      summary: Upload a new video and create code
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [video, title]
+              properties:
+                video:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                description:
+                  type: string
+                channelId:
+                  type: string
+      responses:
+        "201":
+          description: Video code created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCode"
+
+  /video-codes/import:
+    post:
+      operationId: importVideoCode
+      tags: [video-codes]
+      summary: Import a new video code from existing Telegram file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportVideoCodeBody"
+      responses:
+        "201":
+          description: Video code imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCode"
+
+  /video-codes/{id}:
+    patch:
+      operationId: updateVideoCode
+      tags: [video-codes]
+      summary: Update video code
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVideoCodeBody"
+      responses:
+        "200":
+          description: Updated video code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCode"
+
+    delete:
+      operationId: deleteVideoCode
+      tags: [video-codes]
+      summary: Delete video code
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    VideoCodePage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/VideoCode"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    VideoCode:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        channelId:
+          type: string
+        telegramFileId:
+          type: string
+        fileSize:
+          type: integer
+        duration:
+          type: integer
+        viewsCount:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ImportVideoCodeBody:
+      type: object
+      required: [title]
+      properties:
+        telegramFileId:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        channelId:
+          type: string
+        duration:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    UpdateVideoCodeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: string
+        channelId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time

@@ -1,0 +1,118 @@
+openapi: 3.1.0
+info:
+  title: Genres API
+  version: 0.1.0
+  description: Genre management
+
+tags:
+  - name: genres
+    description: Genre management
+
+paths:
+  /genres:
+    get:
+      operationId: listGenres
+      tags: [genres]
+      summary: List all genres
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Genres list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Genre"
+
+    post:
+      operationId: createGenre
+      tags: [genres]
+      summary: Create a new genre
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGenreBody"
+      responses:
+        "201":
+          description: Genre created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Genre"
+
+  /genres/{id}:
+    patch:
+      operationId: updateGenre
+      tags: [genres]
+      summary: Update genre
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGenreBody"
+      responses:
+        "200":
+          description: Updated genre
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Genre"
+
+    delete:
+      operationId: deleteGenre
+      tags: [genres]
+      summary: Delete genre
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    Genre:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+
+    CreateGenreBody:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+
+    UpdateGenreBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string

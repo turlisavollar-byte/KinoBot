@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: Actors API
+  version: 0.1.0
+  description: Actor management
+
+tags:
+  - name: actors
+    description: Actor management
+
+paths:
+  /actors:
+    get:
+      operationId: listActors
+      tags: [actors]
+      summary: List all actors
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Actors list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Actor"
+
+    post:
+      operationId: createActor
+      tags: [actors]
+      summary: Create a new actor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActorBody"
+      responses:
+        "201":
+          description: Actor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Actor"
+
+  /actors/{id}:
+    patch:
+      operationId: updateActor
+      tags: [actors]
+      summary: Update actor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActorBody"
+      responses:
+        "200":
+          description: Updated actor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Actor"
+
+components:
+  schemas:
+    Actor:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        photoUrl:
+          type: string
+        bio:
+          type: string
+
+    CreateActorBody:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        photoUrl:
+          type: string
+        bio:
+          type: string
+
+    UpdateActorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        photoUrl:
+          type: string
+        bio:
+          type: string

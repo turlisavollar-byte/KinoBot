@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Identity Auth API
+  version: 0.1.0
+  description: New Identity module authentication (JWT-based)
+
+tags:
+  - name: identity-auth
+    description: New Identity module authentication (JWT-based)
+
+paths:
+  /identity/auth/login:
+    post:
+      operationId: identityLogin
+      tags: [identity-auth]
+      summary: Login with JWT authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentityLoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityAuthResult"
+        "401":
+          description: Invalid credentials
+
+  /identity/auth/refresh:
+    post:
+      operationId: refreshAccessToken
+      tags: [identity-auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenInput"
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityAuthResult"
+
+  /identity/auth/me:
+    get:
+      operationId: identityGetMe
+      tags: [identity-auth]
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityUser"
+
+  /identity/auth/logout:
+    post:
+      operationId: identityLogout
+      tags: [identity-auth]
+      summary: Logout user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+components:
+  schemas:
+    IdentityLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshTokenInput:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    IdentityAuthResult:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (expires in 1 hour)
+        refreshToken:
+          type: string
+          description: JWT refresh token (expires in 7 days)
+        expiresIn:
+          type: integer
+          description: Access token expiration time in seconds
+          example: 3600
+        user:
+          $ref: "#/components/schemas/IdentityUser"
+
+    IdentityUser:
+      type: object
+      required: [id, email, name, role, permissions]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          description: User role
+        permissions:
+          type: array
+          items:
+            type: string
+          description: User permissions
+        status:
+          type: string
+          enum: [active, inactive, suspended]

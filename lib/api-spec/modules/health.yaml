@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Health API
+  version: 0.1.0
+  description: Health check endpoints
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /health:
+    get:
+      operationId: healthCheckDetailed
+      tags: [health]
+      summary: Detailed health check
+      responses:
+        "200":
+          description: Service health details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  services:
+                    type: object
+                  timestamp:
+                    type: string
+                    format: date-time

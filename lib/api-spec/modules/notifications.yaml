@@ -1,0 +1,318 @@
+openapi: 3.1.0
+info:
+  title: Notifications API
+  version: 0.1.0
+  description: Notification management
+
+tags:
+  - name: notifications
+    description: Notification management
+
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List user notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: isRead
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+
+  /notifications/read-all:
+    put:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+
+  /notifications/{id}/read:
+    put:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/Notification"
+
+  /notifications/templates:
+    get:
+      operationId: listNotificationTemplates
+      tags: [notifications]
+      summary: List notification templates
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Templates list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationTemplate"
+
+    post:
+      operationId: createNotificationTemplate
+      tags: [notifications]
+      summary: Create notification template
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationTemplateInput"
+      responses:
+        "201":
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTemplate"
+
+  /notifications/broadcast:
+    post:
+      operationId: broadcastNotification
+      tags: [notifications]
+      summary: Send broadcast notification to users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastInput"
+      responses:
+        "202":
+          description: Accepted for sending
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      messageId:
+                        type: string
+                      recipientCount:
+                        type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  schemas:
+    Notification:
+      type: object
+      required: [id, userId, type, title, message, isRead, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [order, payment, shipping, promotion, system]
+        title:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginationMeta:
+      type: object
+      required: [total, page, limit, totalPages, hasNext, hasPrevious]
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+
+    NotificationTemplate:
+      type: object
+      required: [id, name, channel, content]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        channel:
+          type: string
+        content:
+          type: string
+        contentType:
+          type: string
+          enum: [text, photo, video, animation, audio, voice, document]
+        mediaFileId:
+          type: string
+          nullable: true
+        parseMode:
+          type: string
+          enum: [HTML, Markdown, MarkdownV2]
+        buttons:
+          type: array
+          items:
+            type: object
+            required: [text, url]
+            properties:
+              text:
+                type: string
+              url:
+                type: string
+                format: uri
+        variables:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationTemplateInput:
+      type: object
+      required: [name, channel, content]
+      properties:
+        name:
+          type: string
+        channel:
+          type: string
+        content:
+          type: string
+        contentType:
+          type: string
+          enum: [text, photo, video, animation, audio, voice, document]
+          default: text
+        mediaFileId:
+          type: string
+          nullable: true
+        parseMode:
+          type: string
+          enum: [HTML, Markdown, MarkdownV2]
+          default: HTML
+        buttons:
+          type: array
+          items:
+            type: object
+            required: [text, url]
+            properties:
+              text:
+                type: string
+              url:
+                type: string
+                format: uri
+        variables:
+          type: array
+          items:
+            type: string
+
+    BroadcastInput:
+      type: object
+      required: [templateId, recipients, recipientType]
+      properties:
+        templateId:
+          type: string
+        recipientType:
+          type: string
+          enum: [users, channels]
+          description: Whether recipients are customer users or Telegram channels
+        recipients:
+          type: array
+          items:
+            type: string
+        data:
+          type: object

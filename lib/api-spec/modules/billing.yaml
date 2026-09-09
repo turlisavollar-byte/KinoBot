@@ -1,0 +1,1269 @@
+openapi: 3.1.0
+info:
+  title: Billing API
+  version: 0.1.0
+  description: Payments & invoices
+
+tags:
+  - name: billing
+    description: Payments & invoices
+
+paths:
+  /billing/plans:
+    get:
+      operationId: listBillingPlans
+      tags: [billing]
+      summary: List billing plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: active_only
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Plans list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingPlan"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createBillingPlan
+      tags: [billing]
+      summary: Create a new billing plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBillingPlanBody"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPlan"
+  /billing/plans/{id}:
+    get:
+      operationId: getBillingPlan
+      tags: [billing]
+      summary: Get billing plan by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Plan detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPlan"
+    put:
+      operationId: updateBillingPlan
+      tags: [billing]
+      summary: Update billing plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBillingPlanBody"
+      responses:
+        "200":
+          description: Plan updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPlan"
+    delete:
+      operationId: deleteBillingPlan
+      tags: [billing]
+      summary: Delete billing plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Plan deleted
+  /billing/subscriptions:
+    post:
+      operationId: createBillingSubscription
+      tags: [billing]
+      summary: Create a new subscription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionBody"
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingSubscription"
+  /billing/subscriptions/user/{userId}:
+    get:
+      operationId: listUserSubscriptions
+      tags: [billing]
+      summary: List user subscriptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Subscriptions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingSubscription"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+  /billing/subscriptions/{id}:
+    get:
+      operationId: getBillingSubscription
+      tags: [billing]
+      summary: Get subscription by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Subscription detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingSubscription"
+  /billing/subscriptions/{id}/cancel:
+    patch:
+      operationId: cancelBillingSubscription
+      tags: [billing]
+      summary: Cancel subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingSubscription"
+  /billing/invoices:
+    post:
+      operationId: createInvoice
+      tags: [billing]
+      summary: Create a new invoice
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingInvoice"
+  /billing/invoices/user/{userId}:
+    get:
+      operationId: listUserInvoices
+      tags: [billing]
+      summary: List user invoices
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Invoices list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingInvoice"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+  /billing/invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [billing]
+      summary: Get invoice by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingInvoice"
+  /billing/invoices/{id}/pay:
+    patch:
+      operationId: markInvoicePaid
+      tags: [billing]
+      summary: Mark invoice as paid
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invoice marked as paid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingInvoice"
+  /billing/payments:
+    get:
+      operationId: listPayments
+      tags: [billing]
+      summary: List all payments (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingPayment"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createPayment
+      tags: [billing]
+      summary: Create a payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentBody"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPayment"
+  /billing/payments/user/{userId}:
+    get:
+      operationId: listUserPayments
+      tags: [billing]
+      summary: List user payments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Payments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BillingPayment"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+  /billing/payments/{id}:
+    get:
+      operationId: getPayment
+      tags: [billing]
+      summary: Get payment by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payment detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPayment"
+  /billing/payments/{id}/refund:
+    patch:
+      operationId: refundPayment
+      tags: [billing]
+      summary: Refund payment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payment refunded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/BillingPayment"
+  /billing/click/pay:
+    post:
+      operationId: createClickPayment
+      tags: [billing]
+      summary: Create Click payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClickPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/click/webhook:
+    post:
+      operationId: handleClickWebhook
+      tags: [billing]
+      summary: Handle Click webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/payme/pay:
+    post:
+      operationId: createPaymePayment
+      tags: [billing]
+      summary: Create Payme payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymePaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/payme/webhook:
+    post:
+      operationId: handlePaymeWebhook
+      tags: [billing]
+      summary: Handle Payme webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/uzum/pay:
+    post:
+      operationId: createUzumPayment
+      tags: [billing]
+      summary: Create Uzum payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUzumPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/uzum/webhook:
+    post:
+      operationId: handleUzumWebhook
+      tags: [billing]
+      summary: Handle Uzum webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/paynet/pay:
+    post:
+      operationId: createPaynetPayment
+      tags: [billing]
+      summary: Create Paynet payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaynetPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/paynet/webhook:
+    post:
+      operationId: handlePaynetWebhook
+      tags: [billing]
+      summary: Handle Paynet webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/anor/pay:
+    post:
+      operationId: createAnorPayment
+      tags: [billing]
+      summary: Create Anor payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnorPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/anor/webhook:
+    post:
+      operationId: handleAnorWebhook
+      tags: [billing]
+      summary: Handle Anor webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/nbu/pay:
+    post:
+      operationId: createNBUPayment
+      tags: [billing]
+      summary: Create NBU payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNBUPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/nbu/webhook:
+    post:
+      operationId: handleNBUWebhook
+      tags: [billing]
+      summary: Handle NBU webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/uzcard/pay:
+    post:
+      operationId: createUzcardPayment
+      tags: [billing]
+      summary: Create Uzcard payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUzcardPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/uzcard/webhook:
+    post:
+      operationId: handleUzcardWebhook
+      tags: [billing]
+      summary: Handle Uzcard webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+  /billing/octo/pay:
+    post:
+      operationId: createOctoPayment
+      tags: [billing]
+      summary: Create Octo payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOctoPaymentBody"
+      responses:
+        "200":
+          description: Payment URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      paymentUrl:
+                        type: string
+  /billing/octo/webhook:
+    post:
+      operationId: handleOctoWebhook
+      tags: [billing]
+      summary: Handle Octo webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+
+components:
+  schemas:
+    PaginationMeta:
+      type: object
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+        - hasNext
+        - hasPrevious
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+    BillingPlan:
+      type: object
+      required:
+        - id
+        - name
+        - priceCents
+        - currency
+        - interval
+        - isActive
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priceCents:
+          type: integer
+        currency:
+          type: string
+          default: usd
+        interval:
+          type: string
+          enum:
+            - monthly
+            - yearly
+            - one_time
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateBillingPlanBody:
+      type: object
+      required:
+        - name
+        - priceCents
+        - interval
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priceCents:
+          type: integer
+        currency:
+          type: string
+          default: usd
+        interval:
+          type: string
+          enum:
+            - monthly
+            - yearly
+            - one_time
+        isActive:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+          additionalProperties: true
+    UpdateBillingPlanBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priceCents:
+          type: integer
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+    BillingSubscription:
+      type: object
+      required:
+        - id
+        - userId
+        - planId
+        - status
+        - currentPeriodStart
+        - currentPeriodEnd
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        planId:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - canceled
+            - past_due
+            - trialing
+            - expired
+        currentPeriodStart:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        cancelAtPeriodEnd:
+          type: boolean
+        canceledAt:
+          type: string
+          format: date-time
+          nullable: true
+        trialEnd:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateSubscriptionBody:
+      type: object
+      required:
+        - userId
+        - planId
+      properties:
+        userId:
+          type: string
+        planId:
+          type: string
+        trialEnd:
+          type: string
+          format: date-time
+          nullable: true
+    CancelSubscriptionBody:
+      type: object
+      properties:
+        immediate:
+          type: boolean
+          default: false
+    BillingInvoice:
+      type: object
+      required:
+        - id
+        - userId
+        - amountCents
+        - currency
+        - status
+        - lineItems
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        subscriptionId:
+          type: string
+          nullable: true
+        amountCents:
+          type: integer
+        currency:
+          type: string
+          default: usd
+        status:
+          type: string
+          enum:
+            - open
+            - paid
+            - void
+            - uncollectible
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            type: object
+            required:
+              - description
+              - quantity
+              - unitAmountCents
+            properties:
+              description:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+              unitAmountCents:
+                type: integer
+                minimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateInvoiceBody:
+      type: object
+      required:
+        - userId
+        - lineItems
+      properties:
+        userId:
+          type: string
+        subscriptionId:
+          type: string
+        currency:
+          type: string
+          default: usd
+        dueDate:
+          type: string
+          format: date-time
+        lineItems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - description
+              - quantity
+              - unitAmountCents
+            properties:
+              description:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+              unitAmountCents:
+                type: integer
+                minimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+    BillingPayment:
+      type: object
+      required:
+        - id
+        - userId
+        - amountCents
+        - currency
+        - status
+        - provider
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        invoiceId:
+          type: string
+          nullable: true
+        amountCents:
+          type: integer
+        currency:
+          type: string
+          default: usd
+        status:
+          type: string
+          enum:
+            - pending
+            - succeeded
+            - failed
+            - refunded
+        provider:
+          type: string
+          enum:
+            - payme
+            - click
+            - uzum
+            - paynet
+            - anor
+            - nbu
+            - uzcard
+            - octo
+            - manual
+        providerPaymentId:
+          type: string
+          nullable: true
+        failureReason:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreatePaymentBody:
+      type: object
+      required:
+        - invoiceId
+        - amountCents
+        - provider
+      properties:
+        invoiceId:
+          type: string
+        amountCents:
+          type: integer
+        currency:
+          type: string
+          default: usd
+        provider:
+          type: string
+          enum:
+            - payme
+            - click
+            - uzum
+            - paynet
+            - anor
+            - nbu
+            - uzcard
+            - octo
+            - manual
+        providerPaymentId:
+          type: string
+    CreateClickPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreatePaymePaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreateUzumPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreatePaynetPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreateAnorPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreateNBUPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreateUzcardPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string
+    CreateOctoPaymentBody:
+      type: object
+      required:
+        - invoiceId
+      properties:
+        invoiceId:
+          type: string
+        returnUrl:
+          type: string

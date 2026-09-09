@@ -1,0 +1,255 @@
+openapi: 3.1.0
+info:
+  title: Subscriptions API
+  version: 0.1.0
+  description: Subscription plans & user subscriptions
+
+tags:
+  - name: subscriptions
+    description: Subscription plans & user subscriptions
+
+paths:
+  /subscriptions:
+    get:
+      operationId: listSubscriptions
+      tags: [subscriptions]
+      summary: List user subscriptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, expired, cancelled] }
+      responses:
+        "200":
+          description: Subscriptions list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPage"
+
+  /subscriptions/plans:
+    get:
+      operationId: listSubscriptionPlans
+      tags: [subscriptions]
+      summary: List available subscription plans
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Plans list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlan"
+
+    post:
+      operationId: createSubscriptionPlan
+      tags: [subscriptions]
+      summary: Create a new subscription plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionPlanBody"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+
+  /subscriptions/plans/{id}:
+    patch:
+      operationId: updateSubscriptionPlan
+      tags: [subscriptions]
+      summary: Update subscription plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionPlanBody"
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+
+  /subscriptions/{id}/cancel:
+    post:
+      operationId: cancelSubscription
+      tags: [subscriptions]
+      summary: Cancel a user subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /subscriptions/{id}/extend:
+    post:
+      operationId: extendSubscription
+      tags: [subscriptions]
+      summary: Extend a user subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription extended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+components:
+  schemas:
+    SubscriptionPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subscription"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        planId:
+          type: string
+        status:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tier:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        durationDays:
+          type: integer
+        maxDevices:
+          type: integer
+        description:
+          type: string
+        isActive:
+          type: boolean
+        features:
+          type: array
+          items:
+            type: string
+
+    CreateSubscriptionPlanBody:
+      type: object
+      required: [name, price, currency, durationDays]
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        durationDays:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+
+    UpdateSubscriptionPlanBody:
+      type: object
+      properties:
+        name:
+          type: string
+        tier:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        durationDays:
+          type: integer
+        maxDevices:
+          type: integer
+        description:
+          type: string
+        isActive:
+          type: boolean
+        features:
+          type: array
+          items:
+            type: string
+
+    ExtendSubscriptionBody:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer

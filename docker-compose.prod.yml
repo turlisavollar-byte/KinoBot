@@ -1,0 +1,168 @@
+# =============================================================================
+# StreamOps - Docker Compose Production Configuration
+# Optimized for production deployment
+# =============================================================================
+
+services:
+  # PostgreSQL Database with production settings
+  postgres:
+    image: postgres:16-alpine
+    container_name: streamops-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "127.0.0.1:5432:5432"  # Only accessible locally
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streamops-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis with persistence
+  redis:
+    image: redis:7-alpine
+    container_name: streamops-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"  # Only accessible locally
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streamops-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # API Server with production settings
+  api-server:
+    build:
+      context: .
+      dockerfile: apps/api-server/Dockerfile
+    container_name: streamops-api-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://redis:6379
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID}
+      PAYME_KEY: ${PAYME_KEY}
+      PAYME_IS_TEST: "false"
+      P2P_ENABLED: ${P2P_ENABLED:-false}
+      P2P_MERCHANT_ID: ${P2P_MERCHANT_ID:-}
+      P2P_SECRET_KEY: ${P2P_SECRET_KEY:-}
+      P2P_API_URL: ${P2P_API_URL:-}
+      P2P_CHECKOUT_BASE_URL: ${P2P_CHECKOUT_BASE_URL:-}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      BCRYPT_SALT_ROUNDS: 12
+    ports:
+      - "127.0.0.1:8080:8080"  # Only accessible locally
+    volumes:
+      - upload_data:/var/uploads
+      - ./logs/api:/var/log
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/healthz', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - streamops-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Dashboard with production settings
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: streamops-dashboard-prod
+    restart: always
+    environment:
+      VITE_API_URL: /api
+    ports:
+      - "127.0.0.1:3000:80"  # Only accessible locally
+    depends_on:
+      - api-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - streamops-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy with SSL support
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: streamops-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - api-server
+      - dashboard
+    networks:
+      - streamops-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  streamops-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  upload_data:
+    driver: local

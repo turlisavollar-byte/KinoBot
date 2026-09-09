@@ -1,0 +1,781 @@
+openapi: 3.1.0
+info:
+  title: Catalog API
+  version: 0.1.0
+  description: Movies, series, seasons, episodes
+
+tags:
+  - name: catalog
+    description: Movies, series, seasons, episodes
+
+paths:
+  /catalog/movies:
+    get:
+      operationId: listMovies
+      tags: [catalog]
+      summary: List movies with pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Movies list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoviePage"
+
+    post:
+      operationId: createMovie
+      tags: [catalog]
+      summary: Create a new movie
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMovieBody"
+      responses:
+        "201":
+          description: Movie created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+  /catalog/movies/{id}:
+    get:
+      operationId: getMovie
+      tags: [catalog]
+      summary: Get movie by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Movie detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+    patch:
+      operationId: updateMovie
+      tags: [catalog]
+      summary: Update movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMovieBody"
+      responses:
+        "200":
+          description: Updated movie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+    delete:
+      operationId: deleteMovie
+      tags: [catalog]
+      summary: Delete movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /catalog/movies/{id}/publish:
+    post:
+      operationId: publishMovie
+      tags: [catalog]
+      summary: Publish or unpublish movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishMovieBody"
+      responses:
+        "200":
+          description: Movie publish status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+  /catalog/series:
+    get:
+      operationId: listSeries
+      tags: [catalog]
+      summary: List series with pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Series list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeriesPage"
+
+    post:
+      operationId: createSeries
+      tags: [catalog]
+      summary: Create a new series
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSeriesBody"
+      responses:
+        "201":
+          description: Series created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+
+  /catalog/series/{id}:
+    get:
+      operationId: getSeries
+      tags: [catalog]
+      summary: Get series by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Series detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+
+    patch:
+      operationId: updateSeries
+      tags: [catalog]
+      summary: Update series
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSeriesBody"
+      responses:
+        "200":
+          description: Updated series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+
+    delete:
+      operationId: deleteSeries
+      tags: [catalog]
+      summary: Delete series
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /catalog/series/{id}/publish:
+    post:
+      operationId: publishSeries
+      tags: [catalog]
+      summary: Publish or unpublish series
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishSeriesBody"
+      responses:
+        "200":
+          description: Series publish status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Series"
+
+  /catalog/series/{id}/seasons:
+    get:
+      operationId: listSeasons
+      tags: [catalog]
+      summary: List seasons for a series
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Seasons list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Season"
+
+    post:
+      operationId: createSeason
+      tags: [catalog]
+      summary: Create a new season
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSeasonBody"
+      responses:
+        "201":
+          description: Season created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Season"
+
+  /catalog/series/{seriesId}/seasons/{seasonId}/episodes:
+    get:
+      operationId: listEpisodes
+      tags: [catalog]
+      summary: List episodes for a season
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: seriesId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: seasonId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Episodes list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Episode"
+
+    post:
+      operationId: createEpisode
+      tags: [catalog]
+      summary: Create a new episode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: seriesId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: seasonId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEpisodeBody"
+      responses:
+        "201":
+          description: Episode created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+
+  /catalog/episodes/{id}:
+    patch:
+      operationId: updateEpisode
+      tags: [catalog]
+      summary: Update episode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEpisodeBody"
+      responses:
+        "200":
+          description: Updated episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+
+    delete:
+      operationId: deleteEpisode
+      tags: [catalog]
+      summary: Delete episode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /catalog/episodes/{id}/publish:
+    post:
+      operationId: publishEpisode
+      tags: [catalog]
+      summary: Publish or unpublish episode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishEpisodeBody"
+      responses:
+        "200":
+          description: Episode publish status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+
+components:
+  schemas:
+    MoviePage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Movie"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Movie:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        duration:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
+        isPublished:
+          type: boolean
+        releaseDate:
+          type: string
+          format: date-time
+        viewsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateMovieBody:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        duration:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+
+    UpdateMovieBody:
+      type: object
+      properties:
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        duration:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+
+    PublishMovieBody:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean
+
+    SeriesPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Series"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Series:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        isPublished:
+          type: boolean
+        seasonsCount:
+          type: integer
+        releaseDate:
+          type: string
+          format: date-time
+        viewsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateSeriesBody:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+
+    UpdateSeriesBody:
+      type: object
+      properties:
+        title:
+          type: string
+        originalTitle:
+          type: string
+        description:
+          type: string
+        releaseYear:
+          type: integer
+        ageRating:
+          type: string
+        posterUrl:
+          type: string
+        backgroundUrl:
+          type: string
+        trailerUrl:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+
+    PublishSeriesBody:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean
+
+    Season:
+      type: object
+      properties:
+        id:
+          type: string
+        seriesId:
+          type: string
+        seasonNumber:
+          type: integer
+        title:
+          type: string
+        posterUrl:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+        episodesCount:
+          type: integer
+
+    CreateSeasonBody:
+      type: object
+      required: [seasonNumber, title]
+      properties:
+        seasonNumber:
+          type: integer
+        title:
+          type: string
+        posterUrl:
+          type: string
+        releaseDate:
+          type: string
+          format: date-time
+
+    Episode:
+      type: object
+      properties:
+        id:
+          type: string
+        seasonId:
+          type: string
+        episodeNumber:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        duration:
+          type: ["integer", "null"]
+        telegramFileId:
+          type: ["string", "null"]
+        storageKey:
+          type: ["string", "null"]
+        sourceType:
+          type: string
+        thumbnailUrl:
+          type: ["string", "null"]
+        isPublished:
+          type: boolean
+        viewsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateEpisodeBody:
+      type: object
+      required: [episodeNumber, title]
+      properties:
+        episodeNumber:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        duration:
+          type: integer
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
+        thumbnailUrl:
+          type: string
+
+    UpdateEpisodeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        duration:
+          type: integer
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
+        thumbnailUrl:
+          type: string
+        isPublished:
+          type: boolean
+
+    PublishEpisodeBody:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean

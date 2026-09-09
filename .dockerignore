@@ -1,0 +1,68 @@
+# =============================================================================
+# Docker Ignore - Files to exclude from Docker build context
+# =============================================================================
+
+# Dependencies
+node_modules
+**/node_modules
+**/node_modules/**
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+out
+.next
+.nuxt
+.vuepress/dist
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Replit (already removed - kept for reference)
+# .replit
+# .replitignore
+# .replit-artifact
+# .agents
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+
+# Misc
+.cache
+.local
+.temp
+tmp

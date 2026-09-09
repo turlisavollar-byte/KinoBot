@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: API Base
+  version: 0.1.0
+  description: Base OpenAPI specification with common components
+
+servers:
+  - url: /api
+    description: Base API path
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication token
