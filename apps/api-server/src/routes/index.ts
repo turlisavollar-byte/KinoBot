@@ -14,7 +14,6 @@ import notificationModuleRouter from "@/modules/notification";
 
 // ─── New module routes (controller/service/repository pattern) ────────────────
 import healthRouter from "@/modules/health/health.routes";
-import legacyHealthRouter from "@/routes/health";
 import deviceRouter from "@/modules/device/device.routes";
 import featureFlagRouter from "@/modules/feature-flag/feature-flag.routes";
 import auditRouter from "@/modules/audit/audit.routes";
@@ -31,7 +30,6 @@ const router: IRouter = Router();
 
 // Health (no auth)
 router.use(healthRouter);
-router.use(legacyHealthRouter);
 
 // Public identity auth routes must mount before root-level authenticated modules.
 // This avoids global auth middleware in root routers from intercepting login/register requests.

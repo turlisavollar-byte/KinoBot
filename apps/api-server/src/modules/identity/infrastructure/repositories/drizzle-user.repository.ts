@@ -16,7 +16,7 @@ import {
   normalizeUserStatus,
 } from "@/shared/constants/user-status";
 import { db, adminUsersTable } from "@workspace/db";
-import { eq, and, desc, or, isNull } from "drizzle-orm";
+import { eq, and, desc, or, isNull, like, sql } from "drizzle-orm";
 
 type DbUserRow = {
   id: string;
@@ -77,8 +77,9 @@ export class DrizzleUserRepository implements IUserRepository {
     take?: number;
     status?: UserStatus;
     roleId?: string;
+    search?: string;
   }): Promise<User[]> {
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq | typeof like>[] = [];
 
     if (options?.status) {
       const isActive = options.status === "active";
@@ -87,6 +88,17 @@ export class DrizzleUserRepository implements IUserRepository {
 
     if (options?.roleId) {
       conditions.push(eq(adminUsersTable.role, options.roleId));
+    }
+
+    if (options?.search) {
+      const searchTerm = `%${options.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          like(sql`LOWER(${adminUsersTable.name})`, searchTerm),
+          like(sql`LOWER(${adminUsersTable.email})`, searchTerm),
+          like(sql`LOWER(${adminUsersTable.role})`, searchTerm),
+        )!,
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -188,8 +200,9 @@ export class DrizzleUserRepository implements IUserRepository {
   async count(options?: {
     status?: UserStatus;
     roleId?: string;
+    search?: string;
   }): Promise<number> {
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq | typeof like>[] = [];
 
     if (options?.status) {
       const isActive = options.status === "active";
@@ -198,6 +211,17 @@ export class DrizzleUserRepository implements IUserRepository {
 
     if (options?.roleId) {
       conditions.push(eq(adminUsersTable.role, options.roleId));
+    }
+
+    if (options?.search) {
+      const searchTerm = `%${options.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          like(sql`LOWER(${adminUsersTable.name})`, searchTerm),
+          like(sql`LOWER(${adminUsersTable.email})`, searchTerm),
+          like(sql`LOWER(${adminUsersTable.role})`, searchTerm),
+        )!,
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

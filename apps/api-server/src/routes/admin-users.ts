@@ -12,20 +12,23 @@ router.get(
     try {
       const search =
         typeof req.query.search === "string"
-          ? req.query.search.trim().toLowerCase()
-          : "";
-      const users = await getUserRepo()!.findAll({ take: 100 });
-      const filtered = search
-        ? users.filter((user) =>
-            [user.name, user.email, user.role.name].some((value) =>
-              value.toLowerCase().includes(search),
-            ),
-          )
-        : users;
+          ? req.query.search.trim()
+          : undefined;
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 50));
+      const skip = (page - 1) * pageSize;
+
+      const users = await getUserRepo()!.findAll({
+        skip,
+        take: pageSize,
+        search,
+      });
+
+      const total = await getUserRepo()!.count({ search });
 
       res.json({
         success: true,
-        data: filtered.map((user) => ({
+        data: users.map((user) => ({
           id: user.id,
           email: user.email,
           name: user.name,
@@ -36,7 +39,12 @@ router.get(
           createdAt: user.createdAt.toISOString(),
           updatedAt: user.updatedAt.toISOString(),
         })),
-        meta: { total: filtered.length },
+        meta: {
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize),
+        },
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

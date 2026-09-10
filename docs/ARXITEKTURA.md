@@ -8,11 +8,10 @@ Loyiha **pnpm monorepo** tarzida qurilgan — bitta repo ichida bir nechta musta
 
 ```
 workspace/
-├── artifacts/              ← Ishga tushadigan servislar (har biri alohida workflow)
+├── apps/                   ← Ishga tushadigan servislar (har biri alohida workflow)
 │   ├── api-server/         ← Backend: Express API + Telegram bot (bitta process)
-│   ├── dashboard/          ← Admin panel (React + Vite, brauzerda ochiladi)
-│   └── mockup-sandbox/     ← Dizayn/prototip uchun ichki vosita (mahsulot qismi emas)
-├── lib/                    ← Umumiy kutubxonalar (bir nechta artifact ishlatadi)
+│   └── dashboard/          ← Admin panel (React + Vite, brauzerda ochiladi)
+├── lib/                    ← Umumiy kutubxonalar (bir nechta app ishlatadi)
 │   ├── api-spec/           ← OpenAPI spetsifikatsiyasi — BARCHA API shartnomalarining manbai
 │   ├── api-client-react/   ← OpenAPI'dan avtomatik generatsiya qilingan React Query hook'lari
 │   ├── api-zod/            ← OpenAPI'dan avtomatik generatsiya qilingan Zod validatorlar (backend uchun)
@@ -47,35 +46,40 @@ Bu papkadagi fayllar **haqiqiy ishlaydigan, test qilingan** endpoint'lar. Har bi
 
 | Fayl                                                                               | Nima uchun javobgar                                                                     |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `auth.ts`                                                                          | Admin login/logout, joriy sessiyani tekshirish (`/auth/login`, `/auth/me`)              |
-| `users.ts`                                                                         | Foydalanuvchilar ro'yxati, bloklash, tafsilotlar                                        |
+| `admin-users.ts`                                                                   | Admin foydalanuvchilari ro'yxati, bloklash, tafsilotlar                                 |
+| `health.ts`                                                                        | Server salomatligi tekshiruvi (`/health`, `/health/ready`, `/health/live`)              |
 | `catalog/movies.ts`, `catalog/series.ts`, `catalog/genres.ts`, `catalog/actors.ts` | Kino/serial/janr/aktyorlarni CRUD qilish                                                |
 | `subscriptions.ts`                                                                 | Obuna tariflari (`/subscriptions/plans`) va foydalanuvchi obunalari                     |
-| `billing.ts`                                                                       | To'lovlar tarixi (`/billing/payments`)                                                  |
-| `payme.ts`                                                                         | **Payme** to'lov tizimi bilan integratsiya (checkout, webhook)                          |
 | `telegram.ts`                                                                      | Bot konfiguratsiyasi (token, kerakli kanal), botni start/stop qilish, kanallar ro'yxati |
-| `video-codes.ts`                                                                   | **Video kod** tizimi — kino yuklash, kod generatsiya, faollashtirish                    |
-| `analytics.ts`                                                                     | Dashboard uchun barcha statistika endpoint'lari                                         |
-| `notifications.ts`                                                                 | Bildirishnoma shablonlari va ommaviy xabar yuborish (broadcast)                         |
 | `index.ts`                                                                         | Yuqoridagi barcha route'larni bitta Express router'ga yig'adi                           |
+
+**Eslatma:** Quyidagi funksiyalar hozircha `modules/` papkasida tayyorlanmoqda yoki kelajakda qo'shiladi: `auth`, `billing`, `payme`, `video-codes`, `analytics`, `notifications`.
 
 ### 2.2 `modules/` — Yangi arxitektura patterni
 
-Bu papka har bir domen uchun `controller → service → repository → types` qatlamlariga bo'lingan, tozaroq patternni namoyish etadi. **Ikki xil holat bor:**
+Bu papka har bir domen uchun `controller → service → repository → types` qatlamlariga bo'lingan, tozaroq patternni namoyish etadi. **Hozircha aksariyat modullar tayyorlanmoqda:**
 
-- **To'liq ishlaydigan modullar** (route fayli mavjud va `routes/index.ts`ga ulangan):
-  - `health/` — server salomatligini tekshirish (`/health`, `/health/ready`, `/health/live`)
-  - `device/` — foydalanuvchi qurilmalarini boshqarish (ro'yxat, ro'yxatdan o'tkazish, bloklash)
-  - `feature-flag/` — funksiyalarni yoqish/o'chirish tizimi (A/B test, bosqichma-bosqich chiqarish)
-  - `audit/` — admin harakatlari jurnali (audit log)
-  - `search/` — umumiy qidiruv
-  - `advertising/` — reklama kampaniyalari (**hozircha stub/skelet**, "coming soon" qaytaradi)
-  - `integration/` — tashqi to'lov tizimlaridan webhook qabul qilish (Payme, Click, Uzum)
-  - `viewing/` — tomosha tarixi, progress, reyting (**hozircha stub**, asosiy amaliy qism `routes/` va bot ichida)
+Mavjud modullar:
+- `advertising/` — reklama kampaniyalari
+- `analytics/` — statistika va analitika
+- `audit/` — admin harakatlari jurnali
+- `billing/` — to'lovlar va billing
+- `catalog/` — kontent katalogi (kino/serial)
+- `device/` — foydalanuvchi qurilmalari
+- `feature-flag/` — funksiyalarni yoqish/o'chirish
+- `health/` — server salomatligi
+- `identity/` — admin autentifikatsiyasi
+- `integration/` — tashqi integratsiyalar (Payme, Click, Uzum)
+- `notification/` — bildirishnomalar
+- `rbac/` — role-based access control
+- `search/` — qidiruv
+- `subscription/` — obuna tizimi
+- `telegram/` — Telegram bot integratsiyasi
+- `user/` — foydalanuvchi boshqaruvi
+- `video-content/` — video kontent
+- `viewing/` — tomosha tarixi va progress
 
-- **Faqat tip fayllari** (`*.types.ts` bor, lekin `routes.ts` yo'q — kelajakda `routes/`dagi mos faylni shu patternga ko'chirish uchun tayyorgarlik): `analytics`, `auth`, `billing`, `catalog`, `notification`, `subscription`, `telegram`, `user`.
-
-> **Xulosa:** Agar biror domenda ham `routes/xxx.ts`, ham `modules/xxx/` bo'lsa — **`routes/xxx.ts` ishlaydigan, asosiy versiya**. `modules/` papkasidagi mos nom — kelajakdagi refaktoring uchun joy band qilingan, deb hisoblang.
+> **Xulosa:** Hozircha `routes/` papkasidagi fayllar asosiy ishlaydigan versiya. `modules/` papkasidagi modullar kelajakda `routes/`dagi kodlarni shu patternga ko'chirish uchun tayyorlanmoqda.
 
 ### 2.3 `bot/` — Telegram bot (foydalanuvchilar uchun)
 
