@@ -623,6 +623,20 @@ export interface UpdateGenreBody {
   slug?: string;
 }
 
+export interface IdentityRegisterInput {
+  email: string;
+  /**
+     * Password must be at least 8 characters
+     * @minLength 8
+     */
+  password: string;
+  /**
+     * Display name
+     * @minLength 2
+     */
+  name: string;
+}
+
 export interface IdentityLoginInput {
   email: string;
   password: string;
@@ -791,6 +805,7 @@ export interface Subscription {
   id?: string;
   userId?: string;
   planId?: string;
+  planName?: string;
   status?: string;
   startDate?: string;
   endDate?: string;
@@ -2109,7 +2124,7 @@ export const ListVideoCodesStatus = {
 } as const;
 
 export type UploadVideoCodeBody = {
-  video: Blob;
+  video: Blob | File;
   title: string;
   description?: string;
   channelId?: string;

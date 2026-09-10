@@ -24,6 +24,7 @@ import { DrizzleBillingOutboxProcessor } from "./infrastructure/DrizzleBillingOu
 import { Router } from "express";
 import { BillingController } from "./presentation/BillingController";
 import { createBillingRouter as createBillingRoutes } from "./presentation/billingRoutes";
+import { createSubscriptionRouter as createSubscriptionRoutes } from "./presentation/subscriptionRoutes";
 import { requireAuth, requireRole } from "@/shared/middleware";
 
 export { BillingController };
@@ -38,6 +39,7 @@ import { CreateSubscriptionUseCase } from "./application/CreateSubscriptionUseCa
 import { ListSubscriptionsUseCase } from "./application/ListSubscriptionsUseCase";
 import { GetSubscriptionUseCase } from "./application/GetSubscriptionUseCase";
 import { CancelSubscriptionUseCase } from "./application/CancelSubscriptionUseCase";
+import { ExtendSubscriptionUseCase } from "./application/ExtendSubscriptionUseCase";
 import { CreateInvoiceUseCase } from "./application/CreateInvoiceUseCase";
 import { ListInvoicesUseCase } from "./application/ListInvoicesUseCase";
 import { GetInvoiceUseCase } from "./application/GetInvoiceUseCase";
@@ -135,6 +137,7 @@ function registerDependencies() {
   container.registerSingleton(ListSubscriptionsUseCase);
   container.registerSingleton(GetSubscriptionUseCase);
   container.registerSingleton(CancelSubscriptionUseCase);
+  container.registerSingleton(ExtendSubscriptionUseCase);
 
   // Use Cases - Invoices
   container.registerSingleton(CreateInvoiceUseCase);
@@ -182,6 +185,13 @@ function createBillingRouter() {
   return createBillingRoutes(controller);
 }
 
+function createSubscriptionRouter() {
+  registerDependencies();
+
+  const controller = container.resolve(BillingController);
+  return createSubscriptionRoutes(controller);
+}
+
 // ==================== Module Initialization ====================
 export function initBillingModule(router: any): void {
   registerDependencies();
@@ -205,8 +215,33 @@ export function initBillingModule(router: any): void {
   logger.info("Billing module initialized");
 }
 
+// ==================== Subscriptions Module Initialization ====================
+export function initSubscriptionModule(router: any): void {
+  registerDependencies();
+
+  const controller = container.resolve(BillingController);
+  const subscriptionRouter = createSubscriptionRoutes(controller);
+
+  // Mount subscription routes at /subscriptions (since main router is already at /api)
+  router.use("/subscriptions", subscriptionRouter);
+
+  if (!outboxTimer) {
+    const processor = container.resolve(DrizzleBillingOutboxProcessor);
+    outboxTimer = setInterval(() => {
+      void processor.processBatch().catch((error) => {
+        logger.error("Billing outbox processing failed", { error });
+      });
+    }, 10_000);
+    outboxTimer.unref();
+  }
+
+  logger.info("Subscription module initialized");
+}
+
 // ==================== Default Export ====================
 export default {
   initBillingModule,
+  initSubscriptionModule,
   billingRouter: createBillingRouter,
+  subscriptionRouter: createSubscriptionRouter,
 };

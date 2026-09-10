@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 
 // ─── Core business routes (still using legacy structure) ─────────────────────
-import subscriptionsRouter from "@/routes/subscriptions";
 import telegramRouter from "@/routes/telegram";
 import videoCodesRouter from "@/modules/video-content";
 import adminUsersRouter from "@/routes/admin-users";
@@ -39,7 +38,6 @@ router.use(rbacModuleRouter());
 router.use("/notifications", notificationModuleRouter());
 
 // ─── Core business routes (legacy - to be migrated to DDD) ───────────────────
-router.use(subscriptionsRouter);
 router.use(telegramRouter);
 router.use("/video-codes", videoCodesRouter());
 router.use("/admin-users", adminUsersRouter);
@@ -66,6 +64,7 @@ router.use("/analytics", analyticsRouter);
 process.nextTick(() => {
   try {
     billingModule.initBillingModule(router);
+    billingModule.initSubscriptionModule(router);
   } catch (error) {
     console.error("Failed to initialize billing module:", error);
   }

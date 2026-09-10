@@ -10,6 +10,7 @@ import {
   ListSubscriptionsUseCase,
   GetSubscriptionUseCase,
   CancelSubscriptionUseCase,
+  ExtendSubscriptionUseCase,
   CreateInvoiceUseCase,
   ListInvoicesUseCase,
   GetInvoiceUseCase,
@@ -39,6 +40,7 @@ import {
   ListPlansQuerySchema,
   CreateSubscriptionSchema,
   CancelSubscriptionSchema,
+  ExtendSubscriptionSchema,
   ListSubscriptionsQuerySchema,
   CreateInvoiceSchema,
   ListInvoicesQuerySchema,
@@ -53,6 +55,7 @@ import {
   CreateUzcardPaymentSchema,
   CreateOctoPaymentSchema,
 } from "../application";
+import type { IBillingPlanRepository } from "../domain";
 import { createPagination, PaginatedResult } from "@/shared/types";
 import { AppError } from "@/shared/errors";
 
@@ -85,8 +88,12 @@ export class BillingController {
     private readonly getSubUC: GetSubscriptionUseCase,
     @inject(CancelSubscriptionUseCase)
     private readonly cancelSubUC: CancelSubscriptionUseCase,
+    @inject(ExtendSubscriptionUseCase)
+    private readonly extendSubUC: ExtendSubscriptionUseCase,
     @inject(CreateInvoiceUseCase)
     private readonly createInvoiceUC: CreateInvoiceUseCase,
+    @inject("IBillingPlanRepository")
+    private readonly planRepo: IBillingPlanRepository,
     @inject(ListInvoicesUseCase)
     private readonly listInvoicesUC: ListInvoicesUseCase,
     @inject(GetInvoiceUseCase)
@@ -235,7 +242,7 @@ export class BillingController {
         ...dto,
         userId: this.canManageBilling(req) ? dto.userId : this.actorId(req),
       });
-      res.status(201).json({ success: true, data: this.subResponse(sub) });
+      res.status(201).json({ success: true, data: await this.subResponse(sub) });
     } catch (err) {
       next(err);
     }
@@ -255,15 +262,12 @@ export class BillingController {
       const requestedUserId = routeParam(req.params.userId) || query.userId;
       const userId = this.resolveListUserId(req, requestedUserId);
       const result = await this.listSubsUC.execute(userId, pagination);
+      const data = await Promise.all(result.data.map((s: any) => this.subResponse(s)));
       res.json({
-        success: true,
-        data: result.data.map((s: any) => this.subResponse(s)),
-        pagination: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: result.totalPages,
-        },
+        data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
       });
     } catch (err) {
       next(err);
@@ -279,7 +283,7 @@ export class BillingController {
       const id = routeParam(req.params.id);
       const sub = await this.getSubUC.execute(id);
       this.assertResourceAccess(req, sub.userId);
-      res.json({ success: true, data: this.subResponse(sub) });
+      res.json({ success: true, data: await this.subResponse(sub) });
     } catch (err) {
       next(err);
     }
@@ -295,8 +299,25 @@ export class BillingController {
       const sub = await this.getSubUC.execute(id);
       this.assertResourceAccess(req, sub.userId);
       const dto = CancelSubscriptionSchema.parse({ id, ...req.body });
-      await this.cancelSubUC.execute(dto);
-      res.json({ success: true, message: "Subscription canceled" });
+      const canceledSub = await this.cancelSubUC.execute(dto);
+      res.json(await this.subResponse(canceledSub));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async extendSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = routeParam(req.params.id);
+      const sub = await this.getSubUC.execute(id);
+      this.assertResourceAccess(req, sub.userId);
+      const dto = ExtendSubscriptionSchema.parse({ id, ...req.body });
+      const extendedSub = await this.extendSubUC.execute(dto);
+      res.json(await this.subResponse(extendedSub));
     } catch (err) {
       next(err);
     }
@@ -766,18 +787,18 @@ export class BillingController {
     };
   }
 
-  private subResponse(sub: any) {
+  private async subResponse(sub: any): Promise<any> {
+    const plan = await this.planRepo.findById(sub.planId);
     return {
       id: sub.id,
       userId: sub.userId,
       planId: sub.planId,
+      planName: plan?.name || "Unknown",
       status: sub.status,
-      currentPeriodStart: sub.currentPeriodStart,
-      currentPeriodEnd: sub.currentPeriodEnd,
-      cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-      canceledAt: sub.canceledAt,
-      trialEnd: sub.trialEnd,
-      metadata: sub.metadata,
+      startDate: sub.currentPeriodStart,
+      endDate: sub.currentPeriodEnd,
+      autoRenew: !sub.cancelAtPeriodEnd,
+      cancelledAt: sub.canceledAt,
       createdAt: sub.createdAt,
       updatedAt: sub.updatedAt,
     };

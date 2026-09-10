@@ -45,6 +45,12 @@ export const CancelSubscriptionSchema = z.object({
 });
 export type CancelSubscriptionDTO = z.infer<typeof CancelSubscriptionSchema>;
 
+export const ExtendSubscriptionSchema = z.object({
+  id: z.string().uuid('Invalid subscription ID'),
+  days: z.number().int().min(1, 'Days must be at least 1').max(365, 'Days cannot exceed 365'),
+});
+export type ExtendSubscriptionDTO = z.infer<typeof ExtendSubscriptionSchema>;
+
 export const SubscriptionIdSchema = z.object({
   id: z.string().uuid('Invalid subscription ID'),
 });

@@ -7,6 +7,7 @@ export { CreateSubscriptionUseCase } from './CreateSubscriptionUseCase';
 export { ListSubscriptionsUseCase } from './ListSubscriptionsUseCase';
 export { GetSubscriptionUseCase } from './GetSubscriptionUseCase';
 export { CancelSubscriptionUseCase } from './CancelSubscriptionUseCase';
+export { ExtendSubscriptionUseCase } from './ExtendSubscriptionUseCase';
 export { CreateInvoiceUseCase } from './CreateInvoiceUseCase';
 export { ListInvoicesUseCase } from './ListInvoicesUseCase';
 export { GetInvoiceUseCase } from './GetInvoiceUseCase';
