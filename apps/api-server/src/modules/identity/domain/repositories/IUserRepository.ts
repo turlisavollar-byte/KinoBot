@@ -12,13 +12,23 @@ export type UserUpdateInput = Partial<{
   status: UserStatus | string;
   avatar: string;
   lastLoginAt: Date | string;
+  lastFailedLoginAt: Date | string;
+  failedLoginCount: number;
+  lockedUntil: Date | string;
   createdAt: Date | string;
   updatedAt: Date | string;
+  verificationToken: string;
+  verificationExpiresAt: Date | string;
+  isEmailVerified: boolean;
+  resetToken: string;
+  resetExpiresAt: Date | string;
 }>;
 
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
+  findByVerificationToken(token: string): Promise<User | null>;
+  findByResetToken(token: string): Promise<User | null>;
   findAll(options?: {
     skip?: number;
     take?: number;

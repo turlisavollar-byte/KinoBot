@@ -12,8 +12,16 @@ export interface UserProps {
   status: UserStatus;
   avatar?: string;
   lastLoginAt?: Date;
+  lastFailedLoginAt?: Date;
+  failedLoginCount?: number;
+  lockedUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
+  verificationToken?: string;
+  verificationExpiresAt?: Date;
+  isEmailVerified?: boolean;
+  resetToken?: string;
+  resetExpiresAt?: Date;
 }
 
 export class User {
@@ -64,11 +72,39 @@ export class User {
   get lastLoginAt(): Date | undefined {
     return this.props.lastLoginAt;
   }
+  get lastFailedLoginAt(): Date | undefined {
+    return this.props.lastFailedLoginAt;
+  }
+  get failedLoginCount(): number {
+    return this.props.failedLoginCount ?? 0;
+  }
+  get lockedUntil(): Date | undefined {
+    return this.props.lockedUntil;
+  }
+  get isLocked(): boolean {
+    if (!this.props.lockedUntil) return false;
+    return new Date() < this.props.lockedUntil;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
   get updatedAt(): Date {
     return this.props.updatedAt;
+  }
+  get verificationToken(): string | undefined {
+    return this.props.verificationToken;
+  }
+  get verificationExpiresAt(): Date | undefined {
+    return this.props.verificationExpiresAt;
+  }
+  get isEmailVerified(): boolean {
+    return this.props.isEmailVerified ?? false;
+  }
+  get resetToken(): string | undefined {
+    return this.props.resetToken;
+  }
+  get resetExpiresAt(): Date | undefined {
+    return this.props.resetExpiresAt;
   }
 
   hasPermission(permission: string): boolean {
@@ -96,6 +132,37 @@ export class User {
     return new User({
       ...this.props,
       lastLoginAt: new Date(),
+      failedLoginCount: 0,
+      lockedUntil: undefined,
+      updatedAt: new Date(),
+    });
+  }
+
+  recordFailedLogin(): User {
+    const newCount = (this.props.failedLoginCount ?? 0) + 1;
+    return new User({
+      ...this.props,
+      lastFailedLoginAt: new Date(),
+      failedLoginCount: newCount,
+      updatedAt: new Date(),
+    });
+  }
+
+  lockAccount(durationMinutes: number = 30): User {
+    const lockedUntil = new Date();
+    lockedUntil.setMinutes(lockedUntil.getMinutes() + durationMinutes);
+    return new User({
+      ...this.props,
+      lockedUntil,
+      updatedAt: new Date(),
+    });
+  }
+
+  unlockAccount(): User {
+    return new User({
+      ...this.props,
+      lockedUntil: undefined,
+      failedLoginCount: 0,
       updatedAt: new Date(),
     });
   }
@@ -127,6 +194,9 @@ export class User {
       status: this.props.status,
       avatar: this.avatar,
       lastLoginAt: this.lastLoginAt,
+      lastFailedLoginAt: this.lastFailedLoginAt,
+      failedLoginCount: this.failedLoginCount,
+      lockedUntil: this.lockedUntil,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
@@ -142,6 +212,9 @@ export class User {
       status: this.props.status,
       avatar: this.avatar,
       lastLoginAt: this.lastLoginAt,
+      lastFailedLoginAt: this.lastFailedLoginAt,
+      failedLoginCount: this.failedLoginCount,
+      lockedUntil: this.lockedUntil,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

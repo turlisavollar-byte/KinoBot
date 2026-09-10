@@ -8,13 +8,19 @@ export class LogoutUseCase {
     private readonly sessionRepo: ISessionRepository,
   ) {}
 
-  async execute(userId: string, refreshToken: string): Promise<void> {
+  async execute(userId: string, refreshToken: string | null): Promise<void> {
     const user = await this.userRepo.findById(userId);
     if (!user) {
       throw new Error("User not found");
     }
 
-    await this.sessionRepo.revoke(userId, refreshToken);
+    if (refreshToken) {
+      // Logout current session
+      await this.sessionRepo.revoke(userId, refreshToken);
+    } else {
+      // Logout all sessions
+      await this.sessionRepo.revokeAll(userId);
+    }
     permissionCache.invalidate(userId);
   }
 }

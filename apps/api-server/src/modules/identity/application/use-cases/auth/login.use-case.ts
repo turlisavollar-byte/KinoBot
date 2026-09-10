@@ -5,33 +5,63 @@ import { JwtService } from "../../../infrastructure/services/jwt.service";
 import { auditService } from "@/modules/audit/audit.service";
 import { normalizeRoleName } from "@/shared/constants/roles";
 import type { ISessionRepository } from "../../../domain/repositories/ISessionRepository";
+import { Logger } from "@/shared/utils/logger";
+import crypto from "node:crypto";
 
 export class LoginUseCase {
+  private readonly logger = Logger.getInstance("LoginUseCase");
+
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly passwordService: PasswordService,
     private readonly sessionRepo: ISessionRepository,
   ) {}
 
+  private hashEmailForAudit(email: string): string {
+    return crypto.createHash("sha256").update(email.toLowerCase()).digest("hex");
+  }
+
   async execute(dto: LoginDTO): Promise<LoginResponse> {
     // Find user by email
     const user = await this.userRepo.findByEmail(dto.email);
     if (!user) {
       // Log failed login attempt (non-blocking)
+      const emailHash = this.hashEmailForAudit(dto.email);
       auditService
         .log({
           actorType: "USER",
           action: "LOGIN_FAILED",
           targetType: "USER",
-          targetId: dto.email,
-          targetName: dto.email,
+          targetId: emailHash,
+          targetName: emailHash,
           metadata: {
             reason: "User not found",
-            email: dto.email,
+            emailHash: emailHash,
           },
         })
-        .catch((err) => console.error("Audit log failed:", err));
+        .catch((err) => this.logger.error("Audit log failed", { error: err }));
       throw new Error("Invalid credentials");
+    }
+
+    // Check if account is locked
+    if (user.isLocked) {
+      // Log failed login attempt (non-blocking)
+      auditService
+        .log({
+          actorType: "USER",
+          actorId: user.id,
+          actorEmail: user.email,
+          action: "LOGIN_FAILED",
+          targetType: "USER",
+          targetId: user.id,
+          targetName: user.name,
+          metadata: {
+            reason: "Account locked",
+            lockedUntil: user.lockedUntil,
+          },
+        })
+        .catch((err) => this.logger.error("Audit log failed", { error: err }));
+      throw new Error("Account is temporarily locked due to too many failed login attempts");
     }
 
     // Try bcrypt first (new passwords)
@@ -55,6 +85,18 @@ export class LoginUseCase {
     }
 
     if (!isValidPassword) {
+      // Record failed login attempt
+      const updatedUser = user.recordFailedLogin();
+      await this.userRepo.update(user.id, updatedUser);
+
+      // Lock account after 5 failed attempts
+      let shouldLock = false;
+      if (updatedUser.failedLoginCount >= 5) {
+        const lockedUser = updatedUser.lockAccount(30); // Lock for 30 minutes
+        await this.userRepo.update(user.id, lockedUser);
+        shouldLock = true;
+      }
+
       // Log failed login attempt (non-blocking)
       auditService
         .log({
@@ -67,9 +109,15 @@ export class LoginUseCase {
           targetName: user.name,
           metadata: {
             reason: "Invalid password",
+            failedLoginCount: updatedUser.failedLoginCount,
+            locked: shouldLock,
           },
         })
-        .catch((err) => console.error("Audit log failed:", err));
+        .catch((err) => this.logger.error("Audit log failed", { error: err }));
+
+      if (shouldLock) {
+        throw new Error("Account temporarily locked due to too many failed login attempts");
+      }
       throw new Error("Invalid credentials");
     }
 
@@ -90,7 +138,7 @@ export class LoginUseCase {
             status: user.status,
           },
         })
-        .catch((err) => console.error("Audit log failed:", err));
+        .catch((err) => this.logger.error("Audit log failed", { error: err }));
       throw new Error("Account is not active");
     }
 
@@ -112,7 +160,7 @@ export class LoginUseCase {
           role: user.role.name,
         },
       })
-      .catch((err) => console.error("Audit log failed:", err));
+      .catch((err) => this.logger.error("Audit log failed", { error: err }));
 
     const jwtService = JwtService.getInstance();
     const accessToken = jwtService.generateAccessToken({
@@ -127,10 +175,15 @@ export class LoginUseCase {
       role: user.role.name,
       permissions: user.permissions.map((p) => p.name),
     });
+
+    // Extract request metadata if available (will be passed from controller)
+    const sessionMetadata = (dto as any).sessionMetadata || {};
+
     await this.sessionRepo.create(
       user.id,
       refreshToken,
       new Date(Date.now() + 604800 * 1000),
+      sessionMetadata,
     );
     const expiresIn = 3600; // 1 hour
 
