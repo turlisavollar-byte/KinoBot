@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 const LEGACY_SALT = "stream_platform_salt_2024";
 
 export class PasswordService {
-  private readonly saltRounds = 10;
+  private readonly saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS ?? 12);
 
   async hash(password: string): Promise<string> {
     return bcrypt.hash(password, this.saltRounds);
