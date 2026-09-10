@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { Permission, PermissionName } from "./permission.entity";
 
 export interface RoleProps {
@@ -20,7 +21,7 @@ export class Role {
   ): Role {
     return new Role({
       ...props,
-      id: `role_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: crypto.randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
     });

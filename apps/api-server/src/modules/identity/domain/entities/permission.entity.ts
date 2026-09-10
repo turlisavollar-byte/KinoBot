@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 export enum PermissionCategory {
   USER = 'user',
   AUTH = 'auth',
@@ -24,7 +26,7 @@ export class Permission {
   static create(props: Omit<PermissionProps, 'id'>): Permission {
     return new Permission({
       ...props,
-      id: `perm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: crypto.randomUUID(),
     });
   }
 

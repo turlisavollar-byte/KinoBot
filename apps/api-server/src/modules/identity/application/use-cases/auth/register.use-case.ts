@@ -1,15 +1,14 @@
 import { normalizeRoleName } from "@/shared/constants/roles";
 import type { IUserRepository } from "../../../domain/repositories/IUserRepository";
+import type { IRoleRepository } from "../../../domain/repositories/IRoleRepository";
 import { User } from "../../../domain/entities/user.entity";
-import { DrizzleRoleRepository } from "../../../infrastructure/repositories/drizzle-role.repository";
 import { PasswordService } from "../../../infrastructure/services/password.service";
 import type { RegisterDTO, RegisterResponse } from "../../dto/auth.dto";
 
 export class RegisterUseCase {
-  private readonly roleRepo = new DrizzleRoleRepository();
-
   constructor(
     private readonly userRepo: IUserRepository,
+    private readonly roleRepo: IRoleRepository,
     private readonly passwordService: PasswordService,
   ) {}
 

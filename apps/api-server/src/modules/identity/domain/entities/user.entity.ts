@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { Role } from "./role.entity";
 import { Permission } from "./permission.entity";
 import { UserStatus } from "@/shared/constants/user-status";
@@ -32,7 +33,7 @@ export class User {
   ): User {
     return new User({
       ...props,
-      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: crypto.randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
     });
