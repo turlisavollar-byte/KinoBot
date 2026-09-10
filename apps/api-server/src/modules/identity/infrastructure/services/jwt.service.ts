@@ -12,26 +12,28 @@ export interface JwtPayload {
 
 export class JwtService {
   private static instance: JwtService;
-  private readonly secret: string;
+  private readonly accessSecret: string;
+  private readonly refreshSecret: string;
   private readonly accessTokenExpiry = 3600; // 1 hour
   private readonly refreshTokenExpiry = 604800; // 7 days
   private static warningShown = false;
 
   private constructor() {
-    const secret = process.env.JWT_SECRET;
+    const accessSecret = process.env.JWT_SECRET;
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || accessSecret;
     const isProduction = process.env.NODE_ENV === "production";
     const isLocalEnvironment =
       !process.env.NODE_ENV ||
       process.env.NODE_ENV === "development" ||
       process.env.NODE_ENV === "test";
 
-    if (!secret) {
+    if (!accessSecret) {
       throw new Error(
         "JWT_SECRET environment variable is required. Please set a strong, cryptographically secure secret (minimum 32 characters).",
       );
     }
 
-    if (isProduction && secret.length < 32) {
+    if (isProduction && accessSecret.length < 32) {
       throw new Error(
         "JWT_SECRET must be at least 32 characters long for security. Please use a stronger secret.",
       );
@@ -39,10 +41,10 @@ export class JwtService {
 
     if (
       !JwtService.warningShown &&
-      (secret.includes("change") ||
-        secret.includes("secret") ||
-        secret === "your-secret-key-change-in-production" ||
-        (isLocalEnvironment && secret.length < 32))
+      (accessSecret.includes("change") ||
+        accessSecret.includes("secret") ||
+        accessSecret === "your-secret-key-change-in-production" ||
+        (isLocalEnvironment && accessSecret.length < 32))
     ) {
       console.warn(
         "SECURITY WARNING: JWT_SECRET is using a short or default value. For production, use a strong random secret with at least 32 characters.",
@@ -50,7 +52,33 @@ export class JwtService {
       JwtService.warningShown = true;
     }
 
-    this.secret = secret;
+    if (!refreshSecret) {
+      throw new Error(
+        "JWT_REFRESH_SECRET environment variable is required. Please set a strong, cryptographically secure secret (minimum 32 characters).",
+      );
+    }
+
+    if (isProduction && refreshSecret.length < 32) {
+      throw new Error(
+        "JWT_REFRESH_SECRET must be at least 32 characters long for security. Please use a stronger secret.",
+      );
+    }
+
+    if (
+      !JwtService.warningShown &&
+      (refreshSecret.includes("change") ||
+        refreshSecret.includes("secret") ||
+        refreshSecret === "your-secret-key-change-in-production" ||
+        (isLocalEnvironment && refreshSecret.length < 32))
+    ) {
+      console.warn(
+        "SECURITY WARNING: JWT_REFRESH_SECRET is using a short or default value. For production, use a strong random secret with at least 32 characters.",
+      );
+      JwtService.warningShown = true;
+    }
+
+    this.accessSecret = accessSecret;
+    this.refreshSecret = refreshSecret;
   }
 
   static getInstance(): JwtService {
@@ -69,7 +97,7 @@ export class JwtService {
         permissions: payload.permissions,
         tokenType: "access",
       },
-      this.secret,
+      this.accessSecret,
       { expiresIn: this.accessTokenExpiry },
     );
   }
@@ -83,7 +111,7 @@ export class JwtService {
         permissions: payload.permissions,
         tokenType: "refresh",
       },
-      this.secret,
+      this.refreshSecret,
       { expiresIn: this.refreshTokenExpiry },
     );
   }
@@ -93,7 +121,8 @@ export class JwtService {
     expectedTokenType?: "access" | "refresh",
   ): Promise<JwtPayload> {
     try {
-      const decoded = jwt.verify(token, this.secret) as JwtPayload;
+      const secret = expectedTokenType === "refresh" ? this.refreshSecret : this.accessSecret;
+      const decoded = jwt.verify(token, secret) as JwtPayload;
       if (expectedTokenType && decoded.tokenType !== expectedTokenType) {
         throw new Error("Unexpected token type");
       }

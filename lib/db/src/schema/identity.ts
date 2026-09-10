@@ -38,7 +38,7 @@ export const adminSessionsTable = pgTable("admin_sessions", {
   adminId: text("admin_id")
     .notNull()
     .references(() => adminUsersTable.id),
-  token: text("token").notNull().unique(),
+  tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
