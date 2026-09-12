@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
+import { db, subscriptionPlansTable } from "@workspace/db";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import {
   CreatePlanUseCase,
   ListPlansUseCase,
@@ -168,18 +170,31 @@ export class BillingController {
         Number(query.page) || 1,
         Number(query.limit) || 20,
       );
-      const result = await this.listPlansUC.execute(
-        pagination,
-        query.active_only === "true",
-      );
+      const conditions = [isNull(subscriptionPlansTable.deletedAt)];
+      if (query.active_only === "true") {
+        conditions.push(eq(subscriptionPlansTable.isActive, true));
+      }
+      const whereClause = and(...conditions);
+      const [{ value: total }] = await db
+        .select({ value: count() })
+        .from(subscriptionPlansTable)
+        .where(whereClause);
+      const rows = await db
+        .select()
+        .from(subscriptionPlansTable)
+        .where(whereClause)
+        .orderBy(desc(subscriptionPlansTable.createdAt))
+        .limit(pagination.limit)
+        .offset((pagination.page - 1) * pagination.limit);
+      const totalCount = Number(total);
       res.json({
         success: true,
-        data: result.data.map((p: any) => this.planResponse(p)),
+        data: rows,
         pagination: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: result.totalPages,
+          total: totalCount,
+          page: pagination.page,
+          limit: pagination.limit,
+          totalPages: Math.ceil(totalCount / pagination.limit) || 1,
         },
       });
     } catch (err) {
@@ -242,7 +257,9 @@ export class BillingController {
         ...dto,
         userId: this.canManageBilling(req) ? dto.userId : this.actorId(req),
       });
-      res.status(201).json({ success: true, data: await this.subResponse(sub) });
+      res
+        .status(201)
+        .json({ success: true, data: await this.subResponse(sub) });
     } catch (err) {
       next(err);
     }
@@ -262,7 +279,9 @@ export class BillingController {
       const requestedUserId = routeParam(req.params.userId) || query.userId;
       const userId = this.resolveListUserId(req, requestedUserId);
       const result = await this.listSubsUC.execute(userId, pagination);
-      const data = await Promise.all(result.data.map((s: any) => this.subResponse(s)));
+      const data = await Promise.all(
+        result.data.map((s: any) => this.subResponse(s)),
+      );
       res.json({
         data,
         total: result.total,

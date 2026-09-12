@@ -9,6 +9,29 @@ tags:
     description: New Identity module authentication (JWT-based)
 
 paths:
+  /identity/auth/register:
+    post:
+      operationId: identityRegister
+      tags: [identity-auth]
+      summary: Register new admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentityRegisterInput"
+      responses:
+        "201":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityAuthResult"
+        "400":
+          description: Invalid input or email already exists
+        "403":
+          description: Registration is disabled or user is not authorized
+
   /identity/auth/login:
     post:
       operationId: identityLogin
@@ -84,6 +107,22 @@ paths:
 
 components:
   schemas:
+    IdentityRegisterInput:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: Password must be at least 8 characters
+        name:
+          type: string
+          minLength: 2
+          description: Display name
+
     IdentityLoginInput:
       type: object
       required: [email, password]

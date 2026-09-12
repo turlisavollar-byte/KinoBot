@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, desc } from "drizzle-orm";
 import {
   db,
   telegramConfigTable,
@@ -11,7 +11,7 @@ import {
   UpdateTelegramConfigBody,
   CreateTelegramChannelBody,
 } from "@workspace/api-zod";
-import { requireAuth, requirePermission } from "@/lib/auth";
+import { requireAuth, requirePermission } from "@/shared/middleware";
 import { Permission } from "@/shared/constants/permissions";
 import { startBot, stopBot, isBotRunning } from "@/bot/index";
 import { getRecentFileIds } from "@/bot/handlers/storage";
@@ -57,7 +57,7 @@ router.patch(
       [config] = await db
         .update(telegramConfigTable)
         .set(updateData)
-        .where(eq(telegramConfigTable.id, existing.id))
+        .where(sql`${telegramConfigTable.id} = ${existing.id}`)
         .returning();
     } else {
       [config] = await db
@@ -87,10 +87,10 @@ router.get(
   async (_req, res): Promise<void> => {
     const [config] = await db.select().from(telegramConfigTable).limit(1);
     const [{ totalUsers }] = await db
-      .select({ totalUsers: count() })
+      .select({ totalUsers: sql<number>`COUNT(*)::int` })
       .from(usersTable);
     const [{ totalMessages }] = await db
-      .select({ totalMessages: count() })
+      .select({ totalMessages: sql<number>`COUNT(*)::int` })
       .from(telegramMessagesTable);
     const [{ storageFiles }] = await db
       .select({
@@ -146,7 +146,7 @@ router.get(
       .select()
       .from(telegramChannelsTable)
       .where(sql`${telegramChannelsTable.deletedAt} IS NULL`)
-      .orderBy(telegramChannelsTable.createdAt);
+      .orderBy(desc(telegramChannelsTable.createdAt));
     res.json(channels);
   },
 );
@@ -204,7 +204,8 @@ router.get(
       const existingChannels = await db
         .select()
         .from(telegramChannelsTable)
-        .where(sql`${telegramChannelsTable.deletedAt} IS NULL`);
+        .where(sql`${telegramChannelsTable.deletedAt} IS NULL`)
+        .orderBy(desc(telegramChannelsTable.createdAt));
 
       // For each existing channel, check if bot is admin
       for (const channel of existingChannels) {

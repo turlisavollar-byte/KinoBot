@@ -1,15 +1,12 @@
 /**
- * Redis cache client — STUB
+ * Redis cache client
  *
- * TODO: Install ioredis and configure Redis connection.
- *   pnpm --filter @workspace/api-server add ioredis
- *   Set REDIS_URL env var.
- *
- * Usage pattern (once implemented):
- *   await cache.set("key", JSON.stringify(value), "EX", 300);
+ * Usage pattern:
+ *   await cache.set("key", JSON.stringify(value), 300);
  *   const cached = await cache.get("key");
  */
 
+import Redis from "ioredis";
 import { Logger } from "@/shared/utils/logger";
 
 const logger = Logger.getInstance("Redis");
@@ -19,6 +16,68 @@ export interface CacheClient {
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
   del(key: string): Promise<void>;
   flush(): Promise<void>;
+}
+
+class RedisCache implements CacheClient {
+  private client: Redis;
+
+  constructor() {
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+    this.client = new Redis(redisUrl);
+
+    this.client.on("connect", () => {
+      logger.info("Redis connected successfully");
+    });
+
+    this.client.on("error", (error) => {
+      logger.error("Redis connection error:", undefined, error);
+    });
+
+    this.client.on("close", () => {
+      logger.warn("Redis connection closed");
+    });
+  }
+
+  async get(key: string): Promise<string | null> {
+    try {
+      return await this.client.get(key);
+    } catch (error) {
+      logger.error("Redis get error:", undefined, error);
+      return null;
+    }
+  }
+
+  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    try {
+      if (ttlSeconds) {
+        await this.client.setex(key, ttlSeconds, value);
+      } else {
+        await this.client.set(key, value);
+      }
+    } catch (error) {
+      logger.error("Redis set error:", undefined, error);
+    }
+  }
+
+  async del(key: string): Promise<void> {
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      logger.error("Redis del error:", undefined, error);
+    }
+  }
+
+  async flush(): Promise<void> {
+    try {
+      await this.client.flushdb();
+    } catch (error) {
+      logger.error("Redis flush error:", undefined, error);
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    await this.client.quit();
+  }
 }
 
 class InMemoryCache implements CacheClient {
@@ -50,7 +109,13 @@ class InMemoryCache implements CacheClient {
   }
 }
 
-// In development, use in-memory cache; swap with Redis in production
-export const cache: CacheClient = new InMemoryCache();
+// Use Redis if REDIS_URL is configured, otherwise use in-memory cache
+export const cache: CacheClient = process.env.REDIS_URL
+  ? new RedisCache()
+  : new InMemoryCache();
 
-logger.info("Cache: using in-memory (stub). Wire Redis for production.");
+if (process.env.REDIS_URL) {
+  logger.info("Cache: using Redis");
+} else {
+  logger.info("Cache: using in-memory (no REDIS_URL configured)");
+}

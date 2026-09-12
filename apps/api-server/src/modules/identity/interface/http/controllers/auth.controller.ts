@@ -2,7 +2,16 @@ import { Request, Response } from "express";
 import { LoginUseCase } from "../../../application/use-cases/auth/login.use-case";
 import { LogoutUseCase } from "../../../application/use-cases/auth/logout.use-case";
 import { RefreshTokenUseCase } from "../../../application/use-cases/auth/refresh-token.use-case";
-import { LoginDTO, RefreshTokenDTO, loginSchema, registerSchema, refreshTokenSchema } from "../../../application/dto/auth.dto";
+import {
+  LoginDTO,
+  RefreshTokenDTO,
+  loginSchema,
+  registerSchema,
+  refreshTokenSchema,
+  verifyEmailSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+} from "../../../application/dto/auth.dto";
 import { JwtService } from "../../../infrastructure/services/jwt.service";
 import { RegisterUseCase } from "../../../application/use-cases/auth/register.use-case";
 import { SendVerificationEmailUseCase } from "../../../application/use-cases/auth/send-verification-email.use-case";
@@ -26,18 +35,18 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const dto: LoginDTO = req.body;
+      const dto: LoginDTO = { ...loginSchema.parse(req.body) };
 
       // Extract session metadata from request
-      const ip = req.ip || req.connection.remoteAddress || 'unknown';
-      const userAgent = req.headers['user-agent'] || 'unknown';
+      const ip = req.ip || req.connection.remoteAddress || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
       const device = this.parseUserAgent(userAgent);
 
       dto.sessionMetadata = {
         ip,
         userAgent,
         device,
-        sessionName: device || 'Unknown Device',
+        sessionName: device || "Unknown Device",
       };
 
       const result = await this.loginUC.execute(dto);
@@ -64,22 +73,54 @@ export class AuthController {
 
   private parseUserAgent(userAgent: string): string {
     // Simple user agent parsing
-    if (userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone')) {
-      return 'Mobile';
+    if (
+      userAgent.includes("Mobile") ||
+      userAgent.includes("Android") ||
+      userAgent.includes("iPhone")
+    ) {
+      return "Mobile";
     }
-    if (userAgent.includes('Tablet') || userAgent.includes('iPad')) {
-      return 'Tablet';
+    if (userAgent.includes("Tablet") || userAgent.includes("iPad")) {
+      return "Tablet";
     }
-    if (userAgent.includes('Windows') || userAgent.includes('Macintosh') || userAgent.includes('Linux')) {
-      return 'Desktop';
+    if (
+      userAgent.includes("Windows") ||
+      userAgent.includes("Macintosh") ||
+      userAgent.includes("Linux")
+    ) {
+      return "Desktop";
     }
-    return 'Unknown';
+    return "Unknown";
   }
 
   async register(req: Request, res: Response): Promise<void> {
     try {
-      const result = await this.registerUC.execute(req.body);
-      res.status(201).json(result);
+      const registerDTO = registerSchema.parse(req.body);
+      const registerResult = await this.registerUC.execute(registerDTO);
+
+      // Auto-login after registration - generate tokens
+      const loginDTO: LoginDTO = {
+        email: registerDTO.email,
+        password: registerDTO.password,
+        sessionMetadata: {
+          ip: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.headers["user-agent"] || "unknown",
+          device: this.parseUserAgent(req.headers["user-agent"] || "unknown"),
+          sessionName:
+            this.parseUserAgent(req.headers["user-agent"] || "unknown") ||
+            "Unknown Device",
+        },
+      };
+
+      const loginResult = await this.loginUC.execute(loginDTO);
+
+      // Return auth result to match OpenAPI spec
+      res.status(201).json({
+        user: loginResult.user,
+        accessToken: loginResult.accessToken,
+        refreshToken: loginResult.refreshToken,
+        expiresIn: loginResult.expiresIn,
+      });
     } catch (error) {
       res.status(400).json({
         success: false,
@@ -110,7 +151,11 @@ export class AuthController {
         return;
       }
 
-      await this.logoutUC.execute(userId, refreshToken.refreshToken);
+      const token =
+        typeof refreshToken?.refreshToken === "string"
+          ? refreshToken.refreshToken
+          : null;
+      await this.logoutUC.execute(userId, token);
 
       res.json({
         success: true,
@@ -155,7 +200,10 @@ export class AuthController {
         success: false,
         error: {
           code: "LOGOUT_ALL_FAILED",
-          message: error instanceof Error ? error.message : "Logout from all devices failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Logout from all devices failed",
           timestamp: new Date().toISOString(),
         },
       });
@@ -164,7 +212,7 @@ export class AuthController {
 
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
-      const dto: RefreshTokenDTO = req.body;
+      const dto: RefreshTokenDTO = refreshTokenSchema.parse(req.body);
       const result = await this.refreshTokenUC.execute(dto);
 
       res.json({
@@ -239,19 +287,21 @@ export class AuthController {
         return;
       }
 
-      const result = await this.sendVerificationEmailUC.execute(userId);
+      await this.sendVerificationEmailUC.execute(userId);
 
       res.json({
         success: true,
         message: "Verification email sent",
-        verificationToken: result.verificationToken,
       });
     } catch (error) {
       res.status(400).json({
         success: false,
         error: {
           code: "VERIFICATION_FAILED",
-          message: error instanceof Error ? error.message : "Failed to send verification email",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to send verification email",
           timestamp: new Date().toISOString(),
         },
       });
@@ -260,19 +310,7 @@ export class AuthController {
 
   async verifyEmail(req: Request, res: Response): Promise<void> {
     try {
-      const { token } = req.body;
-
-      if (!token) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Verification token is required",
-            timestamp: new Date().toISOString(),
-          },
-        });
-        return;
-      }
+      const { token } = verifyEmailSchema.parse(req.body);
 
       const result = await this.verifyEmailUC.execute(token);
 
@@ -285,7 +323,10 @@ export class AuthController {
         success: false,
         error: {
           code: "VERIFICATION_FAILED",
-          message: error instanceof Error ? error.message : "Email verification failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Email verification failed",
           timestamp: new Date().toISOString(),
         },
       });
@@ -294,34 +335,25 @@ export class AuthController {
 
   async requestPasswordReset(req: Request, res: Response): Promise<void> {
     try {
-      const { email } = req.body;
+      const { email } = requestPasswordResetSchema.parse(req.body);
 
-      if (!email) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Email is required",
-            timestamp: new Date().toISOString(),
-          },
-        });
-        return;
-      }
-
-      const result = await this.requestPasswordResetUC.execute(email);
+      await this.requestPasswordResetUC.execute(email);
 
       // Always return success to prevent email enumeration
       res.json({
         success: true,
-        message: "If an account with this email exists, a password reset link has been sent",
-        resetToken: result.resetToken, // Only for testing purposes
+        message:
+          "If an account with this email exists, a password reset link has been sent",
       });
     } catch (error) {
       res.status(400).json({
         success: false,
         error: {
           code: "PASSWORD_RESET_FAILED",
-          message: error instanceof Error ? error.message : "Failed to request password reset",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to request password reset",
           timestamp: new Date().toISOString(),
         },
       });
@@ -330,19 +362,7 @@ export class AuthController {
 
   async resetPassword(req: Request, res: Response): Promise<void> {
     try {
-      const { token, newPassword } = req.body;
-
-      if (!token || !newPassword) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Reset token and new password are required",
-            timestamp: new Date().toISOString(),
-          },
-        });
-        return;
-      }
+      const { token, newPassword } = resetPasswordSchema.parse(req.body);
 
       const result = await this.resetPasswordUC.execute(token, newPassword);
 
@@ -355,7 +375,8 @@ export class AuthController {
         success: false,
         error: {
           code: "PASSWORD_RESET_FAILED",
-          message: error instanceof Error ? error.message : "Password reset failed",
+          message:
+            error instanceof Error ? error.message : "Password reset failed",
           timestamp: new Date().toISOString(),
         },
       });

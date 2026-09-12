@@ -59,12 +59,15 @@ export class AuthMiddleware {
         return;
       }
 
+      // Get permissions from user's role (loaded from database)
+      const permissions = user.permissions.map((p) => p.name);
+
       req.user = {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role.name,
-        permissions: user.permissions.map((p) => p.name),
+        permissions: permissions,
         status: user.status,
       };
 
@@ -98,12 +101,15 @@ export class AuthMiddleware {
 
       const user = await this.userRepo.findById(decoded.sub);
       if (user && user.isActive) {
+        // Get permissions from user's role (loaded from database)
+        const permissions = user.permissions.map((p) => p.name);
+
         req.user = {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role.name,
-          permissions: user.permissions.map((p) => p.name),
+          permissions: permissions,
           status: user.status,
         };
       }

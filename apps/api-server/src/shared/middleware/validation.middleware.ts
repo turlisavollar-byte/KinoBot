@@ -1,32 +1,35 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "@/shared/errors/AppError";
+import type { z } from "zod/v4";
 
 type SafeParseable = {
-  safeParse(data: unknown): { success: true; data: unknown } | { success: false; error: { issues: Array<{ path: (string | number)[]; message: string }> } };
+  safeParse(data: unknown): { success: true; data: unknown } | { success: false; error: { issues: Array<{ path: (string | number | symbol)[]; message: string }> } };
 };
+
+type ZodSchema = z.ZodType<any, any, any>;
 
 type Target = "body" | "query" | "params";
 
 type ValidationConfig = {
-  body?: SafeParseable;
-  query?: SafeParseable;
-  params?: SafeParseable;
+  body?: SafeParseable | ZodSchema;
+  query?: SafeParseable | ZodSchema;
+  params?: SafeParseable | ZodSchema;
 };
 
 export function validate(config: ValidationConfig): (req: Request, _res: Response, next: NextFunction) => void;
-export function validate(schema: SafeParseable, target?: Target): (req: Request, _res: Response, next: NextFunction) => void;
+export function validate(schema: SafeParseable | ZodSchema, target?: Target): (req: Request, _res: Response, next: NextFunction) => void;
 export function validate(
-  configOrSchema: ValidationConfig | SafeParseable,
+  configOrSchema: ValidationConfig | SafeParseable | ZodSchema,
   target?: Target,
 ): (req: Request, _res: Response, next: NextFunction) => void {
   return (req: Request, _res: Response, next: NextFunction): void => {
     // Handle object config format: { body: schema, query: schema, params: schema }
-    if (typeof configOrSchema === 'object' && !('safeParse' in configOrSchema)) {
+    if (typeof configOrSchema === 'object' && !('safeParse' in configOrSchema) && !('parse' in configOrSchema)) {
       const config = configOrSchema;
 
       for (const [key, schema] of Object.entries(config)) {
         if (schema) {
-          const result = schema.safeParse(req[key as Target]);
+          const result = (schema as SafeParseable).safeParse(req[key as Target]);
           if (!result.success) {
             const message = result.error.issues
               .map((i) => `${i.path.join(".")}: ${i.message}`)

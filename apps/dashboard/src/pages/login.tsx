@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useIdentityLogin,
+  useIdentityRegister,
   getIdentityGetMeQueryKey,
 } from "@workspace/api-client-react";
 import { setTokens } from "@/lib/auth-token";
@@ -21,37 +22,65 @@ import { useLocation } from "wouter";
 
 export default function Login() {
   const { t } = useI18n();
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const login = useIdentityLogin();
+  const register = useIdentityRegister();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    login.mutate(
-      { data: { email, password } },
-      {
-        onSuccess: (data) => {
-          // Store JWT tokens in-memory (+ best-effort localStorage)
-          setTokens(data.accessToken, data.refreshToken);
-          // Populate /identity/auth/me cache directly so ProtectedRoute re-renders
-          // immediately — no second round-trip needed.
-          queryClient.setQueryData(getIdentityGetMeQueryKey(), data.user);
-          setLocation("/");
+    
+    if (isLogin) {
+      login.mutate(
+        { data: { email, password } },
+        {
+          onSuccess: (data) => {
+            // Store JWT tokens in-memory (+ best-effort localStorage)
+            setTokens(data.accessToken, data.refreshToken);
+            // Populate /identity/auth/me cache directly so ProtectedRoute re-renders
+            // immediately — no second round-trip needed.
+            queryClient.setQueryData(getIdentityGetMeQueryKey(), data.user);
+            setLocation("/");
+          },
+          onError: (error: unknown) => {
+            const responseError = error as {
+              data?: { error?: { message?: string } };
+            };
+            setError(
+              responseError.data?.error?.message ?? t("login.invalid"),
+            );
+          },
         },
-        onError: (error: unknown) => {
-          const responseError = error as {
-            data?: { error?: { message?: string } };
-          };
-          setError(
-            responseError.data?.error?.message ?? t("login.invalid"),
-          );
+      );
+    } else {
+      register.mutate(
+        { data: { email, password, name } },
+        {
+          onSuccess: (data) => {
+            // Store JWT tokens in-memory (+ best-effort localStorage)
+            setTokens(data.accessToken, data.refreshToken);
+            // Populate /identity/auth/me cache directly so ProtectedRoute re-renders
+            // immediately — no second round-trip needed.
+            queryClient.setQueryData(getIdentityGetMeQueryKey(), data.user);
+            setLocation("/");
+          },
+          onError: (error: unknown) => {
+            const responseError = error as {
+              data?: { error?: { message?: string } };
+            };
+            setError(
+              responseError.data?.error?.message ?? "Registration failed",
+            );
+          },
         },
-      },
-    );
+      );
+    }
   };
 
   return (
@@ -72,6 +101,20 @@ export default function Login() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">{t("login.name")}</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder={t("login.namePlaceholder")}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="bg-muted/50"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">{t("login.email")}</Label>
               <Input
@@ -106,11 +149,26 @@ export default function Login() {
               type="submit"
               className="w-full font-bold"
               size="lg"
-              disabled={login.isPending}
+              disabled={login.isPending || register.isPending}
             >
-              {login.isPending ? t("login.authenticating") : t("login.signIn")}
+              {(login.isPending || register.isPending) 
+                ? t("login.authenticating") 
+                : (isLogin ? t("login.signIn") : t("login.register"))}
             </Button>
           </form>
+          
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError("");
+              }}
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              {isLogin ? t("login.toggleToRegister") : t("login.toggleToLogin")}
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -373,26 +373,25 @@ export class DrizzleRoleRepository implements IRoleRepository {
       )
       .where(eq(rolePermissionsTable.roleId, row.id));
 
-    // Authorization is code-defined by ROLE_PERMISSIONS. Database rows are
-    // retained for metadata, but must not silently expand or preserve grants.
-    const canonicalRole = normalizeRoleName(row.name);
-    const canonicalPermissions = ROLE_PERMISSIONS[canonicalRole] ?? [];
-
-    const permissions = canonicalPermissions.map((permName) => {
-      const dbPerm = permRows.find((p: any) => p.name === permName);
-      return Permission.create({
-        name: permName,
-        description: dbPerm?.description ?? `${permName} permission`,
-        category:
-          (dbPerm?.category as PermissionCategory) ??
-          this.getPermissionCategory(permName),
-        resource: dbPerm?.resource ?? this.getPermissionResource(permName),
-        action:
-          (dbPerm?.action as
-            "read" | "create" | "update" | "delete" | "manage") ??
-          this.getPermissionAction(permName),
+    // The database is the source of truth for role grants. Static definitions
+    // remain only as a bootstrap fallback when the role itself is missing.
+    const permissions = permRows
+      .filter((permissionRow: any) => permissionRow.name)
+      .map((dbPerm: any) => {
+        const permName = dbPerm.name;
+        return Permission.create({
+          name: permName,
+          description: dbPerm?.description ?? `${permName} permission`,
+          category:
+            (dbPerm?.category as PermissionCategory) ??
+            this.getPermissionCategory(permName),
+          resource: dbPerm?.resource ?? this.getPermissionResource(permName),
+          action:
+            (dbPerm?.action as
+              "read" | "create" | "update" | "delete" | "manage") ??
+            this.getPermissionAction(permName),
+        });
       });
-    });
 
     return Role.fromJSON({
       id: row.id,

@@ -40,6 +40,8 @@ import TelegramConfig from "@/pages/telegram/config";
 import VideoCodes from "@/pages/telegram/video-codes";
 
 import SystemHealth from "@/pages/system/health";
+import SecurityCenter from "@/pages/system/security-center";
+import SessionManagement from "@/pages/system/session-management";
 import FeatureFlags from "@/pages/system/feature-flags";
 import AuditLogs from "@/pages/system/audit-logs";
 import Settings from "@/pages/settings/index";
@@ -48,7 +50,10 @@ import Settings from "@/pages/settings/index";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        if ((error as { status?: number })?.status === 429) return false;
+        return failureCount < 1;
+      },
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
     },
@@ -134,6 +139,11 @@ function Router() {
 
       {/* System */}
       <Route path="/system/health" component={P(SystemHealth)} />
+      <Route path="/system/security-center" component={P(SecurityCenter)} />
+      <Route
+        path="/system/session-management"
+        component={P(SessionManagement)}
+      />
       <Route path="/system/feature-flags" component={P(FeatureFlags)} />
       <Route path="/system/audit-logs" component={P(AuditLogs)} />
 

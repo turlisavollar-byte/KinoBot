@@ -5,12 +5,12 @@ import { Permission } from "@/shared/constants/permissions";
 import { createProblem } from "@/lib/problem";
 
 export class RbacController {
-  list = (_req: Request, res: Response): void => {
-    const roles = rbacService.listRoles();
+  list = async (_req: Request, res: Response): Promise<void> => {
+    const roles = await rbacService.listRoles();
     res.json({ success: true, data: roles, total: roles.length });
   };
 
-  getRoleDetail = (req: Request, res: Response): void => {
+  getRoleDetail = async (req: Request, res: Response): Promise<void> => {
     const role = req.params["role"] as string;
     const validRoles = Object.values(Roles);
     if (!validRoles.includes(role as Role)) {
@@ -20,17 +20,17 @@ export class RbacController {
       return;
     }
 
-    const detail = rbacService.getRoleDetail(role as Role);
+    const detail = await rbacService.getRoleDetail(role as Role);
     res.json({ success: true, data: detail });
   };
 
-  listPermissions = (_req: Request, res: Response): void => {
-    const grouped = rbacService.listPermissionsGrouped();
+  listPermissions = async (_req: Request, res: Response): Promise<void> => {
+    const grouped = await rbacService.listPermissionsGrouped();
     const total = grouped.reduce((s, g) => s + g.permissions.length, 0);
     res.json({ success: true, data: grouped, total });
   };
 
-  getPermissionRoles = (req: Request, res: Response): void => {
+  getPermissionRoles = async (req: Request, res: Response): Promise<void> => {
     const permission = req.params["permission"] as string;
     const validPerms = Object.values(Permission);
     if (!validPerms.includes(permission as Permission)) {
@@ -46,7 +46,9 @@ export class RbacController {
       return;
     }
 
-    const roles = rbacService.getPermissionRoles(permission as Permission);
+    const roles = await rbacService.getPermissionRoles(
+      permission as Permission,
+    );
     res.json({ success: true, permission, data: roles });
   };
 
@@ -56,10 +58,7 @@ export class RbacController {
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;
     }
-    const permissions = rbacService.getMyPermissions(
-      user.id,
-      user.role as Role,
-    );
+    const permissions = user.permissions ?? [];
     res.json({
       success: true,
       role: user.role,
@@ -74,6 +73,7 @@ export class RbacController {
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;
     }
+    const permissions = user.permissions ?? [];
     const { permission } = req.query as { permission?: string };
 
     if (!permission) {
@@ -103,16 +103,17 @@ export class RbacController {
       return;
     }
 
-    const result = rbacService.checkPermission(
-      user.id,
-      user.role as Role,
-      permission as Permission,
-    );
+    const result = {
+      permission: permission as Permission,
+      granted: permissions.includes("*") || permissions.includes(permission),
+      role: user.role as Role,
+      source: "direct" as const,
+    };
     res.json({ success: true, data: result });
   };
 
-  getMatrix = (_req: Request, res: Response): void => {
-    const matrix = rbacService.getMatrix();
+  getMatrix = async (_req: Request, res: Response): Promise<void> => {
+    const matrix = await rbacService.getMatrix();
     res.json({ success: true, data: matrix });
   };
 

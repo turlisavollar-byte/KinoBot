@@ -17,11 +17,11 @@ export type UserUpdateInput = Partial<{
   lockedUntil: Date | string;
   createdAt: Date | string;
   updatedAt: Date | string;
-  verificationToken: string;
-  verificationExpiresAt: Date | string;
+  verificationToken: string | null;
+  verificationExpiresAt: Date | string | null;
   isEmailVerified: boolean;
-  resetToken: string;
-  resetExpiresAt: Date | string;
+  resetToken: string | null;
+  resetExpiresAt: Date | string | null;
 }>;
 
 export interface IUserRepository {

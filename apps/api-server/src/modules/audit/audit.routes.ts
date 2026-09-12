@@ -3,7 +3,7 @@
 import { Router } from "express";
 import { auditController } from "./audit.controller";
 import { auditLog, auditMiddleware } from "./audit.middleware";
-import { requireAuth, requirePermission, requireRole } from "@/lib/auth"; // Now this exists
+import { requireAuth, requirePermission } from "@/shared/middleware";
 import { Permission } from "@/shared/constants/permissions";
 import { rateLimit } from "express-rate-limit";
 import { Logger } from "@/shared/utils/logger";
@@ -152,7 +152,6 @@ router.get(
  */
 router.post(
   "/retention",
-  requireRole("admin"),
   requirePermission(Permission.MANAGE_AUDIT_LOGS),
   retentionRateLimit,
   auditController.applyRetention.bind(auditController),

@@ -16,7 +16,8 @@
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "seed": "tsx src/seed.ts",
-    "seed:roles": "tsx ./scripts/seed-roles-permissions.ts"
+    "seed:roles": "tsx ./scripts/seed-roles-permissions.ts",
+    "migrate:rbac": "tsx ./scripts/migrate-rbac-enhancements.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

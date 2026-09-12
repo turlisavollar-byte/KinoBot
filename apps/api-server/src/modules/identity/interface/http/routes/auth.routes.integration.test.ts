@@ -28,7 +28,7 @@ describe("identity auth HTTP routes", () => {
     const controller = new AuthController(
       {
         execute: async () => ({
-          user: { id: "u1" },
+          user: { id: "u1", role: "user" },
           accessToken: "a",
           refreshToken: "r",
           expiresIn: 3600,
@@ -37,7 +37,7 @@ describe("identity auth HTTP routes", () => {
       {} as any,
       {
         execute: async () => ({
-          user: { id: "u1" },
+          user: { id: "u1", role: "user" },
           accessToken: "a2",
           refreshToken: "r2",
           expiresIn: 3600,

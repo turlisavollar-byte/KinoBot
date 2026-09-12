@@ -31,6 +31,7 @@ import {
   Settings,
   PlaySquare,
   Hash,
+  Monitor,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
@@ -74,6 +75,8 @@ const NAV = [
     group: "nav.system" as TranslationKey,
     items: [
       { label: "nav.healthMonitor" as TranslationKey, href: "/system/health", icon: Activity },
+      { label: "nav.securityCenter" as TranslationKey, href: "/system/security-center", icon: Shield },
+      { label: "nav.sessionManagement" as TranslationKey, href: "/system/session-management", icon: Monitor },
       { label: "nav.featureFlags" as TranslationKey, href: "/system/feature-flags", icon: Flag },
       { label: "nav.auditLogs" as TranslationKey, href: "/system/audit-logs", icon: Shield },
     ],

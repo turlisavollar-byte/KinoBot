@@ -95,6 +95,32 @@ export const ListAdminUsersResponse = zod.object({
 
 
 /**
+ * @summary Update an administrative account
+ */
+export const UpdateAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const UpdateAdminUserBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().email().optional(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']).optional()
+})
+
+export const UpdateAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Delete an administrative account
+ */
+export const DeleteAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteAdminUserResponse = zod.unknown()
+
+
+/**
  * @summary Get dashboard overview stats
  */
 export const GetAnalyticsOverviewQueryParams = zod.object({
@@ -1692,6 +1718,36 @@ export const HealthCheckDetailedResponse = zod.object({
 
 
 /**
+ * @summary Register new admin user
+ */
+export const identityRegisterBodyPasswordMin = 8;
+
+export const identityRegisterBodyNameMin = 2;
+
+
+
+export const IdentityRegisterBody = zod.object({
+  "email": zod.string().email(),
+  "password": zod.string().min(identityRegisterBodyPasswordMin).describe('Password must be at least 8 characters'),
+  "name": zod.string().min(identityRegisterBodyNameMin).describe('Display name')
+})
+
+export const IdentityRegisterResponse = zod.object({
+  "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
+  "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
+  "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "user": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string(),
+  "role": zod.string().describe('User role'),
+  "permissions": zod.array(zod.string()).describe('User permissions'),
+  "status": zod.enum(['active', 'inactive', 'suspended']).optional()
+})
+})
+
+
+/**
  * @summary Login with JWT authentication
  */
 export const IdentityLoginBody = zod.object({
@@ -2203,7 +2259,7 @@ export const ListUsersResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2211,7 +2267,7 @@ export const ListUsersResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 })),
   "meta": zod.object({
   "total": zod.number().int().describe('Total number of users'),
@@ -2274,7 +2330,7 @@ export const GetUserResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2282,7 +2338,7 @@ export const GetUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2398,7 +2454,7 @@ export const UpdateUserResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2406,7 +2462,7 @@ export const UpdateUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2514,7 +2570,7 @@ export const GetMeResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2522,7 +2578,7 @@ export const GetMeResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2616,7 +2672,7 @@ export const BlockUserResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2624,7 +2680,7 @@ export const BlockUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2719,7 +2775,7 @@ export const GrantUserSubscriptionResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2727,7 +2783,7 @@ export const GrantUserSubscriptionResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2828,7 +2884,7 @@ export const SearchUsersResponse = zod.object({
   "referralCode": zod.string().nullish().describe('Unique referral code'),
   "referredBy": zod.string().nullish().describe('Referrer\'s user ID'),
   "acquisitionSource": zod.string().nullish().describe('How user was acquired'),
-  "activeSubscription": zod.object({
+  "activeSubscription": zod.union([zod.object({
   "id": zod.string().optional().describe('Subscription ID'),
   "planId": zod.string().optional().describe('Subscription plan ID'),
   "planName": zod.string().optional().describe('Subscription plan name'),
@@ -2836,7 +2892,7 @@ export const SearchUsersResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}).nullish()
+}),zod.null()]).optional()
 })),
   "meta": zod.object({
   "total": zod.number().int().describe('Total number of users'),
@@ -2976,7 +3032,7 @@ export const ListVideoCodesResponse = zod.array(ListVideoCodesResponseItem)
  * @summary Upload a new video and create code
  */
 export const UploadVideoCodeBody = zod.object({
-  "video": zod.instanceof(File),
+  "video": zod.instanceof(Blob),
   "title": zod.string(),
   "description": zod.string().optional(),
   "channelId": zod.string().optional()

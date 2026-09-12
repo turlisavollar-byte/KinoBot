@@ -169,6 +169,149 @@ dashboard/src/
 
 ---
 
+## 5.1. User Authentication Architecture Roadmap
+
+### Hozirgi holat (Faqat Dashboard Admin)
+```
+Identity Moduli
+└── admin_users table (dashboard admin foydalanuvchilari)
+    └── admin_sessions table (token hash bilan saqlanadi)
+```
+
+### Kelajakdagi reja (Incremental approach)
+
+**Faza 1: Hozirgi holat (Dashboard Admin)**
+- ✅ `admin_users` table bilan ishlash
+- ✅ Bearer token authentication
+- ✅ Refresh token rotation (atomic transaction)
+- ✅ Token hash bilan saqlash (xavfsizlik uchun)
+
+**Faza 2: Mobile App Authentication**
+- `mobile_users` table yoki `users` table'da `user_type` column
+- Mobile-specific authentication logic
+- Device binding va session management
+- Push notification tokens
+
+**Faza 3: Web User Authentication**
+- `web_users` table yoki users table kengaytirish
+- Social login (Google, Apple, Telegram OAuth)
+- Email verification va password reset
+- SSO (Single Sign-On) support
+
+**Faza 4: Unified Identity System**
+```
+Identity Moduli
+├── Admin Authentication (admin_users)
+├── Mobile Authentication (mobile_users/users)
+└── Web Authentication (web_users/users)
+    └── Unified User Management
+        ├── User Profiles
+        ├── Role-Based Access Control (RBAC)
+        └── Permission System
+```
+
+### Security improvements (Hozir amalga oshirildi)
+- ✅ Token hash bilan saqlash (plain token emas)
+- ✅ Refresh token rotation (atomic transaction)
+- ✅ Session management with expiration
+- ✅ Access token lifecycle management
+
+### Kelajakdagi security improvements
+- Token revocation on password change
+- Concurrent session limits
+- Device fingerprinting
+- IP-based access control
+- Rate limiting on authentication endpoints
+
+---
+
+## 5.2. Security Architecture Decisions
+
+### P1 Security Concerns (Resolved)
+
+#### 1. Email Alias Workaround ❌ DEPRECATED
+**Muammo**: `findByEmail()` method ichida email alias qilish (`admin@` ↔ `superadmin@`) bu xavfiy architectural workaround bo'lib, identity system responsibility'siga zid edi.
+
+**Qaror**: Email alias workaround olib tashlandi. Endi role faqat DB'dan keladi.
+
+**Sablaba o'tish uchun**:
+- Superadmin user role'ni DB'da to'g'ri o'rnating
+- Email pattern'lar orqali role aniqlash XAVFLI
+
+#### 2. Fallback Role Mechanism ❌ PRODUCTION-SAFE
+**Muammo**: Agar DB'da role topilmasa, application o'zi fallback role yaratib ishlatishga harakat qilgandi. Bu development uchun foydali, lekin production security nuqtai nazaridan xavfli.
+
+**Qaror**: Environment-based fallback mechanism:
+- Development: `ENABLE_ROLE_FALLBACK=true` (default)
+- Production: `ENABLE_ROLE_FALLBACK=false` (required)
+
+**Sablaba o'tish uchun**:
+- Production deployment'larida `ENABLE_ROLE_FALLBACK=false` o'rnating
+- DB'da barcha roles to'liq o'rnatilgan bo'lishi kerak
+- Role migrations tekshirilishi shart
+
+#### 3. Duplicate Auth Middlewares ❌ CONSOLIDATED
+**Muammo**: Ikkita auth middleware mavjud edi:
+- `lib/auth.ts` - Eski implementation
+- `modules/identity/auth.middleware.ts` - Yangi implementation
+
+Bu architectural duplication bo'lib, kelajakda inconsistent behavior keltirib chiqarishi mumkin edi.
+
+**Qaror**: Canonical auth middleware:
+- Identity module'dagi auth middleware endi canonical
+- `lib/auth.ts` deprecated qilindi (backward compatibility uchun)
+- Barcha route'lar `@/shared/middleware/requireAuth` orqali identity middleware'ni ishlatadi
+
+**Sablaba o'tish uchun**:
+- Yangi route'lar uchun `@/shared/middleware/requireAuth` ishlating
+- `lib/auth.ts` import'larni `@/shared/middleware` ga o'zgartiring
+
+### Security Principles
+
+#### 1. Database Authoritative
+- Role va permissions DB'dan kelishi kerak
+- JWT token ichida permissions bo'lishi ixtiyoriy
+- DB state JWT'dan oldinroq ishlaydi (user lookup on each request)
+
+#### 2. Fail Closed
+- Productionda security sensitive state topilmasa, fail closed bo'lishi kerak
+- Role topilmasa - authentication fail
+- Permission topilmasa - access denied
+
+#### 3. Atomic Operations
+- Refresh token rotation atomic transaction bilan
+- Race condition'lar oldini olish
+- Concurrent session management
+
+#### 4. Minimal Trust in JWT
+- JWT token expiration qisqa (1 hour)
+- Refresh token rotation mandatory
+- Token hash bilan saqlash (plain token emas)
+
+### Production Security Checklist
+
+Environment configuration uchun:
+```bash
+# Production mandatory settings
+NODE_ENV=production
+ENABLE_ROLE_FALLBACK=false
+JWT_SECRET=<strong_random_32_chars>
+JWT_REFRESH_SECRET=<different_strong_random_32_chars>
+```
+
+Database migrations:
+- ✅ `admin_sessions.token_hash` column o'rnatildi
+- ✅ Role table to'liq o'rnatildi
+- ✅ Admin user role to'g'ri o'rnatildi (`superadmin`)
+- ✅ Session management atomic transaction bilan
+
+Monitoring:
+- Authentication failure logs
+- Role/permission missing warnings
+- Concurrent session anomalies
+
+---
+
 ## 6. Ishga tushirish va rivojlantirish buyruqlari
 
 ```bash

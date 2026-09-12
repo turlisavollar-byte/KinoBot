@@ -40,6 +40,44 @@ const server = app.listen(port, async () => {
     console.log("USERS_STATUS", usersRes.status);
     console.log(usersText.slice(0, 500));
 
+    const permissionsRes = await fetch(
+      `http://localhost:${port}/api/rbac/me/permissions`,
+      {
+        headers: { Authorization: `Bearer ${login.accessToken}` },
+      },
+    );
+    const permissionsText = await permissionsRes.text();
+    console.log("RBAC_PERMISSIONS_STATUS", permissionsRes.status);
+    console.log(permissionsText.slice(0, 500));
+    if (!permissionsRes.ok) {
+      throw new Error(`RBAC permissions failed: ${permissionsText}`);
+    }
+    const permissionsPayload = JSON.parse(permissionsText) as {
+      data?: unknown;
+    };
+    if (!Array.isArray(permissionsPayload.data)) {
+      throw new Error("RBAC permissions response does not contain data[]");
+    }
+
+    const permissionCheckRes = await fetch(
+      `http://localhost:${port}/api/rbac/me/check?permission=read%3Ausers`,
+      {
+        headers: { Authorization: `Bearer ${login.accessToken}` },
+      },
+    );
+    const permissionCheckText = await permissionCheckRes.text();
+    console.log("RBAC_PERMISSION_CHECK_STATUS", permissionCheckRes.status);
+    console.log(permissionCheckText.slice(0, 500));
+    if (!permissionCheckRes.ok) {
+      throw new Error(`RBAC permission check failed: ${permissionCheckText}`);
+    }
+    const permissionCheckPayload = JSON.parse(permissionCheckText) as {
+      data?: { granted?: boolean };
+    };
+    if (permissionCheckPayload.data?.granted !== true) {
+      throw new Error("Expected read:users permission to be granted");
+    }
+
     server.close();
     process.exit(0);
   } catch (error) {

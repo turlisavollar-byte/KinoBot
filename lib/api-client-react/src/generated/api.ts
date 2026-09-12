@@ -98,6 +98,7 @@ import type {
   IdentityAuthResult,
   IdentityLoginInput,
   IdentityLogout200,
+  IdentityRegisterInput,
   IdentityUser,
   ImportVideoCodeBody,
   InvalidateAnalyticsCache200,
@@ -146,6 +147,7 @@ import type {
   TelegramConfigUpdate,
   TelegramStatus,
   UpdateActorBody,
+  UpdateAdminUserBody,
   UpdateBillingPlan200,
   UpdateBillingPlanBody,
   UpdateEpisodeBody,
@@ -287,11 +289,25 @@ export const getCreateActorUrl = () => {
  */
 export const createActor = async (createActorBody: CreateActorBody, options?: Parameters<typeof customFetch>[1]): Promise<Actor> => {
 
-  return customFetch<Actor>(getCreateActorUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Actor>(getCreateActorUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createActorBody)
   }
 );}
@@ -300,11 +316,13 @@ export const createActor = async (createActorBody: CreateActorBody, options?: Pa
 
 
 
-export const getCreateActorMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,{data: BodyType<CreateActorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,{data: BodyType<CreateActorBody>}, TContext> => {
+export const getCreateActorMutationKey = () => ['createActor'] as const;
 
-const mutationKey = ['createActor'];
+export const getCreateActorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,CreateActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,CreateActorMutationVariables, TContext> => {
+
+const mutationKey = getCreateActorMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -314,7 +332,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createActor>>, {data: BodyType<CreateActorBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createActor>>, CreateActorMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createActor(data,requestOptions)
@@ -330,16 +348,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateActorMutationResult = NonNullable<Awaited<ReturnType<typeof createActor>>>
     export type CreateActorMutationBody = BodyType<CreateActorBody>
     export type CreateActorMutationError = ErrorType<unknown>
+    export type CreateActorMutationVariables = {data: BodyType<CreateActorBody>}
 
     /**
  * @summary Create a new actor
  */
 export const useCreateActor = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,{data: BodyType<CreateActorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActor>>, TError,CreateActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createActor>>,
         TError,
-        {data: BodyType<CreateActorBody>},
+        CreateActorMutationVariables,
         TContext
       > => {
       return useMutation(getCreateActorMutationOptions(options));
@@ -359,11 +378,25 @@ export const getUpdateActorUrl = (id: string,) => {
 export const updateActor = async (id: string,
     updateActorBody: UpdateActorBody, options?: Parameters<typeof customFetch>[1]): Promise<Actor> => {
 
-  return customFetch<Actor>(getUpdateActorUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Actor>(getUpdateActorUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateActorBody)
   }
 );}
@@ -372,11 +405,13 @@ export const updateActor = async (id: string,
 
 
 
-export const getUpdateActorMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,{id: string;data: BodyType<UpdateActorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,{id: string;data: BodyType<UpdateActorBody>}, TContext> => {
+export const getUpdateActorMutationKey = () => ['updateActor'] as const;
 
-const mutationKey = ['updateActor'];
+export const getUpdateActorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,UpdateActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,UpdateActorMutationVariables, TContext> => {
+
+const mutationKey = getUpdateActorMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -386,7 +421,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateActor>>, {id: string;data: BodyType<UpdateActorBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateActor>>, UpdateActorMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateActor(id,data,requestOptions)
@@ -402,16 +437,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateActorMutationResult = NonNullable<Awaited<ReturnType<typeof updateActor>>>
     export type UpdateActorMutationBody = BodyType<UpdateActorBody>
     export type UpdateActorMutationError = ErrorType<unknown>
+    export type UpdateActorMutationVariables = {id: string;data: BodyType<UpdateActorBody>}
 
     /**
  * @summary Update actor
  */
 export const useUpdateActor = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,{id: string;data: BodyType<UpdateActorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActor>>, TError,UpdateActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateActor>>,
         TError,
-        {id: string;data: BodyType<UpdateActorBody>},
+        UpdateActorMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateActorMutationOptions(options));
@@ -500,6 +536,169 @@ export function useListAdminUsers<TData = Awaited<ReturnType<typeof listAdminUse
 
 
 
+
+export const getUpdateAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}`
+}
+
+/**
+ * @summary Update an administrative account
+ */
+export const updateAdminUser = async (id: string,
+    updateAdminUserBody: UpdateAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateAdminUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminUserMutationKey = () => ['updateAdminUser'] as const;
+
+export const getUpdateAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError,UpdateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError,UpdateAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminUser>>, UpdateAdminUserMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAdminUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminUser>>>
+    export type UpdateAdminUserMutationBody = BodyType<UpdateAdminUserBody>
+    export type UpdateAdminUserMutationError = ErrorType<void>
+    export type UpdateAdminUserMutationVariables = {id: string;data: BodyType<UpdateAdminUserBody>}
+
+    /**
+ * @summary Update an administrative account
+ */
+export const useUpdateAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError,UpdateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminUser>>,
+        TError,
+        UpdateAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAdminUserMutationOptions(options));
+    }
+
+export const getDeleteAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}`
+}
+
+/**
+ * @summary Delete an administrative account
+ */
+export const deleteAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAdminUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAdminUserMutationKey = () => ['deleteAdminUser'] as const;
+
+export const getDeleteAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError,DeleteAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError,DeleteAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminUser>>, DeleteAdminUserMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdminUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminUser>>>
+
+    export type DeleteAdminUserMutationError = ErrorType<void>
+    export type DeleteAdminUserMutationVariables = {id: string}
+
+    /**
+ * @summary Delete an administrative account
+ */
+export const useDeleteAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError,DeleteAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminUser>>,
+        TError,
+        DeleteAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAdminUserMutationOptions(options));
+    }
 
 export const getGetAnalyticsOverviewUrl = (params?: GetAnalyticsOverviewParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -863,11 +1062,13 @@ export const invalidateAnalyticsCache = async ( options?: Parameters<typeof cust
 
 
 
+export const getInvalidateAnalyticsCacheMutationKey = () => ['invalidateAnalyticsCache'] as const;
+
 export const getInvalidateAnalyticsCacheMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invalidateAnalyticsCache>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof invalidateAnalyticsCache>>, TError,void, TContext> => {
 
-const mutationKey = ['invalidateAnalyticsCache'];
+const mutationKey = getInvalidateAnalyticsCacheMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -893,6 +1094,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type InvalidateAnalyticsCacheMutationResult = NonNullable<Awaited<ReturnType<typeof invalidateAnalyticsCache>>>
 
     export type InvalidateAnalyticsCacheMutationError = ErrorType<unknown>
+
 
     /**
  * @summary Invalidate analytics cache
@@ -1005,11 +1207,25 @@ export const getLoginUrl = () => {
  */
 export const login = async (loginInput: LoginInput, options?: Parameters<typeof customFetch>[1]): Promise<AuthResult> => {
 
-  return customFetch<AuthResult>(getLoginUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AuthResult>(getLoginUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(loginInput)
   }
 );}
@@ -1018,11 +1234,13 @@ export const login = async (loginInput: LoginInput, options?: Parameters<typeof 
 
 
 
-export const getLoginMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext> => {
+export const getLoginMutationKey = () => ['login'] as const;
 
-const mutationKey = ['login'];
+export const getLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext> => {
+
+const mutationKey = getLoginMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1032,7 +1250,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof login>>, {data: BodyType<LoginInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof login>>, LoginMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  login(data,requestOptions)
@@ -1048,16 +1266,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LoginMutationResult = NonNullable<Awaited<ReturnType<typeof login>>>
     export type LoginMutationBody = BodyType<LoginInput>
     export type LoginMutationError = ErrorType<void>
+    export type LoginMutationVariables = {data: BodyType<LoginInput>}
 
     /**
  * @summary Login with email and password
  */
 export const useLogin = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof login>>,
         TError,
-        {data: BodyType<LoginInput>},
+        LoginMutationVariables,
         TContext
       > => {
       return useMutation(getLoginMutationOptions(options));
@@ -1160,11 +1379,25 @@ export const getCreateBillingPlanUrl = () => {
  */
 export const createBillingPlan = async (createBillingPlanBody: CreateBillingPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateBillingPlan201> => {
 
-  return customFetch<CreateBillingPlan201>(getCreateBillingPlanUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateBillingPlan201>(getCreateBillingPlanUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createBillingPlanBody)
   }
 );}
@@ -1173,11 +1406,13 @@ export const createBillingPlan = async (createBillingPlanBody: CreateBillingPlan
 
 
 
-export const getCreateBillingPlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,{data: BodyType<CreateBillingPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,{data: BodyType<CreateBillingPlanBody>}, TContext> => {
+export const getCreateBillingPlanMutationKey = () => ['createBillingPlan'] as const;
 
-const mutationKey = ['createBillingPlan'];
+export const getCreateBillingPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,CreateBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,CreateBillingPlanMutationVariables, TContext> => {
+
+const mutationKey = getCreateBillingPlanMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1187,7 +1422,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBillingPlan>>, {data: BodyType<CreateBillingPlanBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBillingPlan>>, CreateBillingPlanMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createBillingPlan(data,requestOptions)
@@ -1203,16 +1438,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateBillingPlanMutationResult = NonNullable<Awaited<ReturnType<typeof createBillingPlan>>>
     export type CreateBillingPlanMutationBody = BodyType<CreateBillingPlanBody>
     export type CreateBillingPlanMutationError = ErrorType<unknown>
+    export type CreateBillingPlanMutationVariables = {data: BodyType<CreateBillingPlanBody>}
 
     /**
  * @summary Create a new billing plan
  */
 export const useCreateBillingPlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,{data: BodyType<CreateBillingPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingPlan>>, TError,CreateBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createBillingPlan>>,
         TError,
-        {data: BodyType<CreateBillingPlanBody>},
+        CreateBillingPlanMutationVariables,
         TContext
       > => {
       return useMutation(getCreateBillingPlanMutationOptions(options));
@@ -1309,11 +1545,25 @@ export const getUpdateBillingPlanUrl = (id: string,) => {
 export const updateBillingPlan = async (id: string,
     updateBillingPlanBody: UpdateBillingPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<UpdateBillingPlan200> => {
 
-  return customFetch<UpdateBillingPlan200>(getUpdateBillingPlanUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UpdateBillingPlan200>(getUpdateBillingPlanUrl(id),
   {
     ...options,
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateBillingPlanBody)
   }
 );}
@@ -1322,11 +1572,13 @@ export const updateBillingPlan = async (id: string,
 
 
 
-export const getUpdateBillingPlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,{id: string;data: BodyType<UpdateBillingPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,{id: string;data: BodyType<UpdateBillingPlanBody>}, TContext> => {
+export const getUpdateBillingPlanMutationKey = () => ['updateBillingPlan'] as const;
 
-const mutationKey = ['updateBillingPlan'];
+export const getUpdateBillingPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,UpdateBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,UpdateBillingPlanMutationVariables, TContext> => {
+
+const mutationKey = getUpdateBillingPlanMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1336,7 +1588,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBillingPlan>>, {id: string;data: BodyType<UpdateBillingPlanBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBillingPlan>>, UpdateBillingPlanMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateBillingPlan(id,data,requestOptions)
@@ -1352,16 +1604,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateBillingPlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateBillingPlan>>>
     export type UpdateBillingPlanMutationBody = BodyType<UpdateBillingPlanBody>
     export type UpdateBillingPlanMutationError = ErrorType<unknown>
+    export type UpdateBillingPlanMutationVariables = {id: string;data: BodyType<UpdateBillingPlanBody>}
 
     /**
  * @summary Update billing plan
  */
 export const useUpdateBillingPlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,{id: string;data: BodyType<UpdateBillingPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBillingPlan>>, TError,UpdateBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateBillingPlan>>,
         TError,
-        {id: string;data: BodyType<UpdateBillingPlanBody>},
+        UpdateBillingPlanMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateBillingPlanMutationOptions(options));
@@ -1393,11 +1646,13 @@ export const deleteBillingPlan = async (id: string, options?: Parameters<typeof 
 
 
 
-export const getDeleteBillingPlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,{id: string}, TContext> => {
+export const getDeleteBillingPlanMutationKey = () => ['deleteBillingPlan'] as const;
 
-const mutationKey = ['deleteBillingPlan'];
+export const getDeleteBillingPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,DeleteBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,DeleteBillingPlanMutationVariables, TContext> => {
+
+const mutationKey = getDeleteBillingPlanMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1407,7 +1662,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBillingPlan>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBillingPlan>>, DeleteBillingPlanMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteBillingPlan(id,requestOptions)
@@ -1423,16 +1678,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteBillingPlanMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBillingPlan>>>
 
     export type DeleteBillingPlanMutationError = ErrorType<unknown>
+    export type DeleteBillingPlanMutationVariables = {id: string}
 
     /**
  * @summary Delete billing plan
  */
 export const useDeleteBillingPlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBillingPlan>>, TError,DeleteBillingPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteBillingPlan>>,
         TError,
-        {id: string},
+        DeleteBillingPlanMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteBillingPlanMutationOptions(options));
@@ -1451,11 +1707,25 @@ export const getCreateBillingSubscriptionUrl = () => {
  */
 export const createBillingSubscription = async (createSubscriptionBody: CreateSubscriptionBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateBillingSubscription201> => {
 
-  return customFetch<CreateBillingSubscription201>(getCreateBillingSubscriptionUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateBillingSubscription201>(getCreateBillingSubscriptionUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createSubscriptionBody)
   }
 );}
@@ -1464,11 +1734,13 @@ export const createBillingSubscription = async (createSubscriptionBody: CreateSu
 
 
 
-export const getCreateBillingSubscriptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,{data: BodyType<CreateSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,{data: BodyType<CreateSubscriptionBody>}, TContext> => {
+export const getCreateBillingSubscriptionMutationKey = () => ['createBillingSubscription'] as const;
 
-const mutationKey = ['createBillingSubscription'];
+export const getCreateBillingSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,CreateBillingSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,CreateBillingSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getCreateBillingSubscriptionMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1478,7 +1750,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBillingSubscription>>, {data: BodyType<CreateSubscriptionBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBillingSubscription>>, CreateBillingSubscriptionMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createBillingSubscription(data,requestOptions)
@@ -1494,16 +1766,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateBillingSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof createBillingSubscription>>>
     export type CreateBillingSubscriptionMutationBody = BodyType<CreateSubscriptionBody>
     export type CreateBillingSubscriptionMutationError = ErrorType<unknown>
+    export type CreateBillingSubscriptionMutationVariables = {data: BodyType<CreateSubscriptionBody>}
 
     /**
  * @summary Create a new subscription
  */
 export const useCreateBillingSubscription = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,{data: BodyType<CreateSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBillingSubscription>>, TError,CreateBillingSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createBillingSubscription>>,
         TError,
-        {data: BodyType<CreateSubscriptionBody>},
+        CreateBillingSubscriptionMutationVariables,
         TContext
       > => {
       return useMutation(getCreateBillingSubscriptionMutationOptions(options));
@@ -1689,11 +1962,25 @@ export const getCancelBillingSubscriptionUrl = (id: string,) => {
 export const cancelBillingSubscription = async (id: string,
     cancelSubscriptionBody: CancelSubscriptionBody, options?: Parameters<typeof customFetch>[1]): Promise<CancelBillingSubscription200> => {
 
-  return customFetch<CancelBillingSubscription200>(getCancelBillingSubscriptionUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CancelBillingSubscription200>(getCancelBillingSubscriptionUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(cancelSubscriptionBody)
   }
 );}
@@ -1702,11 +1989,13 @@ export const cancelBillingSubscription = async (id: string,
 
 
 
-export const getCancelBillingSubscriptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,{id: string;data: BodyType<CancelSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,{id: string;data: BodyType<CancelSubscriptionBody>}, TContext> => {
+export const getCancelBillingSubscriptionMutationKey = () => ['cancelBillingSubscription'] as const;
 
-const mutationKey = ['cancelBillingSubscription'];
+export const getCancelBillingSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,CancelBillingSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,CancelBillingSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getCancelBillingSubscriptionMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1716,7 +2005,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelBillingSubscription>>, {id: string;data: BodyType<CancelSubscriptionBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelBillingSubscription>>, CancelBillingSubscriptionMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  cancelBillingSubscription(id,data,requestOptions)
@@ -1732,16 +2021,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CancelBillingSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof cancelBillingSubscription>>>
     export type CancelBillingSubscriptionMutationBody = BodyType<CancelSubscriptionBody>
     export type CancelBillingSubscriptionMutationError = ErrorType<unknown>
+    export type CancelBillingSubscriptionMutationVariables = {id: string;data: BodyType<CancelSubscriptionBody>}
 
     /**
  * @summary Cancel subscription
  */
 export const useCancelBillingSubscription = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,{id: string;data: BodyType<CancelSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelBillingSubscription>>, TError,CancelBillingSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof cancelBillingSubscription>>,
         TError,
-        {id: string;data: BodyType<CancelSubscriptionBody>},
+        CancelBillingSubscriptionMutationVariables,
         TContext
       > => {
       return useMutation(getCancelBillingSubscriptionMutationOptions(options));
@@ -1760,11 +2050,25 @@ export const getCreateInvoiceUrl = () => {
  */
 export const createInvoice = async (createInvoiceBody: CreateInvoiceBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateInvoice201> => {
 
-  return customFetch<CreateInvoice201>(getCreateInvoiceUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateInvoice201>(getCreateInvoiceUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createInvoiceBody)
   }
 );}
@@ -1773,11 +2077,13 @@ export const createInvoice = async (createInvoiceBody: CreateInvoiceBody, option
 
 
 
-export const getCreateInvoiceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,{data: BodyType<CreateInvoiceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,{data: BodyType<CreateInvoiceBody>}, TContext> => {
+export const getCreateInvoiceMutationKey = () => ['createInvoice'] as const;
 
-const mutationKey = ['createInvoice'];
+export const getCreateInvoiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,CreateInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,CreateInvoiceMutationVariables, TContext> => {
+
+const mutationKey = getCreateInvoiceMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1787,7 +2093,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoice>>, {data: BodyType<CreateInvoiceBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInvoice>>, CreateInvoiceMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createInvoice(data,requestOptions)
@@ -1803,16 +2109,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof createInvoice>>>
     export type CreateInvoiceMutationBody = BodyType<CreateInvoiceBody>
     export type CreateInvoiceMutationError = ErrorType<unknown>
+    export type CreateInvoiceMutationVariables = {data: BodyType<CreateInvoiceBody>}
 
     /**
  * @summary Create a new invoice
  */
 export const useCreateInvoice = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,{data: BodyType<CreateInvoiceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInvoice>>, TError,CreateInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createInvoice>>,
         TError,
-        {data: BodyType<CreateInvoiceBody>},
+        CreateInvoiceMutationVariables,
         TContext
       > => {
       return useMutation(getCreateInvoiceMutationOptions(options));
@@ -2010,11 +2317,13 @@ export const markInvoicePaid = async (id: string, options?: Parameters<typeof cu
 
 
 
-export const getMarkInvoicePaidMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,{id: string}, TContext> => {
+export const getMarkInvoicePaidMutationKey = () => ['markInvoicePaid'] as const;
 
-const mutationKey = ['markInvoicePaid'];
+export const getMarkInvoicePaidMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext> => {
+
+const mutationKey = getMarkInvoicePaidMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2024,7 +2333,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInvoicePaid>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInvoicePaid>>, MarkInvoicePaidMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  markInvoicePaid(id,requestOptions)
@@ -2040,16 +2349,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type MarkInvoicePaidMutationResult = NonNullable<Awaited<ReturnType<typeof markInvoicePaid>>>
 
     export type MarkInvoicePaidMutationError = ErrorType<unknown>
+    export type MarkInvoicePaidMutationVariables = {id: string}
 
     /**
  * @summary Mark invoice as paid
  */
 export const useMarkInvoicePaid = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInvoicePaid>>, TError,MarkInvoicePaidMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof markInvoicePaid>>,
         TError,
-        {id: string},
+        MarkInvoicePaidMutationVariables,
         TContext
       > => {
       return useMutation(getMarkInvoicePaidMutationOptions(options));
@@ -2152,11 +2462,25 @@ export const getCreatePaymentUrl = () => {
  */
 export const createPayment = async (createPaymentBody: CreatePaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreatePayment201> => {
 
-  return customFetch<CreatePayment201>(getCreatePaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreatePayment201>(getCreatePaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createPaymentBody)
   }
 );}
@@ -2165,11 +2489,13 @@ export const createPayment = async (createPaymentBody: CreatePaymentBody, option
 
 
 
-export const getCreatePaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,{data: BodyType<CreatePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,{data: BodyType<CreatePaymentBody>}, TContext> => {
+export const getCreatePaymentMutationKey = () => ['createPayment'] as const;
 
-const mutationKey = ['createPayment'];
+export const getCreatePaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,CreatePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,CreatePaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreatePaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2179,7 +2505,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPayment>>, {data: BodyType<CreatePaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPayment>>, CreatePaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createPayment(data,requestOptions)
@@ -2195,16 +2521,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreatePaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createPayment>>>
     export type CreatePaymentMutationBody = BodyType<CreatePaymentBody>
     export type CreatePaymentMutationError = ErrorType<unknown>
+    export type CreatePaymentMutationVariables = {data: BodyType<CreatePaymentBody>}
 
     /**
  * @summary Create a payment
  */
 export const useCreatePayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,{data: BodyType<CreatePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayment>>, TError,CreatePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPayment>>,
         TError,
-        {data: BodyType<CreatePaymentBody>},
+        CreatePaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreatePaymentMutationOptions(options));
@@ -2402,11 +2729,13 @@ export const refundPayment = async (id: string, options?: Parameters<typeof cust
 
 
 
-export const getRefundPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,{id: string}, TContext> => {
+export const getRefundPaymentMutationKey = () => ['refundPayment'] as const;
 
-const mutationKey = ['refundPayment'];
+export const getRefundPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,RefundPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,RefundPaymentMutationVariables, TContext> => {
+
+const mutationKey = getRefundPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2416,7 +2745,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refundPayment>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refundPayment>>, RefundPaymentMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  refundPayment(id,requestOptions)
@@ -2432,16 +2761,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RefundPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof refundPayment>>>
 
     export type RefundPaymentMutationError = ErrorType<unknown>
+    export type RefundPaymentMutationVariables = {id: string}
 
     /**
  * @summary Refund payment
  */
 export const useRefundPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refundPayment>>, TError,RefundPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof refundPayment>>,
         TError,
-        {id: string},
+        RefundPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getRefundPaymentMutationOptions(options));
@@ -2460,11 +2790,25 @@ export const getCreateClickPaymentUrl = () => {
  */
 export const createClickPayment = async (createClickPaymentBody: CreateClickPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateClickPayment200> => {
 
-  return customFetch<CreateClickPayment200>(getCreateClickPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateClickPayment200>(getCreateClickPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createClickPaymentBody)
   }
 );}
@@ -2473,11 +2817,13 @@ export const createClickPayment = async (createClickPaymentBody: CreateClickPaym
 
 
 
-export const getCreateClickPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,{data: BodyType<CreateClickPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,{data: BodyType<CreateClickPaymentBody>}, TContext> => {
+export const getCreateClickPaymentMutationKey = () => ['createClickPayment'] as const;
 
-const mutationKey = ['createClickPayment'];
+export const getCreateClickPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,CreateClickPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,CreateClickPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateClickPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2487,7 +2833,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClickPayment>>, {data: BodyType<CreateClickPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClickPayment>>, CreateClickPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createClickPayment(data,requestOptions)
@@ -2503,16 +2849,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateClickPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createClickPayment>>>
     export type CreateClickPaymentMutationBody = BodyType<CreateClickPaymentBody>
     export type CreateClickPaymentMutationError = ErrorType<unknown>
+    export type CreateClickPaymentMutationVariables = {data: BodyType<CreateClickPaymentBody>}
 
     /**
  * @summary Create Click payment
  */
 export const useCreateClickPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,{data: BodyType<CreateClickPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClickPayment>>, TError,CreateClickPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createClickPayment>>,
         TError,
-        {data: BodyType<CreateClickPaymentBody>},
+        CreateClickPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateClickPaymentMutationOptions(options));
@@ -2531,11 +2878,25 @@ export const getHandleClickWebhookUrl = () => {
  */
 export const handleClickWebhook = async (handleClickWebhookBody: HandleClickWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleClickWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleClickWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleClickWebhookBody)
   }
 );}
@@ -2544,11 +2905,13 @@ export const handleClickWebhook = async (handleClickWebhookBody: HandleClickWebh
 
 
 
-export const getHandleClickWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,{data: BodyType<HandleClickWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,{data: BodyType<HandleClickWebhookBody>}, TContext> => {
+export const getHandleClickWebhookMutationKey = () => ['handleClickWebhook'] as const;
 
-const mutationKey = ['handleClickWebhook'];
+export const getHandleClickWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,HandleClickWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,HandleClickWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleClickWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2558,7 +2921,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleClickWebhook>>, {data: BodyType<HandleClickWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleClickWebhook>>, HandleClickWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleClickWebhook(data,requestOptions)
@@ -2574,16 +2937,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleClickWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleClickWebhook>>>
     export type HandleClickWebhookMutationBody = BodyType<HandleClickWebhookBody>
     export type HandleClickWebhookMutationError = ErrorType<unknown>
+    export type HandleClickWebhookMutationVariables = {data: BodyType<HandleClickWebhookBody>}
 
     /**
  * @summary Handle Click webhook
  */
 export const useHandleClickWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,{data: BodyType<HandleClickWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleClickWebhook>>, TError,HandleClickWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleClickWebhook>>,
         TError,
-        {data: BodyType<HandleClickWebhookBody>},
+        HandleClickWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleClickWebhookMutationOptions(options));
@@ -2602,11 +2966,25 @@ export const getCreatePaymePaymentUrl = () => {
  */
 export const createPaymePayment = async (createPaymePaymentBody: CreatePaymePaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreatePaymePayment200> => {
 
-  return customFetch<CreatePaymePayment200>(getCreatePaymePaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreatePaymePayment200>(getCreatePaymePaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createPaymePaymentBody)
   }
 );}
@@ -2615,11 +2993,13 @@ export const createPaymePayment = async (createPaymePaymentBody: CreatePaymePaym
 
 
 
-export const getCreatePaymePaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,{data: BodyType<CreatePaymePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,{data: BodyType<CreatePaymePaymentBody>}, TContext> => {
+export const getCreatePaymePaymentMutationKey = () => ['createPaymePayment'] as const;
 
-const mutationKey = ['createPaymePayment'];
+export const getCreatePaymePaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,CreatePaymePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,CreatePaymePaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreatePaymePaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2629,7 +3009,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPaymePayment>>, {data: BodyType<CreatePaymePaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPaymePayment>>, CreatePaymePaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createPaymePayment(data,requestOptions)
@@ -2645,16 +3025,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreatePaymePaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createPaymePayment>>>
     export type CreatePaymePaymentMutationBody = BodyType<CreatePaymePaymentBody>
     export type CreatePaymePaymentMutationError = ErrorType<unknown>
+    export type CreatePaymePaymentMutationVariables = {data: BodyType<CreatePaymePaymentBody>}
 
     /**
  * @summary Create Payme payment
  */
 export const useCreatePaymePayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,{data: BodyType<CreatePaymePaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymePayment>>, TError,CreatePaymePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPaymePayment>>,
         TError,
-        {data: BodyType<CreatePaymePaymentBody>},
+        CreatePaymePaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreatePaymePaymentMutationOptions(options));
@@ -2673,11 +3054,25 @@ export const getHandlePaymeWebhookUrl = () => {
  */
 export const handlePaymeWebhook = async (handlePaymeWebhookBody: HandlePaymeWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandlePaymeWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandlePaymeWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handlePaymeWebhookBody)
   }
 );}
@@ -2686,11 +3081,13 @@ export const handlePaymeWebhook = async (handlePaymeWebhookBody: HandlePaymeWebh
 
 
 
-export const getHandlePaymeWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,{data: BodyType<HandlePaymeWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,{data: BodyType<HandlePaymeWebhookBody>}, TContext> => {
+export const getHandlePaymeWebhookMutationKey = () => ['handlePaymeWebhook'] as const;
 
-const mutationKey = ['handlePaymeWebhook'];
+export const getHandlePaymeWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,HandlePaymeWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,HandlePaymeWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandlePaymeWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2700,7 +3097,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handlePaymeWebhook>>, {data: BodyType<HandlePaymeWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handlePaymeWebhook>>, HandlePaymeWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handlePaymeWebhook(data,requestOptions)
@@ -2716,16 +3113,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandlePaymeWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handlePaymeWebhook>>>
     export type HandlePaymeWebhookMutationBody = BodyType<HandlePaymeWebhookBody>
     export type HandlePaymeWebhookMutationError = ErrorType<unknown>
+    export type HandlePaymeWebhookMutationVariables = {data: BodyType<HandlePaymeWebhookBody>}
 
     /**
  * @summary Handle Payme webhook
  */
 export const useHandlePaymeWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,{data: BodyType<HandlePaymeWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaymeWebhook>>, TError,HandlePaymeWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handlePaymeWebhook>>,
         TError,
-        {data: BodyType<HandlePaymeWebhookBody>},
+        HandlePaymeWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandlePaymeWebhookMutationOptions(options));
@@ -2744,11 +3142,25 @@ export const getCreateUzumPaymentUrl = () => {
  */
 export const createUzumPayment = async (createUzumPaymentBody: CreateUzumPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateUzumPayment200> => {
 
-  return customFetch<CreateUzumPayment200>(getCreateUzumPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateUzumPayment200>(getCreateUzumPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createUzumPaymentBody)
   }
 );}
@@ -2757,11 +3169,13 @@ export const createUzumPayment = async (createUzumPaymentBody: CreateUzumPayment
 
 
 
-export const getCreateUzumPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,{data: BodyType<CreateUzumPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,{data: BodyType<CreateUzumPaymentBody>}, TContext> => {
+export const getCreateUzumPaymentMutationKey = () => ['createUzumPayment'] as const;
 
-const mutationKey = ['createUzumPayment'];
+export const getCreateUzumPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,CreateUzumPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,CreateUzumPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateUzumPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2771,7 +3185,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUzumPayment>>, {data: BodyType<CreateUzumPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUzumPayment>>, CreateUzumPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createUzumPayment(data,requestOptions)
@@ -2787,16 +3201,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateUzumPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createUzumPayment>>>
     export type CreateUzumPaymentMutationBody = BodyType<CreateUzumPaymentBody>
     export type CreateUzumPaymentMutationError = ErrorType<unknown>
+    export type CreateUzumPaymentMutationVariables = {data: BodyType<CreateUzumPaymentBody>}
 
     /**
  * @summary Create Uzum payment
  */
 export const useCreateUzumPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,{data: BodyType<CreateUzumPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzumPayment>>, TError,CreateUzumPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createUzumPayment>>,
         TError,
-        {data: BodyType<CreateUzumPaymentBody>},
+        CreateUzumPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateUzumPaymentMutationOptions(options));
@@ -2815,11 +3230,25 @@ export const getHandleUzumWebhookUrl = () => {
  */
 export const handleUzumWebhook = async (handleUzumWebhookBody: HandleUzumWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleUzumWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleUzumWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleUzumWebhookBody)
   }
 );}
@@ -2828,11 +3257,13 @@ export const handleUzumWebhook = async (handleUzumWebhookBody: HandleUzumWebhook
 
 
 
-export const getHandleUzumWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,{data: BodyType<HandleUzumWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,{data: BodyType<HandleUzumWebhookBody>}, TContext> => {
+export const getHandleUzumWebhookMutationKey = () => ['handleUzumWebhook'] as const;
 
-const mutationKey = ['handleUzumWebhook'];
+export const getHandleUzumWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,HandleUzumWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,HandleUzumWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleUzumWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2842,7 +3273,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleUzumWebhook>>, {data: BodyType<HandleUzumWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleUzumWebhook>>, HandleUzumWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleUzumWebhook(data,requestOptions)
@@ -2858,16 +3289,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleUzumWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleUzumWebhook>>>
     export type HandleUzumWebhookMutationBody = BodyType<HandleUzumWebhookBody>
     export type HandleUzumWebhookMutationError = ErrorType<unknown>
+    export type HandleUzumWebhookMutationVariables = {data: BodyType<HandleUzumWebhookBody>}
 
     /**
  * @summary Handle Uzum webhook
  */
 export const useHandleUzumWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,{data: BodyType<HandleUzumWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzumWebhook>>, TError,HandleUzumWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleUzumWebhook>>,
         TError,
-        {data: BodyType<HandleUzumWebhookBody>},
+        HandleUzumWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleUzumWebhookMutationOptions(options));
@@ -2886,11 +3318,25 @@ export const getCreatePaynetPaymentUrl = () => {
  */
 export const createPaynetPayment = async (createPaynetPaymentBody: CreatePaynetPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreatePaynetPayment200> => {
 
-  return customFetch<CreatePaynetPayment200>(getCreatePaynetPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreatePaynetPayment200>(getCreatePaynetPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createPaynetPaymentBody)
   }
 );}
@@ -2899,11 +3345,13 @@ export const createPaynetPayment = async (createPaynetPaymentBody: CreatePaynetP
 
 
 
-export const getCreatePaynetPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,{data: BodyType<CreatePaynetPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,{data: BodyType<CreatePaynetPaymentBody>}, TContext> => {
+export const getCreatePaynetPaymentMutationKey = () => ['createPaynetPayment'] as const;
 
-const mutationKey = ['createPaynetPayment'];
+export const getCreatePaynetPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,CreatePaynetPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,CreatePaynetPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreatePaynetPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2913,7 +3361,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPaynetPayment>>, {data: BodyType<CreatePaynetPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPaynetPayment>>, CreatePaynetPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createPaynetPayment(data,requestOptions)
@@ -2929,16 +3377,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreatePaynetPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createPaynetPayment>>>
     export type CreatePaynetPaymentMutationBody = BodyType<CreatePaynetPaymentBody>
     export type CreatePaynetPaymentMutationError = ErrorType<unknown>
+    export type CreatePaynetPaymentMutationVariables = {data: BodyType<CreatePaynetPaymentBody>}
 
     /**
  * @summary Create Paynet payment
  */
 export const useCreatePaynetPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,{data: BodyType<CreatePaynetPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaynetPayment>>, TError,CreatePaynetPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPaynetPayment>>,
         TError,
-        {data: BodyType<CreatePaynetPaymentBody>},
+        CreatePaynetPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreatePaynetPaymentMutationOptions(options));
@@ -2957,11 +3406,25 @@ export const getHandlePaynetWebhookUrl = () => {
  */
 export const handlePaynetWebhook = async (handlePaynetWebhookBody: HandlePaynetWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandlePaynetWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandlePaynetWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handlePaynetWebhookBody)
   }
 );}
@@ -2970,11 +3433,13 @@ export const handlePaynetWebhook = async (handlePaynetWebhookBody: HandlePaynetW
 
 
 
-export const getHandlePaynetWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,{data: BodyType<HandlePaynetWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,{data: BodyType<HandlePaynetWebhookBody>}, TContext> => {
+export const getHandlePaynetWebhookMutationKey = () => ['handlePaynetWebhook'] as const;
 
-const mutationKey = ['handlePaynetWebhook'];
+export const getHandlePaynetWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,HandlePaynetWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,HandlePaynetWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandlePaynetWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2984,7 +3449,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handlePaynetWebhook>>, {data: BodyType<HandlePaynetWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handlePaynetWebhook>>, HandlePaynetWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handlePaynetWebhook(data,requestOptions)
@@ -3000,16 +3465,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandlePaynetWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handlePaynetWebhook>>>
     export type HandlePaynetWebhookMutationBody = BodyType<HandlePaynetWebhookBody>
     export type HandlePaynetWebhookMutationError = ErrorType<unknown>
+    export type HandlePaynetWebhookMutationVariables = {data: BodyType<HandlePaynetWebhookBody>}
 
     /**
  * @summary Handle Paynet webhook
  */
 export const useHandlePaynetWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,{data: BodyType<HandlePaynetWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handlePaynetWebhook>>, TError,HandlePaynetWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handlePaynetWebhook>>,
         TError,
-        {data: BodyType<HandlePaynetWebhookBody>},
+        HandlePaynetWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandlePaynetWebhookMutationOptions(options));
@@ -3028,11 +3494,25 @@ export const getCreateAnorPaymentUrl = () => {
  */
 export const createAnorPayment = async (createAnorPaymentBody: CreateAnorPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateAnorPayment200> => {
 
-  return customFetch<CreateAnorPayment200>(getCreateAnorPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateAnorPayment200>(getCreateAnorPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createAnorPaymentBody)
   }
 );}
@@ -3041,11 +3521,13 @@ export const createAnorPayment = async (createAnorPaymentBody: CreateAnorPayment
 
 
 
-export const getCreateAnorPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,{data: BodyType<CreateAnorPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,{data: BodyType<CreateAnorPaymentBody>}, TContext> => {
+export const getCreateAnorPaymentMutationKey = () => ['createAnorPayment'] as const;
 
-const mutationKey = ['createAnorPayment'];
+export const getCreateAnorPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,CreateAnorPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,CreateAnorPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateAnorPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3055,7 +3537,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAnorPayment>>, {data: BodyType<CreateAnorPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAnorPayment>>, CreateAnorPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createAnorPayment(data,requestOptions)
@@ -3071,16 +3553,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateAnorPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createAnorPayment>>>
     export type CreateAnorPaymentMutationBody = BodyType<CreateAnorPaymentBody>
     export type CreateAnorPaymentMutationError = ErrorType<unknown>
+    export type CreateAnorPaymentMutationVariables = {data: BodyType<CreateAnorPaymentBody>}
 
     /**
  * @summary Create Anor payment
  */
 export const useCreateAnorPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,{data: BodyType<CreateAnorPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAnorPayment>>, TError,CreateAnorPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createAnorPayment>>,
         TError,
-        {data: BodyType<CreateAnorPaymentBody>},
+        CreateAnorPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateAnorPaymentMutationOptions(options));
@@ -3099,11 +3582,25 @@ export const getHandleAnorWebhookUrl = () => {
  */
 export const handleAnorWebhook = async (handleAnorWebhookBody: HandleAnorWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleAnorWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleAnorWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleAnorWebhookBody)
   }
 );}
@@ -3112,11 +3609,13 @@ export const handleAnorWebhook = async (handleAnorWebhookBody: HandleAnorWebhook
 
 
 
-export const getHandleAnorWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,{data: BodyType<HandleAnorWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,{data: BodyType<HandleAnorWebhookBody>}, TContext> => {
+export const getHandleAnorWebhookMutationKey = () => ['handleAnorWebhook'] as const;
 
-const mutationKey = ['handleAnorWebhook'];
+export const getHandleAnorWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,HandleAnorWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,HandleAnorWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleAnorWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3126,7 +3625,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleAnorWebhook>>, {data: BodyType<HandleAnorWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleAnorWebhook>>, HandleAnorWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleAnorWebhook(data,requestOptions)
@@ -3142,16 +3641,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleAnorWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleAnorWebhook>>>
     export type HandleAnorWebhookMutationBody = BodyType<HandleAnorWebhookBody>
     export type HandleAnorWebhookMutationError = ErrorType<unknown>
+    export type HandleAnorWebhookMutationVariables = {data: BodyType<HandleAnorWebhookBody>}
 
     /**
  * @summary Handle Anor webhook
  */
 export const useHandleAnorWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,{data: BodyType<HandleAnorWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleAnorWebhook>>, TError,HandleAnorWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleAnorWebhook>>,
         TError,
-        {data: BodyType<HandleAnorWebhookBody>},
+        HandleAnorWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleAnorWebhookMutationOptions(options));
@@ -3170,11 +3670,25 @@ export const getCreateNBUPaymentUrl = () => {
  */
 export const createNBUPayment = async (createNBUPaymentBody: CreateNBUPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateNBUPayment200> => {
 
-  return customFetch<CreateNBUPayment200>(getCreateNBUPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateNBUPayment200>(getCreateNBUPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createNBUPaymentBody)
   }
 );}
@@ -3183,11 +3697,13 @@ export const createNBUPayment = async (createNBUPaymentBody: CreateNBUPaymentBod
 
 
 
-export const getCreateNBUPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,{data: BodyType<CreateNBUPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,{data: BodyType<CreateNBUPaymentBody>}, TContext> => {
+export const getCreateNBUPaymentMutationKey = () => ['createNBUPayment'] as const;
 
-const mutationKey = ['createNBUPayment'];
+export const getCreateNBUPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,CreateNBUPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,CreateNBUPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateNBUPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3197,7 +3713,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNBUPayment>>, {data: BodyType<CreateNBUPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNBUPayment>>, CreateNBUPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createNBUPayment(data,requestOptions)
@@ -3213,16 +3729,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateNBUPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createNBUPayment>>>
     export type CreateNBUPaymentMutationBody = BodyType<CreateNBUPaymentBody>
     export type CreateNBUPaymentMutationError = ErrorType<unknown>
+    export type CreateNBUPaymentMutationVariables = {data: BodyType<CreateNBUPaymentBody>}
 
     /**
  * @summary Create NBU payment
  */
 export const useCreateNBUPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,{data: BodyType<CreateNBUPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNBUPayment>>, TError,CreateNBUPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createNBUPayment>>,
         TError,
-        {data: BodyType<CreateNBUPaymentBody>},
+        CreateNBUPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateNBUPaymentMutationOptions(options));
@@ -3241,11 +3758,25 @@ export const getHandleNBUWebhookUrl = () => {
  */
 export const handleNBUWebhook = async (handleNBUWebhookBody: HandleNBUWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleNBUWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleNBUWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleNBUWebhookBody)
   }
 );}
@@ -3254,11 +3785,13 @@ export const handleNBUWebhook = async (handleNBUWebhookBody: HandleNBUWebhookBod
 
 
 
-export const getHandleNBUWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,{data: BodyType<HandleNBUWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,{data: BodyType<HandleNBUWebhookBody>}, TContext> => {
+export const getHandleNBUWebhookMutationKey = () => ['handleNBUWebhook'] as const;
 
-const mutationKey = ['handleNBUWebhook'];
+export const getHandleNBUWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,HandleNBUWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,HandleNBUWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleNBUWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3268,7 +3801,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleNBUWebhook>>, {data: BodyType<HandleNBUWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleNBUWebhook>>, HandleNBUWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleNBUWebhook(data,requestOptions)
@@ -3284,16 +3817,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleNBUWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleNBUWebhook>>>
     export type HandleNBUWebhookMutationBody = BodyType<HandleNBUWebhookBody>
     export type HandleNBUWebhookMutationError = ErrorType<unknown>
+    export type HandleNBUWebhookMutationVariables = {data: BodyType<HandleNBUWebhookBody>}
 
     /**
  * @summary Handle NBU webhook
  */
 export const useHandleNBUWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,{data: BodyType<HandleNBUWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleNBUWebhook>>, TError,HandleNBUWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleNBUWebhook>>,
         TError,
-        {data: BodyType<HandleNBUWebhookBody>},
+        HandleNBUWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleNBUWebhookMutationOptions(options));
@@ -3312,11 +3846,25 @@ export const getCreateUzcardPaymentUrl = () => {
  */
 export const createUzcardPayment = async (createUzcardPaymentBody: CreateUzcardPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateUzcardPayment200> => {
 
-  return customFetch<CreateUzcardPayment200>(getCreateUzcardPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateUzcardPayment200>(getCreateUzcardPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createUzcardPaymentBody)
   }
 );}
@@ -3325,11 +3873,13 @@ export const createUzcardPayment = async (createUzcardPaymentBody: CreateUzcardP
 
 
 
-export const getCreateUzcardPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,{data: BodyType<CreateUzcardPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,{data: BodyType<CreateUzcardPaymentBody>}, TContext> => {
+export const getCreateUzcardPaymentMutationKey = () => ['createUzcardPayment'] as const;
 
-const mutationKey = ['createUzcardPayment'];
+export const getCreateUzcardPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,CreateUzcardPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,CreateUzcardPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateUzcardPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3339,7 +3889,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUzcardPayment>>, {data: BodyType<CreateUzcardPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUzcardPayment>>, CreateUzcardPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createUzcardPayment(data,requestOptions)
@@ -3355,16 +3905,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateUzcardPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createUzcardPayment>>>
     export type CreateUzcardPaymentMutationBody = BodyType<CreateUzcardPaymentBody>
     export type CreateUzcardPaymentMutationError = ErrorType<unknown>
+    export type CreateUzcardPaymentMutationVariables = {data: BodyType<CreateUzcardPaymentBody>}
 
     /**
  * @summary Create Uzcard payment
  */
 export const useCreateUzcardPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,{data: BodyType<CreateUzcardPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUzcardPayment>>, TError,CreateUzcardPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createUzcardPayment>>,
         TError,
-        {data: BodyType<CreateUzcardPaymentBody>},
+        CreateUzcardPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateUzcardPaymentMutationOptions(options));
@@ -3383,11 +3934,25 @@ export const getHandleUzcardWebhookUrl = () => {
  */
 export const handleUzcardWebhook = async (handleUzcardWebhookBody: HandleUzcardWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleUzcardWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleUzcardWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleUzcardWebhookBody)
   }
 );}
@@ -3396,11 +3961,13 @@ export const handleUzcardWebhook = async (handleUzcardWebhookBody: HandleUzcardW
 
 
 
-export const getHandleUzcardWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,{data: BodyType<HandleUzcardWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,{data: BodyType<HandleUzcardWebhookBody>}, TContext> => {
+export const getHandleUzcardWebhookMutationKey = () => ['handleUzcardWebhook'] as const;
 
-const mutationKey = ['handleUzcardWebhook'];
+export const getHandleUzcardWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,HandleUzcardWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,HandleUzcardWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleUzcardWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3410,7 +3977,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleUzcardWebhook>>, {data: BodyType<HandleUzcardWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleUzcardWebhook>>, HandleUzcardWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleUzcardWebhook(data,requestOptions)
@@ -3426,16 +3993,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleUzcardWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleUzcardWebhook>>>
     export type HandleUzcardWebhookMutationBody = BodyType<HandleUzcardWebhookBody>
     export type HandleUzcardWebhookMutationError = ErrorType<unknown>
+    export type HandleUzcardWebhookMutationVariables = {data: BodyType<HandleUzcardWebhookBody>}
 
     /**
  * @summary Handle Uzcard webhook
  */
 export const useHandleUzcardWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,{data: BodyType<HandleUzcardWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleUzcardWebhook>>, TError,HandleUzcardWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleUzcardWebhook>>,
         TError,
-        {data: BodyType<HandleUzcardWebhookBody>},
+        HandleUzcardWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleUzcardWebhookMutationOptions(options));
@@ -3454,11 +4022,25 @@ export const getCreateOctoPaymentUrl = () => {
  */
 export const createOctoPayment = async (createOctoPaymentBody: CreateOctoPaymentBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateOctoPayment200> => {
 
-  return customFetch<CreateOctoPayment200>(getCreateOctoPaymentUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateOctoPayment200>(getCreateOctoPaymentUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createOctoPaymentBody)
   }
 );}
@@ -3467,11 +4049,13 @@ export const createOctoPayment = async (createOctoPaymentBody: CreateOctoPayment
 
 
 
-export const getCreateOctoPaymentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,{data: BodyType<CreateOctoPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,{data: BodyType<CreateOctoPaymentBody>}, TContext> => {
+export const getCreateOctoPaymentMutationKey = () => ['createOctoPayment'] as const;
 
-const mutationKey = ['createOctoPayment'];
+export const getCreateOctoPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,CreateOctoPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,CreateOctoPaymentMutationVariables, TContext> => {
+
+const mutationKey = getCreateOctoPaymentMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3481,7 +4065,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOctoPayment>>, {data: BodyType<CreateOctoPaymentBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOctoPayment>>, CreateOctoPaymentMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createOctoPayment(data,requestOptions)
@@ -3497,16 +4081,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateOctoPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createOctoPayment>>>
     export type CreateOctoPaymentMutationBody = BodyType<CreateOctoPaymentBody>
     export type CreateOctoPaymentMutationError = ErrorType<unknown>
+    export type CreateOctoPaymentMutationVariables = {data: BodyType<CreateOctoPaymentBody>}
 
     /**
  * @summary Create Octo payment
  */
 export const useCreateOctoPayment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,{data: BodyType<CreateOctoPaymentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOctoPayment>>, TError,CreateOctoPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createOctoPayment>>,
         TError,
-        {data: BodyType<CreateOctoPaymentBody>},
+        CreateOctoPaymentMutationVariables,
         TContext
       > => {
       return useMutation(getCreateOctoPaymentMutationOptions(options));
@@ -3525,11 +4110,25 @@ export const getHandleOctoWebhookUrl = () => {
  */
 export const handleOctoWebhook = async (handleOctoWebhookBody: HandleOctoWebhookBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
-  return customFetch<void>(getHandleOctoWebhookUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getHandleOctoWebhookUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(handleOctoWebhookBody)
   }
 );}
@@ -3538,11 +4137,13 @@ export const handleOctoWebhook = async (handleOctoWebhookBody: HandleOctoWebhook
 
 
 
-export const getHandleOctoWebhookMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,{data: BodyType<HandleOctoWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,{data: BodyType<HandleOctoWebhookBody>}, TContext> => {
+export const getHandleOctoWebhookMutationKey = () => ['handleOctoWebhook'] as const;
 
-const mutationKey = ['handleOctoWebhook'];
+export const getHandleOctoWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,HandleOctoWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,HandleOctoWebhookMutationVariables, TContext> => {
+
+const mutationKey = getHandleOctoWebhookMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3552,7 +4153,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleOctoWebhook>>, {data: BodyType<HandleOctoWebhookBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleOctoWebhook>>, HandleOctoWebhookMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  handleOctoWebhook(data,requestOptions)
@@ -3568,16 +4169,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type HandleOctoWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof handleOctoWebhook>>>
     export type HandleOctoWebhookMutationBody = BodyType<HandleOctoWebhookBody>
     export type HandleOctoWebhookMutationError = ErrorType<unknown>
+    export type HandleOctoWebhookMutationVariables = {data: BodyType<HandleOctoWebhookBody>}
 
     /**
  * @summary Handle Octo webhook
  */
 export const useHandleOctoWebhook = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,{data: BodyType<HandleOctoWebhookBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleOctoWebhook>>, TError,HandleOctoWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof handleOctoWebhook>>,
         TError,
-        {data: BodyType<HandleOctoWebhookBody>},
+        HandleOctoWebhookMutationVariables,
         TContext
       > => {
       return useMutation(getHandleOctoWebhookMutationOptions(options));
@@ -3680,11 +4282,25 @@ export const getCreateMovieUrl = () => {
  */
 export const createMovie = async (createMovieBody: CreateMovieBody, options?: Parameters<typeof customFetch>[1]): Promise<Movie> => {
 
-  return customFetch<Movie>(getCreateMovieUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Movie>(getCreateMovieUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createMovieBody)
   }
 );}
@@ -3693,11 +4309,13 @@ export const createMovie = async (createMovieBody: CreateMovieBody, options?: Pa
 
 
 
-export const getCreateMovieMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,{data: BodyType<CreateMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,{data: BodyType<CreateMovieBody>}, TContext> => {
+export const getCreateMovieMutationKey = () => ['createMovie'] as const;
 
-const mutationKey = ['createMovie'];
+export const getCreateMovieMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,CreateMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,CreateMovieMutationVariables, TContext> => {
+
+const mutationKey = getCreateMovieMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3707,7 +4325,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMovie>>, {data: BodyType<CreateMovieBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMovie>>, CreateMovieMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createMovie(data,requestOptions)
@@ -3723,16 +4341,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateMovieMutationResult = NonNullable<Awaited<ReturnType<typeof createMovie>>>
     export type CreateMovieMutationBody = BodyType<CreateMovieBody>
     export type CreateMovieMutationError = ErrorType<unknown>
+    export type CreateMovieMutationVariables = {data: BodyType<CreateMovieBody>}
 
     /**
  * @summary Create a new movie
  */
 export const useCreateMovie = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,{data: BodyType<CreateMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovie>>, TError,CreateMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createMovie>>,
         TError,
-        {data: BodyType<CreateMovieBody>},
+        CreateMovieMutationVariables,
         TContext
       > => {
       return useMutation(getCreateMovieMutationOptions(options));
@@ -3829,11 +4448,25 @@ export const getUpdateMovieUrl = (id: string,) => {
 export const updateMovie = async (id: string,
     updateMovieBody: UpdateMovieBody, options?: Parameters<typeof customFetch>[1]): Promise<Movie> => {
 
-  return customFetch<Movie>(getUpdateMovieUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Movie>(getUpdateMovieUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateMovieBody)
   }
 );}
@@ -3842,11 +4475,13 @@ export const updateMovie = async (id: string,
 
 
 
-export const getUpdateMovieMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,{id: string;data: BodyType<UpdateMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,{id: string;data: BodyType<UpdateMovieBody>}, TContext> => {
+export const getUpdateMovieMutationKey = () => ['updateMovie'] as const;
 
-const mutationKey = ['updateMovie'];
+export const getUpdateMovieMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,UpdateMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,UpdateMovieMutationVariables, TContext> => {
+
+const mutationKey = getUpdateMovieMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3856,7 +4491,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMovie>>, {id: string;data: BodyType<UpdateMovieBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMovie>>, UpdateMovieMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateMovie(id,data,requestOptions)
@@ -3872,16 +4507,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateMovieMutationResult = NonNullable<Awaited<ReturnType<typeof updateMovie>>>
     export type UpdateMovieMutationBody = BodyType<UpdateMovieBody>
     export type UpdateMovieMutationError = ErrorType<unknown>
+    export type UpdateMovieMutationVariables = {id: string;data: BodyType<UpdateMovieBody>}
 
     /**
  * @summary Update movie
  */
 export const useUpdateMovie = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,{id: string;data: BodyType<UpdateMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMovie>>, TError,UpdateMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateMovie>>,
         TError,
-        {id: string;data: BodyType<UpdateMovieBody>},
+        UpdateMovieMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateMovieMutationOptions(options));
@@ -3913,11 +4549,13 @@ export const deleteMovie = async (id: string, options?: Parameters<typeof custom
 
 
 
-export const getDeleteMovieMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,{id: string}, TContext> => {
+export const getDeleteMovieMutationKey = () => ['deleteMovie'] as const;
 
-const mutationKey = ['deleteMovie'];
+export const getDeleteMovieMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,DeleteMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,DeleteMovieMutationVariables, TContext> => {
+
+const mutationKey = getDeleteMovieMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3927,7 +4565,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMovie>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMovie>>, DeleteMovieMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteMovie(id,requestOptions)
@@ -3943,16 +4581,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteMovieMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMovie>>>
 
     export type DeleteMovieMutationError = ErrorType<unknown>
+    export type DeleteMovieMutationVariables = {id: string}
 
     /**
  * @summary Delete movie
  */
 export const useDeleteMovie = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMovie>>, TError,DeleteMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteMovie>>,
         TError,
-        {id: string},
+        DeleteMovieMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteMovieMutationOptions(options));
@@ -3972,11 +4611,25 @@ export const getPublishMovieUrl = (id: string,) => {
 export const publishMovie = async (id: string,
     publishMovieBody: PublishMovieBody, options?: Parameters<typeof customFetch>[1]): Promise<Movie> => {
 
-  return customFetch<Movie>(getPublishMovieUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Movie>(getPublishMovieUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(publishMovieBody)
   }
 );}
@@ -3985,11 +4638,13 @@ export const publishMovie = async (id: string,
 
 
 
-export const getPublishMovieMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,{id: string;data: BodyType<PublishMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,{id: string;data: BodyType<PublishMovieBody>}, TContext> => {
+export const getPublishMovieMutationKey = () => ['publishMovie'] as const;
 
-const mutationKey = ['publishMovie'];
+export const getPublishMovieMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,PublishMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,PublishMovieMutationVariables, TContext> => {
+
+const mutationKey = getPublishMovieMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3999,7 +4654,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishMovie>>, {id: string;data: BodyType<PublishMovieBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishMovie>>, PublishMovieMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  publishMovie(id,data,requestOptions)
@@ -4015,16 +4670,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PublishMovieMutationResult = NonNullable<Awaited<ReturnType<typeof publishMovie>>>
     export type PublishMovieMutationBody = BodyType<PublishMovieBody>
     export type PublishMovieMutationError = ErrorType<unknown>
+    export type PublishMovieMutationVariables = {id: string;data: BodyType<PublishMovieBody>}
 
     /**
  * @summary Publish or unpublish movie
  */
 export const usePublishMovie = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,{id: string;data: BodyType<PublishMovieBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishMovie>>, TError,PublishMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof publishMovie>>,
         TError,
-        {id: string;data: BodyType<PublishMovieBody>},
+        PublishMovieMutationVariables,
         TContext
       > => {
       return useMutation(getPublishMovieMutationOptions(options));
@@ -4127,11 +4783,25 @@ export const getCreateSeriesUrl = () => {
  */
 export const createSeries = async (createSeriesBody: CreateSeriesBody, options?: Parameters<typeof customFetch>[1]): Promise<Series> => {
 
-  return customFetch<Series>(getCreateSeriesUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Series>(getCreateSeriesUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createSeriesBody)
   }
 );}
@@ -4140,11 +4810,13 @@ export const createSeries = async (createSeriesBody: CreateSeriesBody, options?:
 
 
 
-export const getCreateSeriesMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<CreateSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<CreateSeriesBody>}, TContext> => {
+export const getCreateSeriesMutationKey = () => ['createSeries'] as const;
 
-const mutationKey = ['createSeries'];
+export const getCreateSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,CreateSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,CreateSeriesMutationVariables, TContext> => {
+
+const mutationKey = getCreateSeriesMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4154,7 +4826,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeries>>, {data: BodyType<CreateSeriesBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeries>>, CreateSeriesMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createSeries(data,requestOptions)
@@ -4170,16 +4842,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof createSeries>>>
     export type CreateSeriesMutationBody = BodyType<CreateSeriesBody>
     export type CreateSeriesMutationError = ErrorType<unknown>
+    export type CreateSeriesMutationVariables = {data: BodyType<CreateSeriesBody>}
 
     /**
  * @summary Create a new series
  */
 export const useCreateSeries = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,{data: BodyType<CreateSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeries>>, TError,CreateSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSeries>>,
         TError,
-        {data: BodyType<CreateSeriesBody>},
+        CreateSeriesMutationVariables,
         TContext
       > => {
       return useMutation(getCreateSeriesMutationOptions(options));
@@ -4276,11 +4949,25 @@ export const getUpdateSeriesUrl = (id: string,) => {
 export const updateSeries = async (id: string,
     updateSeriesBody: UpdateSeriesBody, options?: Parameters<typeof customFetch>[1]): Promise<Series> => {
 
-  return customFetch<Series>(getUpdateSeriesUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Series>(getUpdateSeriesUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateSeriesBody)
   }
 );}
@@ -4289,11 +4976,13 @@ export const updateSeries = async (id: string,
 
 
 
-export const getUpdateSeriesMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<UpdateSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<UpdateSeriesBody>}, TContext> => {
+export const getUpdateSeriesMutationKey = () => ['updateSeries'] as const;
 
-const mutationKey = ['updateSeries'];
+export const getUpdateSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,UpdateSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,UpdateSeriesMutationVariables, TContext> => {
+
+const mutationKey = getUpdateSeriesMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4303,7 +4992,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSeries>>, {id: string;data: BodyType<UpdateSeriesBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSeries>>, UpdateSeriesMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateSeries(id,data,requestOptions)
@@ -4319,16 +5008,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof updateSeries>>>
     export type UpdateSeriesMutationBody = BodyType<UpdateSeriesBody>
     export type UpdateSeriesMutationError = ErrorType<unknown>
+    export type UpdateSeriesMutationVariables = {id: string;data: BodyType<UpdateSeriesBody>}
 
     /**
  * @summary Update series
  */
 export const useUpdateSeries = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,{id: string;data: BodyType<UpdateSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeries>>, TError,UpdateSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateSeries>>,
         TError,
-        {id: string;data: BodyType<UpdateSeriesBody>},
+        UpdateSeriesMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateSeriesMutationOptions(options));
@@ -4360,11 +5050,13 @@ export const deleteSeries = async (id: string, options?: Parameters<typeof custo
 
 
 
-export const getDeleteSeriesMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext> => {
+export const getDeleteSeriesMutationKey = () => ['deleteSeries'] as const;
 
-const mutationKey = ['deleteSeries'];
+export const getDeleteSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,DeleteSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,DeleteSeriesMutationVariables, TContext> => {
+
+const mutationKey = getDeleteSeriesMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4374,7 +5066,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSeries>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSeries>>, DeleteSeriesMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteSeries(id,requestOptions)
@@ -4390,16 +5082,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSeries>>>
 
     export type DeleteSeriesMutationError = ErrorType<unknown>
+    export type DeleteSeriesMutationVariables = {id: string}
 
     /**
  * @summary Delete series
  */
 export const useDeleteSeries = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSeries>>, TError,DeleteSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteSeries>>,
         TError,
-        {id: string},
+        DeleteSeriesMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteSeriesMutationOptions(options));
@@ -4419,11 +5112,25 @@ export const getPublishSeriesUrl = (id: string,) => {
 export const publishSeries = async (id: string,
     publishSeriesBody: PublishSeriesBody, options?: Parameters<typeof customFetch>[1]): Promise<Series> => {
 
-  return customFetch<Series>(getPublishSeriesUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Series>(getPublishSeriesUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(publishSeriesBody)
   }
 );}
@@ -4432,11 +5139,13 @@ export const publishSeries = async (id: string,
 
 
 
-export const getPublishSeriesMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,{id: string;data: BodyType<PublishSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,{id: string;data: BodyType<PublishSeriesBody>}, TContext> => {
+export const getPublishSeriesMutationKey = () => ['publishSeries'] as const;
 
-const mutationKey = ['publishSeries'];
+export const getPublishSeriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,PublishSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,PublishSeriesMutationVariables, TContext> => {
+
+const mutationKey = getPublishSeriesMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4446,7 +5155,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishSeries>>, {id: string;data: BodyType<PublishSeriesBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishSeries>>, PublishSeriesMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  publishSeries(id,data,requestOptions)
@@ -4462,16 +5171,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PublishSeriesMutationResult = NonNullable<Awaited<ReturnType<typeof publishSeries>>>
     export type PublishSeriesMutationBody = BodyType<PublishSeriesBody>
     export type PublishSeriesMutationError = ErrorType<unknown>
+    export type PublishSeriesMutationVariables = {id: string;data: BodyType<PublishSeriesBody>}
 
     /**
  * @summary Publish or unpublish series
  */
 export const usePublishSeries = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,{id: string;data: BodyType<PublishSeriesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishSeries>>, TError,PublishSeriesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof publishSeries>>,
         TError,
-        {id: string;data: BodyType<PublishSeriesBody>},
+        PublishSeriesMutationVariables,
         TContext
       > => {
       return useMutation(getPublishSeriesMutationOptions(options));
@@ -4568,11 +5278,25 @@ export const getCreateSeasonUrl = (id: string,) => {
 export const createSeason = async (id: string,
     createSeasonBody: CreateSeasonBody, options?: Parameters<typeof customFetch>[1]): Promise<Season> => {
 
-  return customFetch<Season>(getCreateSeasonUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Season>(getCreateSeasonUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createSeasonBody)
   }
 );}
@@ -4581,11 +5305,13 @@ export const createSeason = async (id: string,
 
 
 
-export const getCreateSeasonMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,{id: string;data: BodyType<CreateSeasonBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,{id: string;data: BodyType<CreateSeasonBody>}, TContext> => {
+export const getCreateSeasonMutationKey = () => ['createSeason'] as const;
 
-const mutationKey = ['createSeason'];
+export const getCreateSeasonMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,CreateSeasonMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,CreateSeasonMutationVariables, TContext> => {
+
+const mutationKey = getCreateSeasonMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4595,7 +5321,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeason>>, {id: string;data: BodyType<CreateSeasonBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeason>>, CreateSeasonMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  createSeason(id,data,requestOptions)
@@ -4611,16 +5337,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateSeasonMutationResult = NonNullable<Awaited<ReturnType<typeof createSeason>>>
     export type CreateSeasonMutationBody = BodyType<CreateSeasonBody>
     export type CreateSeasonMutationError = ErrorType<unknown>
+    export type CreateSeasonMutationVariables = {id: string;data: BodyType<CreateSeasonBody>}
 
     /**
  * @summary Create a new season
  */
 export const useCreateSeason = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,{id: string;data: BodyType<CreateSeasonBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeason>>, TError,CreateSeasonMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSeason>>,
         TError,
-        {id: string;data: BodyType<CreateSeasonBody>},
+        CreateSeasonMutationVariables,
         TContext
       > => {
       return useMutation(getCreateSeasonMutationOptions(options));
@@ -4724,11 +5451,25 @@ export const createEpisode = async (seriesId: string,
     seasonId: string,
     createEpisodeBody: CreateEpisodeBody, options?: Parameters<typeof customFetch>[1]): Promise<Episode> => {
 
-  return customFetch<Episode>(getCreateEpisodeUrl(seriesId,seasonId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Episode>(getCreateEpisodeUrl(seriesId,seasonId),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createEpisodeBody)
   }
 );}
@@ -4737,11 +5478,13 @@ export const createEpisode = async (seriesId: string,
 
 
 
-export const getCreateEpisodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,{seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,{seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>}, TContext> => {
+export const getCreateEpisodeMutationKey = () => ['createEpisode'] as const;
 
-const mutationKey = ['createEpisode'];
+export const getCreateEpisodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,CreateEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,CreateEpisodeMutationVariables, TContext> => {
+
+const mutationKey = getCreateEpisodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4751,7 +5494,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEpisode>>, {seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEpisode>>, CreateEpisodeMutationVariables> = (props) => {
           const {seriesId,seasonId,data} = props ?? {};
 
           return  createEpisode(seriesId,seasonId,data,requestOptions)
@@ -4767,16 +5510,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateEpisodeMutationResult = NonNullable<Awaited<ReturnType<typeof createEpisode>>>
     export type CreateEpisodeMutationBody = BodyType<CreateEpisodeBody>
     export type CreateEpisodeMutationError = ErrorType<unknown>
+    export type CreateEpisodeMutationVariables = {seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>}
 
     /**
  * @summary Create a new episode
  */
 export const useCreateEpisode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,{seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEpisode>>, TError,CreateEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createEpisode>>,
         TError,
-        {seriesId: string;seasonId: string;data: BodyType<CreateEpisodeBody>},
+        CreateEpisodeMutationVariables,
         TContext
       > => {
       return useMutation(getCreateEpisodeMutationOptions(options));
@@ -4796,11 +5540,25 @@ export const getUpdateEpisodeUrl = (id: string,) => {
 export const updateEpisode = async (id: string,
     updateEpisodeBody: UpdateEpisodeBody, options?: Parameters<typeof customFetch>[1]): Promise<Episode> => {
 
-  return customFetch<Episode>(getUpdateEpisodeUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Episode>(getUpdateEpisodeUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateEpisodeBody)
   }
 );}
@@ -4809,11 +5567,13 @@ export const updateEpisode = async (id: string,
 
 
 
-export const getUpdateEpisodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,{id: string;data: BodyType<UpdateEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,{id: string;data: BodyType<UpdateEpisodeBody>}, TContext> => {
+export const getUpdateEpisodeMutationKey = () => ['updateEpisode'] as const;
 
-const mutationKey = ['updateEpisode'];
+export const getUpdateEpisodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,UpdateEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,UpdateEpisodeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateEpisodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4823,7 +5583,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEpisode>>, {id: string;data: BodyType<UpdateEpisodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEpisode>>, UpdateEpisodeMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateEpisode(id,data,requestOptions)
@@ -4839,16 +5599,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateEpisodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateEpisode>>>
     export type UpdateEpisodeMutationBody = BodyType<UpdateEpisodeBody>
     export type UpdateEpisodeMutationError = ErrorType<unknown>
+    export type UpdateEpisodeMutationVariables = {id: string;data: BodyType<UpdateEpisodeBody>}
 
     /**
  * @summary Update episode
  */
 export const useUpdateEpisode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,{id: string;data: BodyType<UpdateEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEpisode>>, TError,UpdateEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateEpisode>>,
         TError,
-        {id: string;data: BodyType<UpdateEpisodeBody>},
+        UpdateEpisodeMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateEpisodeMutationOptions(options));
@@ -4880,11 +5641,13 @@ export const deleteEpisode = async (id: string, options?: Parameters<typeof cust
 
 
 
-export const getDeleteEpisodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,{id: string}, TContext> => {
+export const getDeleteEpisodeMutationKey = () => ['deleteEpisode'] as const;
 
-const mutationKey = ['deleteEpisode'];
+export const getDeleteEpisodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,DeleteEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,DeleteEpisodeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteEpisodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4894,7 +5657,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEpisode>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEpisode>>, DeleteEpisodeMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteEpisode(id,requestOptions)
@@ -4910,16 +5673,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteEpisodeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEpisode>>>
 
     export type DeleteEpisodeMutationError = ErrorType<unknown>
+    export type DeleteEpisodeMutationVariables = {id: string}
 
     /**
  * @summary Delete episode
  */
 export const useDeleteEpisode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEpisode>>, TError,DeleteEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteEpisode>>,
         TError,
-        {id: string},
+        DeleteEpisodeMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteEpisodeMutationOptions(options));
@@ -4939,11 +5703,25 @@ export const getPublishEpisodeUrl = (id: string,) => {
 export const publishEpisode = async (id: string,
     publishEpisodeBody: PublishEpisodeBody, options?: Parameters<typeof customFetch>[1]): Promise<Episode> => {
 
-  return customFetch<Episode>(getPublishEpisodeUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Episode>(getPublishEpisodeUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(publishEpisodeBody)
   }
 );}
@@ -4952,11 +5730,13 @@ export const publishEpisode = async (id: string,
 
 
 
-export const getPublishEpisodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,{id: string;data: BodyType<PublishEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,{id: string;data: BodyType<PublishEpisodeBody>}, TContext> => {
+export const getPublishEpisodeMutationKey = () => ['publishEpisode'] as const;
 
-const mutationKey = ['publishEpisode'];
+export const getPublishEpisodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,PublishEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,PublishEpisodeMutationVariables, TContext> => {
+
+const mutationKey = getPublishEpisodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -4966,7 +5746,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishEpisode>>, {id: string;data: BodyType<PublishEpisodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishEpisode>>, PublishEpisodeMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  publishEpisode(id,data,requestOptions)
@@ -4982,16 +5762,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PublishEpisodeMutationResult = NonNullable<Awaited<ReturnType<typeof publishEpisode>>>
     export type PublishEpisodeMutationBody = BodyType<PublishEpisodeBody>
     export type PublishEpisodeMutationError = ErrorType<unknown>
+    export type PublishEpisodeMutationVariables = {id: string;data: BodyType<PublishEpisodeBody>}
 
     /**
  * @summary Publish or unpublish episode
  */
 export const usePublishEpisode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,{id: string;data: BodyType<PublishEpisodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishEpisode>>, TError,PublishEpisodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof publishEpisode>>,
         TError,
-        {id: string;data: BodyType<PublishEpisodeBody>},
+        PublishEpisodeMutationVariables,
         TContext
       > => {
       return useMutation(getPublishEpisodeMutationOptions(options));
@@ -5087,11 +5868,25 @@ export const getCreateGenreUrl = () => {
  */
 export const createGenre = async (createGenreBody: CreateGenreBody, options?: Parameters<typeof customFetch>[1]): Promise<Genre> => {
 
-  return customFetch<Genre>(getCreateGenreUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Genre>(getCreateGenreUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createGenreBody)
   }
 );}
@@ -5100,11 +5895,13 @@ export const createGenre = async (createGenreBody: CreateGenreBody, options?: Pa
 
 
 
-export const getCreateGenreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,{data: BodyType<CreateGenreBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,{data: BodyType<CreateGenreBody>}, TContext> => {
+export const getCreateGenreMutationKey = () => ['createGenre'] as const;
 
-const mutationKey = ['createGenre'];
+export const getCreateGenreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,CreateGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,CreateGenreMutationVariables, TContext> => {
+
+const mutationKey = getCreateGenreMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5114,7 +5911,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGenre>>, {data: BodyType<CreateGenreBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGenre>>, CreateGenreMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createGenre(data,requestOptions)
@@ -5130,16 +5927,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateGenreMutationResult = NonNullable<Awaited<ReturnType<typeof createGenre>>>
     export type CreateGenreMutationBody = BodyType<CreateGenreBody>
     export type CreateGenreMutationError = ErrorType<unknown>
+    export type CreateGenreMutationVariables = {data: BodyType<CreateGenreBody>}
 
     /**
  * @summary Create a new genre
  */
 export const useCreateGenre = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,{data: BodyType<CreateGenreBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGenre>>, TError,CreateGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createGenre>>,
         TError,
-        {data: BodyType<CreateGenreBody>},
+        CreateGenreMutationVariables,
         TContext
       > => {
       return useMutation(getCreateGenreMutationOptions(options));
@@ -5159,11 +5957,25 @@ export const getUpdateGenreUrl = (id: number,) => {
 export const updateGenre = async (id: number,
     updateGenreBody: UpdateGenreBody, options?: Parameters<typeof customFetch>[1]): Promise<Genre> => {
 
-  return customFetch<Genre>(getUpdateGenreUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Genre>(getUpdateGenreUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateGenreBody)
   }
 );}
@@ -5172,11 +5984,13 @@ export const updateGenre = async (id: number,
 
 
 
-export const getUpdateGenreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,{id: number;data: BodyType<UpdateGenreBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,{id: number;data: BodyType<UpdateGenreBody>}, TContext> => {
+export const getUpdateGenreMutationKey = () => ['updateGenre'] as const;
 
-const mutationKey = ['updateGenre'];
+export const getUpdateGenreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,UpdateGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,UpdateGenreMutationVariables, TContext> => {
+
+const mutationKey = getUpdateGenreMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5186,7 +6000,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateGenre>>, {id: number;data: BodyType<UpdateGenreBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateGenre>>, UpdateGenreMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateGenre(id,data,requestOptions)
@@ -5202,16 +6016,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateGenreMutationResult = NonNullable<Awaited<ReturnType<typeof updateGenre>>>
     export type UpdateGenreMutationBody = BodyType<UpdateGenreBody>
     export type UpdateGenreMutationError = ErrorType<unknown>
+    export type UpdateGenreMutationVariables = {id: number;data: BodyType<UpdateGenreBody>}
 
     /**
  * @summary Update genre
  */
 export const useUpdateGenre = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,{id: number;data: BodyType<UpdateGenreBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGenre>>, TError,UpdateGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateGenre>>,
         TError,
-        {id: number;data: BodyType<UpdateGenreBody>},
+        UpdateGenreMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateGenreMutationOptions(options));
@@ -5243,11 +6058,13 @@ export const deleteGenre = async (id: number, options?: Parameters<typeof custom
 
 
 
-export const getDeleteGenreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,{id: number}, TContext> => {
+export const getDeleteGenreMutationKey = () => ['deleteGenre'] as const;
 
-const mutationKey = ['deleteGenre'];
+export const getDeleteGenreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,DeleteGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,DeleteGenreMutationVariables, TContext> => {
+
+const mutationKey = getDeleteGenreMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5257,7 +6074,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGenre>>, {id: number}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGenre>>, DeleteGenreMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteGenre(id,requestOptions)
@@ -5273,16 +6090,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteGenreMutationResult = NonNullable<Awaited<ReturnType<typeof deleteGenre>>>
 
     export type DeleteGenreMutationError = ErrorType<unknown>
+    export type DeleteGenreMutationVariables = {id: number}
 
     /**
  * @summary Delete genre
  */
 export const useDeleteGenre = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGenre>>, TError,DeleteGenreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteGenre>>,
         TError,
-        {id: number},
+        DeleteGenreMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteGenreMutationOptions(options));
@@ -5442,6 +6260,94 @@ export function useHealthCheckDetailed<TData = Awaited<ReturnType<typeof healthC
 
 
 
+export const getIdentityRegisterUrl = () => {
+
+
+
+
+  return `/api/identity/auth/register`
+}
+
+/**
+ * @summary Register new admin user
+ */
+export const identityRegister = async (identityRegisterInput: IdentityRegisterInput, options?: Parameters<typeof customFetch>[1]): Promise<IdentityAuthResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IdentityAuthResult>(getIdentityRegisterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(identityRegisterInput)
+  }
+);}
+
+
+
+
+
+export const getIdentityRegisterMutationKey = () => ['identityRegister'] as const;
+
+export const getIdentityRegisterMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityRegister>>, TError,IdentityRegisterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof identityRegister>>, TError,IdentityRegisterMutationVariables, TContext> => {
+
+const mutationKey = getIdentityRegisterMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof identityRegister>>, IdentityRegisterMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  identityRegister(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IdentityRegisterMutationResult = NonNullable<Awaited<ReturnType<typeof identityRegister>>>
+    export type IdentityRegisterMutationBody = BodyType<IdentityRegisterInput>
+    export type IdentityRegisterMutationError = ErrorType<void>
+    export type IdentityRegisterMutationVariables = {data: BodyType<IdentityRegisterInput>}
+
+    /**
+ * @summary Register new admin user
+ */
+export const useIdentityRegister = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityRegister>>, TError,IdentityRegisterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof identityRegister>>,
+        TError,
+        IdentityRegisterMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIdentityRegisterMutationOptions(options));
+    }
+
 export const getIdentityLoginUrl = () => {
 
 
@@ -5455,11 +6361,25 @@ export const getIdentityLoginUrl = () => {
  */
 export const identityLogin = async (identityLoginInput: IdentityLoginInput, options?: Parameters<typeof customFetch>[1]): Promise<IdentityAuthResult> => {
 
-  return customFetch<IdentityAuthResult>(getIdentityLoginUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IdentityAuthResult>(getIdentityLoginUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(identityLoginInput)
   }
 );}
@@ -5468,11 +6388,13 @@ export const identityLogin = async (identityLoginInput: IdentityLoginInput, opti
 
 
 
-export const getIdentityLoginMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,{data: BodyType<IdentityLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,{data: BodyType<IdentityLoginInput>}, TContext> => {
+export const getIdentityLoginMutationKey = () => ['identityLogin'] as const;
 
-const mutationKey = ['identityLogin'];
+export const getIdentityLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,IdentityLoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,IdentityLoginMutationVariables, TContext> => {
+
+const mutationKey = getIdentityLoginMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5482,7 +6404,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof identityLogin>>, {data: BodyType<IdentityLoginInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof identityLogin>>, IdentityLoginMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  identityLogin(data,requestOptions)
@@ -5498,16 +6420,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type IdentityLoginMutationResult = NonNullable<Awaited<ReturnType<typeof identityLogin>>>
     export type IdentityLoginMutationBody = BodyType<IdentityLoginInput>
     export type IdentityLoginMutationError = ErrorType<void>
+    export type IdentityLoginMutationVariables = {data: BodyType<IdentityLoginInput>}
 
     /**
  * @summary Login with JWT authentication
  */
 export const useIdentityLogin = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,{data: BodyType<IdentityLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityLogin>>, TError,IdentityLoginMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof identityLogin>>,
         TError,
-        {data: BodyType<IdentityLoginInput>},
+        IdentityLoginMutationVariables,
         TContext
       > => {
       return useMutation(getIdentityLoginMutationOptions(options));
@@ -5526,11 +6449,25 @@ export const getRefreshAccessTokenUrl = () => {
  */
 export const refreshAccessToken = async (refreshTokenInput: RefreshTokenInput, options?: Parameters<typeof customFetch>[1]): Promise<IdentityAuthResult> => {
 
-  return customFetch<IdentityAuthResult>(getRefreshAccessTokenUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IdentityAuthResult>(getRefreshAccessTokenUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(refreshTokenInput)
   }
 );}
@@ -5539,11 +6476,13 @@ export const refreshAccessToken = async (refreshTokenInput: RefreshTokenInput, o
 
 
 
-export const getRefreshAccessTokenMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext> => {
+export const getRefreshAccessTokenMutationKey = () => ['refreshAccessToken'] as const;
 
-const mutationKey = ['refreshAccessToken'];
+export const getRefreshAccessTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,RefreshAccessTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,RefreshAccessTokenMutationVariables, TContext> => {
+
+const mutationKey = getRefreshAccessTokenMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5553,7 +6492,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAccessToken>>, {data: BodyType<RefreshTokenInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAccessToken>>, RefreshAccessTokenMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  refreshAccessToken(data,requestOptions)
@@ -5569,16 +6508,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RefreshAccessTokenMutationResult = NonNullable<Awaited<ReturnType<typeof refreshAccessToken>>>
     export type RefreshAccessTokenMutationBody = BodyType<RefreshTokenInput>
     export type RefreshAccessTokenMutationError = ErrorType<unknown>
+    export type RefreshAccessTokenMutationVariables = {data: BodyType<RefreshTokenInput>}
 
     /**
  * @summary Refresh access token
  */
 export const useRefreshAccessToken = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAccessToken>>, TError,RefreshAccessTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof refreshAccessToken>>,
         TError,
-        {data: BodyType<RefreshTokenInput>},
+        RefreshAccessTokenMutationVariables,
         TContext
       > => {
       return useMutation(getRefreshAccessTokenMutationOptions(options));
@@ -5687,11 +6627,13 @@ export const identityLogout = async ( options?: Parameters<typeof customFetch>[1
 
 
 
+export const getIdentityLogoutMutationKey = () => ['identityLogout'] as const;
+
 export const getIdentityLogoutMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityLogout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof identityLogout>>, TError,void, TContext> => {
 
-const mutationKey = ['identityLogout'];
+const mutationKey = getIdentityLogoutMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5717,6 +6659,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type IdentityLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof identityLogout>>>
 
     export type IdentityLogoutMutationError = ErrorType<unknown>
+
 
     /**
  * @summary Logout user
@@ -5850,11 +6793,13 @@ export const markAllNotificationsRead = async ( options?: Parameters<typeof cust
 
 
 
+export const getMarkAllNotificationsReadMutationKey = () => ['markAllNotificationsRead'] as const;
+
 export const getMarkAllNotificationsReadMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllNotificationsRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof markAllNotificationsRead>>, TError,void, TContext> => {
 
-const mutationKey = ['markAllNotificationsRead'];
+const mutationKey = getMarkAllNotificationsReadMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5880,6 +6825,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type MarkAllNotificationsReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAllNotificationsRead>>>
 
     export type MarkAllNotificationsReadMutationError = ErrorType<unknown>
+
 
     /**
  * @summary Mark all notifications as read
@@ -5921,11 +6867,13 @@ export const markNotificationRead = async (id: string, options?: Parameters<type
 
 
 
-export const getMarkNotificationReadMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,{id: string}, TContext> => {
+export const getMarkNotificationReadMutationKey = () => ['markNotificationRead'] as const;
 
-const mutationKey = ['markNotificationRead'];
+export const getMarkNotificationReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,MarkNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,MarkNotificationReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkNotificationReadMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5935,7 +6883,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markNotificationRead>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markNotificationRead>>, MarkNotificationReadMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  markNotificationRead(id,requestOptions)
@@ -5951,16 +6899,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type MarkNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markNotificationRead>>>
 
     export type MarkNotificationReadMutationError = ErrorType<unknown>
+    export type MarkNotificationReadMutationVariables = {id: string}
 
     /**
  * @summary Mark notification as read
  */
 export const useMarkNotificationRead = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markNotificationRead>>, TError,MarkNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof markNotificationRead>>,
         TError,
-        {id: string},
+        MarkNotificationReadMutationVariables,
         TContext
       > => {
       return useMutation(getMarkNotificationReadMutationOptions(options));
@@ -6056,11 +7005,25 @@ export const getCreateNotificationTemplateUrl = () => {
  */
 export const createNotificationTemplate = async (notificationTemplateInput: NotificationTemplateInput, options?: Parameters<typeof customFetch>[1]): Promise<NotificationTemplate> => {
 
-  return customFetch<NotificationTemplate>(getCreateNotificationTemplateUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<NotificationTemplate>(getCreateNotificationTemplateUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(notificationTemplateInput)
   }
 );}
@@ -6069,11 +7032,13 @@ export const createNotificationTemplate = async (notificationTemplateInput: Noti
 
 
 
-export const getCreateNotificationTemplateMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,{data: BodyType<NotificationTemplateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,{data: BodyType<NotificationTemplateInput>}, TContext> => {
+export const getCreateNotificationTemplateMutationKey = () => ['createNotificationTemplate'] as const;
 
-const mutationKey = ['createNotificationTemplate'];
+export const getCreateNotificationTemplateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,CreateNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,CreateNotificationTemplateMutationVariables, TContext> => {
+
+const mutationKey = getCreateNotificationTemplateMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6083,7 +7048,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNotificationTemplate>>, {data: BodyType<NotificationTemplateInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNotificationTemplate>>, CreateNotificationTemplateMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createNotificationTemplate(data,requestOptions)
@@ -6099,16 +7064,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateNotificationTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof createNotificationTemplate>>>
     export type CreateNotificationTemplateMutationBody = BodyType<NotificationTemplateInput>
     export type CreateNotificationTemplateMutationError = ErrorType<unknown>
+    export type CreateNotificationTemplateMutationVariables = {data: BodyType<NotificationTemplateInput>}
 
     /**
  * @summary Create notification template
  */
 export const useCreateNotificationTemplate = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,{data: BodyType<NotificationTemplateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotificationTemplate>>, TError,CreateNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createNotificationTemplate>>,
         TError,
-        {data: BodyType<NotificationTemplateInput>},
+        CreateNotificationTemplateMutationVariables,
         TContext
       > => {
       return useMutation(getCreateNotificationTemplateMutationOptions(options));
@@ -6127,11 +7093,25 @@ export const getBroadcastNotificationUrl = () => {
  */
 export const broadcastNotification = async (broadcastInput: BroadcastInput, options?: Parameters<typeof customFetch>[1]): Promise<BroadcastNotification202> => {
 
-  return customFetch<BroadcastNotification202>(getBroadcastNotificationUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BroadcastNotification202>(getBroadcastNotificationUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(broadcastInput)
   }
 );}
@@ -6140,11 +7120,13 @@ export const broadcastNotification = async (broadcastInput: BroadcastInput, opti
 
 
 
-export const getBroadcastNotificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,{data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,{data: BodyType<BroadcastInput>}, TContext> => {
+export const getBroadcastNotificationMutationKey = () => ['broadcastNotification'] as const;
 
-const mutationKey = ['broadcastNotification'];
+export const getBroadcastNotificationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,BroadcastNotificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,BroadcastNotificationMutationVariables, TContext> => {
+
+const mutationKey = getBroadcastNotificationMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6154,7 +7136,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof broadcastNotification>>, {data: BodyType<BroadcastInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof broadcastNotification>>, BroadcastNotificationMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  broadcastNotification(data,requestOptions)
@@ -6170,16 +7152,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type BroadcastNotificationMutationResult = NonNullable<Awaited<ReturnType<typeof broadcastNotification>>>
     export type BroadcastNotificationMutationBody = BodyType<BroadcastInput>
     export type BroadcastNotificationMutationError = ErrorType<unknown>
+    export type BroadcastNotificationMutationVariables = {data: BodyType<BroadcastInput>}
 
     /**
  * @summary Send broadcast notification to users
  */
 export const useBroadcastNotification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,{data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastNotification>>, TError,BroadcastNotificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof broadcastNotification>>,
         TError,
-        {data: BodyType<BroadcastInput>},
+        BroadcastNotificationMutationVariables,
         TContext
       > => {
       return useMutation(getBroadcastNotificationMutationOptions(options));
@@ -6359,11 +7342,25 @@ export const getCreateSubscriptionPlanUrl = () => {
  */
 export const createSubscriptionPlan = async (createSubscriptionPlanBody: CreateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPlan> => {
 
-  return customFetch<SubscriptionPlan>(getCreateSubscriptionPlanUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SubscriptionPlan>(getCreateSubscriptionPlanUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createSubscriptionPlanBody)
   }
 );}
@@ -6372,11 +7369,13 @@ export const createSubscriptionPlan = async (createSubscriptionPlanBody: CreateS
 
 
 
-export const getCreateSubscriptionPlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,{data: BodyType<CreateSubscriptionPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,{data: BodyType<CreateSubscriptionPlanBody>}, TContext> => {
+export const getCreateSubscriptionPlanMutationKey = () => ['createSubscriptionPlan'] as const;
 
-const mutationKey = ['createSubscriptionPlan'];
+export const getCreateSubscriptionPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,CreateSubscriptionPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,CreateSubscriptionPlanMutationVariables, TContext> => {
+
+const mutationKey = getCreateSubscriptionPlanMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6386,7 +7385,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSubscriptionPlan>>, {data: BodyType<CreateSubscriptionPlanBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSubscriptionPlan>>, CreateSubscriptionPlanMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createSubscriptionPlan(data,requestOptions)
@@ -6402,16 +7401,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateSubscriptionPlanMutationResult = NonNullable<Awaited<ReturnType<typeof createSubscriptionPlan>>>
     export type CreateSubscriptionPlanMutationBody = BodyType<CreateSubscriptionPlanBody>
     export type CreateSubscriptionPlanMutationError = ErrorType<unknown>
+    export type CreateSubscriptionPlanMutationVariables = {data: BodyType<CreateSubscriptionPlanBody>}
 
     /**
  * @summary Create a new subscription plan
  */
 export const useCreateSubscriptionPlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,{data: BodyType<CreateSubscriptionPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSubscriptionPlan>>, TError,CreateSubscriptionPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSubscriptionPlan>>,
         TError,
-        {data: BodyType<CreateSubscriptionPlanBody>},
+        CreateSubscriptionPlanMutationVariables,
         TContext
       > => {
       return useMutation(getCreateSubscriptionPlanMutationOptions(options));
@@ -6431,11 +7431,25 @@ export const getUpdateSubscriptionPlanUrl = (id: string,) => {
 export const updateSubscriptionPlan = async (id: string,
     updateSubscriptionPlanBody: UpdateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPlan> => {
 
-  return customFetch<SubscriptionPlan>(getUpdateSubscriptionPlanUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SubscriptionPlan>(getUpdateSubscriptionPlanUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateSubscriptionPlanBody)
   }
 );}
@@ -6444,11 +7458,13 @@ export const updateSubscriptionPlan = async (id: string,
 
 
 
-export const getUpdateSubscriptionPlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,{id: string;data: BodyType<UpdateSubscriptionPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,{id: string;data: BodyType<UpdateSubscriptionPlanBody>}, TContext> => {
+export const getUpdateSubscriptionPlanMutationKey = () => ['updateSubscriptionPlan'] as const;
 
-const mutationKey = ['updateSubscriptionPlan'];
+export const getUpdateSubscriptionPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,UpdateSubscriptionPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,UpdateSubscriptionPlanMutationVariables, TContext> => {
+
+const mutationKey = getUpdateSubscriptionPlanMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6458,7 +7474,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSubscriptionPlan>>, {id: string;data: BodyType<UpdateSubscriptionPlanBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSubscriptionPlan>>, UpdateSubscriptionPlanMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateSubscriptionPlan(id,data,requestOptions)
@@ -6474,16 +7490,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateSubscriptionPlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateSubscriptionPlan>>>
     export type UpdateSubscriptionPlanMutationBody = BodyType<UpdateSubscriptionPlanBody>
     export type UpdateSubscriptionPlanMutationError = ErrorType<unknown>
+    export type UpdateSubscriptionPlanMutationVariables = {id: string;data: BodyType<UpdateSubscriptionPlanBody>}
 
     /**
  * @summary Update subscription plan
  */
 export const useUpdateSubscriptionPlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,{id: string;data: BodyType<UpdateSubscriptionPlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubscriptionPlan>>, TError,UpdateSubscriptionPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateSubscriptionPlan>>,
         TError,
-        {id: string;data: BodyType<UpdateSubscriptionPlanBody>},
+        UpdateSubscriptionPlanMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateSubscriptionPlanMutationOptions(options));
@@ -6515,11 +7532,13 @@ export const cancelSubscription = async (id: string, options?: Parameters<typeof
 
 
 
-export const getCancelSubscriptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,{id: string}, TContext> => {
+export const getCancelSubscriptionMutationKey = () => ['cancelSubscription'] as const;
 
-const mutationKey = ['cancelSubscription'];
+export const getCancelSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,CancelSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,CancelSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getCancelSubscriptionMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6529,7 +7548,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSubscription>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSubscription>>, CancelSubscriptionMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  cancelSubscription(id,requestOptions)
@@ -6545,16 +7564,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CancelSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof cancelSubscription>>>
 
     export type CancelSubscriptionMutationError = ErrorType<unknown>
+    export type CancelSubscriptionMutationVariables = {id: string}
 
     /**
  * @summary Cancel a user subscription
  */
 export const useCancelSubscription = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscription>>, TError,CancelSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof cancelSubscription>>,
         TError,
-        {id: string},
+        CancelSubscriptionMutationVariables,
         TContext
       > => {
       return useMutation(getCancelSubscriptionMutationOptions(options));
@@ -6574,11 +7594,25 @@ export const getExtendSubscriptionUrl = (id: string,) => {
 export const extendSubscription = async (id: string,
     extendSubscriptionBody: ExtendSubscriptionBody, options?: Parameters<typeof customFetch>[1]): Promise<Subscription> => {
 
-  return customFetch<Subscription>(getExtendSubscriptionUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Subscription>(getExtendSubscriptionUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(extendSubscriptionBody)
   }
 );}
@@ -6587,11 +7621,13 @@ export const extendSubscription = async (id: string,
 
 
 
-export const getExtendSubscriptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,{id: string;data: BodyType<ExtendSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,{id: string;data: BodyType<ExtendSubscriptionBody>}, TContext> => {
+export const getExtendSubscriptionMutationKey = () => ['extendSubscription'] as const;
 
-const mutationKey = ['extendSubscription'];
+export const getExtendSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,ExtendSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,ExtendSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getExtendSubscriptionMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6601,7 +7637,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extendSubscription>>, {id: string;data: BodyType<ExtendSubscriptionBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extendSubscription>>, ExtendSubscriptionMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  extendSubscription(id,data,requestOptions)
@@ -6617,16 +7653,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExtendSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof extendSubscription>>>
     export type ExtendSubscriptionMutationBody = BodyType<ExtendSubscriptionBody>
     export type ExtendSubscriptionMutationError = ErrorType<unknown>
+    export type ExtendSubscriptionMutationVariables = {id: string;data: BodyType<ExtendSubscriptionBody>}
 
     /**
  * @summary Extend a user subscription
  */
 export const useExtendSubscription = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,{id: string;data: BodyType<ExtendSubscriptionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendSubscription>>, TError,ExtendSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof extendSubscription>>,
         TError,
-        {id: string;data: BodyType<ExtendSubscriptionBody>},
+        ExtendSubscriptionMutationVariables,
         TContext
       > => {
       return useMutation(getExtendSubscriptionMutationOptions(options));
@@ -6722,11 +7759,25 @@ export const getUpdateTelegramConfigUrl = () => {
  */
 export const updateTelegramConfig = async (telegramConfigUpdate: TelegramConfigUpdate, options?: Parameters<typeof customFetch>[1]): Promise<TelegramConfig> => {
 
-  return customFetch<TelegramConfig>(getUpdateTelegramConfigUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TelegramConfig>(getUpdateTelegramConfigUrl(),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(telegramConfigUpdate)
   }
 );}
@@ -6735,11 +7786,13 @@ export const updateTelegramConfig = async (telegramConfigUpdate: TelegramConfigU
 
 
 
-export const getUpdateTelegramConfigMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,{data: BodyType<TelegramConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,{data: BodyType<TelegramConfigUpdate>}, TContext> => {
+export const getUpdateTelegramConfigMutationKey = () => ['updateTelegramConfig'] as const;
 
-const mutationKey = ['updateTelegramConfig'];
+export const getUpdateTelegramConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,UpdateTelegramConfigMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,UpdateTelegramConfigMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTelegramConfigMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6749,7 +7802,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTelegramConfig>>, {data: BodyType<TelegramConfigUpdate>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTelegramConfig>>, UpdateTelegramConfigMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  updateTelegramConfig(data,requestOptions)
@@ -6765,16 +7818,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateTelegramConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateTelegramConfig>>>
     export type UpdateTelegramConfigMutationBody = BodyType<TelegramConfigUpdate>
     export type UpdateTelegramConfigMutationError = ErrorType<unknown>
+    export type UpdateTelegramConfigMutationVariables = {data: BodyType<TelegramConfigUpdate>}
 
     /**
  * @summary Update Telegram bot configuration
  */
 export const useUpdateTelegramConfig = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,{data: BodyType<TelegramConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTelegramConfig>>, TError,UpdateTelegramConfigMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateTelegramConfig>>,
         TError,
-        {data: BodyType<TelegramConfigUpdate>},
+        UpdateTelegramConfigMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateTelegramConfigMutationOptions(options));
@@ -6947,11 +8001,25 @@ export const getCreateTelegramChannelUrl = () => {
  */
 export const createTelegramChannel = async (telegramChannelInput: TelegramChannelInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramChannel> => {
 
-  return customFetch<TelegramChannel>(getCreateTelegramChannelUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TelegramChannel>(getCreateTelegramChannelUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(telegramChannelInput)
   }
 );}
@@ -6960,11 +8028,13 @@ export const createTelegramChannel = async (telegramChannelInput: TelegramChanne
 
 
 
-export const getCreateTelegramChannelMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,{data: BodyType<TelegramChannelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,{data: BodyType<TelegramChannelInput>}, TContext> => {
+export const getCreateTelegramChannelMutationKey = () => ['createTelegramChannel'] as const;
 
-const mutationKey = ['createTelegramChannel'];
+export const getCreateTelegramChannelMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,CreateTelegramChannelMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,CreateTelegramChannelMutationVariables, TContext> => {
+
+const mutationKey = getCreateTelegramChannelMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -6974,7 +8044,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTelegramChannel>>, {data: BodyType<TelegramChannelInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTelegramChannel>>, CreateTelegramChannelMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  createTelegramChannel(data,requestOptions)
@@ -6990,16 +8060,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateTelegramChannelMutationResult = NonNullable<Awaited<ReturnType<typeof createTelegramChannel>>>
     export type CreateTelegramChannelMutationBody = BodyType<TelegramChannelInput>
     export type CreateTelegramChannelMutationError = ErrorType<unknown>
+    export type CreateTelegramChannelMutationVariables = {data: BodyType<TelegramChannelInput>}
 
     /**
  * @summary Register a new storage channel
  */
 export const useCreateTelegramChannel = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,{data: BodyType<TelegramChannelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTelegramChannel>>, TError,CreateTelegramChannelMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createTelegramChannel>>,
         TError,
-        {data: BodyType<TelegramChannelInput>},
+        CreateTelegramChannelMutationVariables,
         TContext
       > => {
       return useMutation(getCreateTelegramChannelMutationOptions(options));
@@ -7202,11 +8273,25 @@ export const getUpdateUserUrl = (id: string,) => {
 export const updateUser = async (id: string,
     updateUserInput: UpdateUserInput, options?: Parameters<typeof customFetch>[1]): Promise<UserDetailResponse> => {
 
-  return customFetch<UserDetailResponse>(getUpdateUserUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UserDetailResponse>(getUpdateUserUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateUserInput)
   }
 );}
@@ -7215,11 +8300,13 @@ export const updateUser = async (id: string,
 
 
 
-export const getUpdateUserMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext> => {
+export const getUpdateUserMutationKey = () => ['updateUser'] as const;
 
-const mutationKey = ['updateUser'];
+export const getUpdateUserMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext> => {
+
+const mutationKey = getUpdateUserMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -7229,7 +8316,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, {id: string;data: BodyType<UpdateUserInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, UpdateUserMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateUser(id,data,requestOptions)
@@ -7245,16 +8332,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateUser>>>
     export type UpdateUserMutationBody = BodyType<UpdateUserInput>
     export type UpdateUserMutationError = ErrorType<ErrorResponse>
+    export type UpdateUserMutationVariables = {id: string;data: BodyType<UpdateUserInput>}
 
     /**
  * @summary Update user
  */
 export const useUpdateUser = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,UpdateUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateUser>>,
         TError,
-        {id: string;data: BodyType<UpdateUserInput>},
+        UpdateUserMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateUserMutationOptions(options));
@@ -7299,11 +8387,13 @@ export const deleteUser = async (id: string,
 
 
 
-export const getDeleteUserMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: string;params?: DeleteUserParams}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: string;params?: DeleteUserParams}, TContext> => {
+export const getDeleteUserMutationKey = () => ['deleteUser'] as const;
 
-const mutationKey = ['deleteUser'];
+export const getDeleteUserMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext> => {
+
+const mutationKey = getDeleteUserMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -7313,7 +8403,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, {id: string;params?: DeleteUserParams}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, DeleteUserMutationVariables> = (props) => {
           const {id,params} = props ?? {};
 
           return  deleteUser(id,params,requestOptions)
@@ -7329,16 +8419,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUser>>>
 
     export type DeleteUserMutationError = ErrorType<ErrorResponse>
+    export type DeleteUserMutationVariables = {id: string;params?: DeleteUserParams}
 
     /**
  * @summary Delete user
  */
 export const useDeleteUser = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: string;params?: DeleteUserParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,DeleteUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteUser>>,
         TError,
-        {id: string;params?: DeleteUserParams},
+        DeleteUserMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteUserMutationOptions(options));
@@ -7440,11 +8531,25 @@ export const getBlockUserUrl = (id: string,) => {
 export const blockUser = async (id: string,
     blockUserInput: BlockUserInput, options?: Parameters<typeof customFetch>[1]): Promise<UserDetailResponse> => {
 
-  return customFetch<UserDetailResponse>(getBlockUserUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UserDetailResponse>(getBlockUserUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(blockUserInput)
   }
 );}
@@ -7453,11 +8558,13 @@ export const blockUser = async (id: string,
 
 
 
-export const getBlockUserMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string;data: BodyType<BlockUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string;data: BodyType<BlockUserInput>}, TContext> => {
+export const getBlockUserMutationKey = () => ['blockUser'] as const;
 
-const mutationKey = ['blockUser'];
+export const getBlockUserMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,BlockUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,BlockUserMutationVariables, TContext> => {
+
+const mutationKey = getBlockUserMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -7467,7 +8574,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof blockUser>>, {id: string;data: BodyType<BlockUserInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof blockUser>>, BlockUserMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  blockUser(id,data,requestOptions)
@@ -7483,16 +8590,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type BlockUserMutationResult = NonNullable<Awaited<ReturnType<typeof blockUser>>>
     export type BlockUserMutationBody = BodyType<BlockUserInput>
     export type BlockUserMutationError = ErrorType<ErrorResponse>
+    export type BlockUserMutationVariables = {id: string;data: BodyType<BlockUserInput>}
 
     /**
  * @summary Block or unblock user
  */
 export const useBlockUser = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string;data: BodyType<BlockUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,BlockUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof blockUser>>,
         TError,
-        {id: string;data: BodyType<BlockUserInput>},
+        BlockUserMutationVariables,
         TContext
       > => {
       return useMutation(getBlockUserMutationOptions(options));
@@ -7514,11 +8622,25 @@ export const getGrantUserSubscriptionUrl = (id: string,) => {
 export const grantUserSubscription = async (id: string,
     grantSubscriptionInput: GrantSubscriptionInput, options?: Parameters<typeof customFetch>[1]): Promise<UserDetailResponse> => {
 
-  return customFetch<UserDetailResponse>(getGrantUserSubscriptionUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UserDetailResponse>(getGrantUserSubscriptionUrl(id),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(grantSubscriptionInput)
   }
 );}
@@ -7527,11 +8649,13 @@ export const grantUserSubscription = async (id: string,
 
 
 
-export const getGrantUserSubscriptionMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,{id: string;data: BodyType<GrantSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,{id: string;data: BodyType<GrantSubscriptionInput>}, TContext> => {
+export const getGrantUserSubscriptionMutationKey = () => ['grantUserSubscription'] as const;
 
-const mutationKey = ['grantUserSubscription'];
+export const getGrantUserSubscriptionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,GrantUserSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,GrantUserSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getGrantUserSubscriptionMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -7541,7 +8665,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof grantUserSubscription>>, {id: string;data: BodyType<GrantSubscriptionInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof grantUserSubscription>>, GrantUserSubscriptionMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  grantUserSubscription(id,data,requestOptions)
@@ -7557,16 +8681,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type GrantUserSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof grantUserSubscription>>>
     export type GrantUserSubscriptionMutationBody = BodyType<GrantSubscriptionInput>
     export type GrantUserSubscriptionMutationError = ErrorType<ErrorResponse>
+    export type GrantUserSubscriptionMutationVariables = {id: string;data: BodyType<GrantSubscriptionInput>}
 
     /**
  * @summary Grant a subscription to a user
  */
 export const useGrantUserSubscription = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,{id: string;data: BodyType<GrantSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantUserSubscription>>, TError,GrantUserSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof grantUserSubscription>>,
         TError,
-        {id: string;data: BodyType<GrantSubscriptionInput>},
+        GrantUserSubscriptionMutationVariables,
         TContext
       > => {
       return useMutation(getGrantUserSubscriptionMutationOptions(options));
@@ -7694,11 +8819,13 @@ export const exportUsers = async (params?: ExportUsersParams, options?: Paramete
 
 
 
-export const getExportUsersMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,{params?: ExportUsersParams}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,{params?: ExportUsersParams}, TContext> => {
+export const getExportUsersMutationKey = () => ['exportUsers'] as const;
 
-const mutationKey = ['exportUsers'];
+export const getExportUsersMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,ExportUsersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,ExportUsersMutationVariables, TContext> => {
+
+const mutationKey = getExportUsersMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -7708,7 +8835,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportUsers>>, {params?: ExportUsersParams}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportUsers>>, ExportUsersMutationVariables> = (props) => {
           const {params} = props ?? {};
 
           return  exportUsers(params,requestOptions)
@@ -7724,16 +8851,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExportUsersMutationResult = NonNullable<Awaited<ReturnType<typeof exportUsers>>>
 
     export type ExportUsersMutationError = ErrorType<ErrorResponse>
+    export type ExportUsersMutationVariables = {params?: ExportUsersParams}
 
     /**
  * @summary Export users
  */
 export const useExportUsers = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,{params?: ExportUsersParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportUsers>>, TError,ExportUsersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof exportUsers>>,
         TError,
-        {params?: ExportUsersParams},
+        ExportUsersMutationVariables,
         TContext
       > => {
       return useMutation(getExportUsersMutationOptions(options));
@@ -8036,11 +9164,13 @@ if(uploadVideoCodeBody.channelId !== undefined) {
 
 
 
-export const getUploadVideoCodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,{data: BodyType<UploadVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,{data: BodyType<UploadVideoCodeBody>}, TContext> => {
+export const getUploadVideoCodeMutationKey = () => ['uploadVideoCode'] as const;
 
-const mutationKey = ['uploadVideoCode'];
+export const getUploadVideoCodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,UploadVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,UploadVideoCodeMutationVariables, TContext> => {
+
+const mutationKey = getUploadVideoCodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -8050,7 +9180,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadVideoCode>>, {data: BodyType<UploadVideoCodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadVideoCode>>, UploadVideoCodeMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  uploadVideoCode(data,requestOptions)
@@ -8066,16 +9196,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UploadVideoCodeMutationResult = NonNullable<Awaited<ReturnType<typeof uploadVideoCode>>>
     export type UploadVideoCodeMutationBody = BodyType<UploadVideoCodeBody>
     export type UploadVideoCodeMutationError = ErrorType<unknown>
+    export type UploadVideoCodeMutationVariables = {data: BodyType<UploadVideoCodeBody>}
 
     /**
  * @summary Upload a new video and create code
  */
 export const useUploadVideoCode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,{data: BodyType<UploadVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVideoCode>>, TError,UploadVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof uploadVideoCode>>,
         TError,
-        {data: BodyType<UploadVideoCodeBody>},
+        UploadVideoCodeMutationVariables,
         TContext
       > => {
       return useMutation(getUploadVideoCodeMutationOptions(options));
@@ -8094,11 +9225,25 @@ export const getImportVideoCodeUrl = () => {
  */
 export const importVideoCode = async (importVideoCodeBody: ImportVideoCodeBody, options?: Parameters<typeof customFetch>[1]): Promise<VideoCode> => {
 
-  return customFetch<VideoCode>(getImportVideoCodeUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VideoCode>(getImportVideoCodeUrl(),
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(importVideoCodeBody)
   }
 );}
@@ -8107,11 +9252,13 @@ export const importVideoCode = async (importVideoCodeBody: ImportVideoCodeBody, 
 
 
 
-export const getImportVideoCodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,{data: BodyType<ImportVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,{data: BodyType<ImportVideoCodeBody>}, TContext> => {
+export const getImportVideoCodeMutationKey = () => ['importVideoCode'] as const;
 
-const mutationKey = ['importVideoCode'];
+export const getImportVideoCodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,ImportVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,ImportVideoCodeMutationVariables, TContext> => {
+
+const mutationKey = getImportVideoCodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -8121,7 +9268,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importVideoCode>>, {data: BodyType<ImportVideoCodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importVideoCode>>, ImportVideoCodeMutationVariables> = (props) => {
           const {data} = props ?? {};
 
           return  importVideoCode(data,requestOptions)
@@ -8137,16 +9284,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ImportVideoCodeMutationResult = NonNullable<Awaited<ReturnType<typeof importVideoCode>>>
     export type ImportVideoCodeMutationBody = BodyType<ImportVideoCodeBody>
     export type ImportVideoCodeMutationError = ErrorType<unknown>
+    export type ImportVideoCodeMutationVariables = {data: BodyType<ImportVideoCodeBody>}
 
     /**
  * @summary Import a new video code from existing Telegram file
  */
 export const useImportVideoCode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,{data: BodyType<ImportVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importVideoCode>>, TError,ImportVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof importVideoCode>>,
         TError,
-        {data: BodyType<ImportVideoCodeBody>},
+        ImportVideoCodeMutationVariables,
         TContext
       > => {
       return useMutation(getImportVideoCodeMutationOptions(options));
@@ -8166,11 +9314,25 @@ export const getUpdateVideoCodeUrl = (id: string,) => {
 export const updateVideoCode = async (id: string,
     updateVideoCodeBody: UpdateVideoCodeBody, options?: Parameters<typeof customFetch>[1]): Promise<VideoCode> => {
 
-  return customFetch<VideoCode>(getUpdateVideoCodeUrl(id),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VideoCode>(getUpdateVideoCodeUrl(id),
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(updateVideoCodeBody)
   }
 );}
@@ -8179,11 +9341,13 @@ export const updateVideoCode = async (id: string,
 
 
 
-export const getUpdateVideoCodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,{id: string;data: BodyType<UpdateVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,{id: string;data: BodyType<UpdateVideoCodeBody>}, TContext> => {
+export const getUpdateVideoCodeMutationKey = () => ['updateVideoCode'] as const;
 
-const mutationKey = ['updateVideoCode'];
+export const getUpdateVideoCodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,UpdateVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,UpdateVideoCodeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateVideoCodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -8193,7 +9357,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVideoCode>>, {id: string;data: BodyType<UpdateVideoCodeBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVideoCode>>, UpdateVideoCodeMutationVariables> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateVideoCode(id,data,requestOptions)
@@ -8209,16 +9373,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateVideoCodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateVideoCode>>>
     export type UpdateVideoCodeMutationBody = BodyType<UpdateVideoCodeBody>
     export type UpdateVideoCodeMutationError = ErrorType<unknown>
+    export type UpdateVideoCodeMutationVariables = {id: string;data: BodyType<UpdateVideoCodeBody>}
 
     /**
  * @summary Update video code
  */
 export const useUpdateVideoCode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,{id: string;data: BodyType<UpdateVideoCodeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVideoCode>>, TError,UpdateVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateVideoCode>>,
         TError,
-        {id: string;data: BodyType<UpdateVideoCodeBody>},
+        UpdateVideoCodeMutationVariables,
         TContext
       > => {
       return useMutation(getUpdateVideoCodeMutationOptions(options));
@@ -8250,11 +9415,13 @@ export const deleteVideoCode = async (id: string, options?: Parameters<typeof cu
 
 
 
-export const getDeleteVideoCodeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,{id: string}, TContext> => {
+export const getDeleteVideoCodeMutationKey = () => ['deleteVideoCode'] as const;
 
-const mutationKey = ['deleteVideoCode'];
+export const getDeleteVideoCodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,DeleteVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,DeleteVideoCodeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteVideoCodeMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -8264,7 +9431,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVideoCode>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVideoCode>>, DeleteVideoCodeMutationVariables> = (props) => {
           const {id} = props ?? {};
 
           return  deleteVideoCode(id,requestOptions)
@@ -8280,16 +9447,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteVideoCodeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVideoCode>>>
 
     export type DeleteVideoCodeMutationError = ErrorType<unknown>
+    export type DeleteVideoCodeMutationVariables = {id: string}
 
     /**
  * @summary Delete video code
  */
 export const useDeleteVideoCode = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVideoCode>>, TError,DeleteVideoCodeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteVideoCode>>,
         TError,
-        {id: string},
+        DeleteVideoCodeMutationVariables,
         TContext
       > => {
       return useMutation(getDeleteVideoCodeMutationOptions(options));

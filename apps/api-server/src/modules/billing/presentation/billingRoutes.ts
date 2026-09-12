@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BillingController } from "./BillingController";
-import { validate, requireAuth } from "@/shared/middleware";
-import { requirePermission } from "@/lib/auth";
+import { validate, requireAuth, requirePermission } from "@/shared/middleware";
+import { Permission } from "@/shared/constants/permissions";
 import {
   CreatePlanSchema,
   UpdatePlanSchema,
@@ -57,7 +57,7 @@ export function createBillingRouter(controller: BillingController): Router {
   // ===== Plans =====
   router.post(
     "/plans",
-    requirePermission("manage:billing"),
+    requirePermission(Permission.MANAGE_BILLING),
     validate({ body: CreatePlanSchema }),
     (req, res, next) => controller.createPlan(req, res, next),
   );
@@ -71,13 +71,13 @@ export function createBillingRouter(controller: BillingController): Router {
   );
   router.put(
     "/plans/:id",
-    requirePermission("manage:billing"),
+    requirePermission(Permission.MANAGE_BILLING),
     validate({ params: PlanIdSchema, body: UpdatePlanSchema }),
     (req, res, next) => controller.updatePlan(req, res, next),
   );
   router.delete(
     "/plans/:id",
-    requirePermission("manage:billing"),
+    requirePermission(Permission.MANAGE_BILLING),
     validate({ params: PlanIdSchema }),
     (req, res, next) => controller.deletePlan(req, res, next),
   );
@@ -118,7 +118,7 @@ export function createBillingRouter(controller: BillingController): Router {
   );
   router.patch(
     "/invoices/:id/pay",
-    requirePermission("manage:billing"),
+    requirePermission(Permission.MANAGE_BILLING),
     validate({ params: InvoiceIdSchema }),
     (req, res, next) => controller.markInvoicePaid(req, res, next),
   );
@@ -142,7 +142,7 @@ export function createBillingRouter(controller: BillingController): Router {
   );
   router.patch(
     "/payments/:id/refund",
-    requirePermission("manage:billing"),
+    requirePermission(Permission.MANAGE_BILLING),
     validate({ params: PaymentIdSchema }),
     (req, res, next) => controller.refundPayment(req, res, next),
   );

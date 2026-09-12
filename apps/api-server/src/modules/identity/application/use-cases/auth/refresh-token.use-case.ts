@@ -19,10 +19,6 @@ export class RefreshTokenUseCase {
       throw new Error("User not found");
     }
 
-    if (!(await this.sessionRepo.isActive(user.id, dto.refreshToken))) {
-      throw new Error("Refresh token has been revoked or expired");
-    }
-
     if (!user.isActive) {
       throw new Error("Account is not active");
     }
@@ -39,12 +35,15 @@ export class RefreshTokenUseCase {
       role: user.role.name,
       permissions: user.permissions.map((p) => p.name),
     });
-    await this.sessionRepo.revoke(user.id, dto.refreshToken);
-    await this.sessionRepo.create(
+
+    // Atomic token rotation to prevent race conditions
+    await this.sessionRepo.rotate(
       user.id,
+      dto.refreshToken,
       refreshToken,
       new Date(Date.now() + 604800 * 1000),
     );
+
     const expiresIn = 3600;
 
     return {

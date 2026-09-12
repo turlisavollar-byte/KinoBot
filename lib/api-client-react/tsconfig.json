@@ -7,9 +7,11 @@
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["dom", "es2022"],
+    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

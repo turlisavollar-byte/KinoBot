@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { NotificationController } from "../controllers/notification.controller";
-import { requirePermission } from "@/lib/auth";
+import { requireAuth, requirePermission } from "@/shared/middleware";
 import { Permission } from "@/shared/constants/permissions";
 
 export function createNotificationsRouter(
@@ -10,16 +10,19 @@ export function createNotificationsRouter(
 
   router.get(
     "/templates",
+    requireAuth,
     requirePermission(Permission.READ_NOTIFICATIONS),
     notificationController.listTemplates,
   );
   router.post(
     "/templates",
+    requireAuth,
     requirePermission(Permission.MANAGE_NOTIFICATIONS),
     notificationController.createTemplate,
   );
   router.post(
     "/broadcast",
+    requireAuth,
     requirePermission(Permission.SEND_NOTIFICATIONS),
     notificationController.createBroadcast,
   );

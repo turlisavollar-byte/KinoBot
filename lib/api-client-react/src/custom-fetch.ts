@@ -1,3 +1,10 @@
+// Patch Headers.entries() for TypeScript compatibility
+declare global {
+  interface Headers {
+    entries(): IterableIterator<[string, string]>;
+  }
+}
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };

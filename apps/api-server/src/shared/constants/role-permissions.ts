@@ -22,6 +22,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.CREATE_USERS,
     Permission.UPDATE_USERS,
     Permission.DELETE_USERS,
+    Permission.READ_ADMIN_USERS,
+    Permission.CREATE_ADMIN_USERS,
+    Permission.UPDATE_ADMIN_USERS,
+    Permission.DELETE_ADMIN_USERS,
     Permission.READ_ANY_PROFILE,
     Permission.UPDATE_ANY_PROFILE,
     Permission.LOCK_USERS,
@@ -115,6 +119,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     // Users
     Permission.READ_USERS,
 
+    // System
+    Permission.VIEW_ANALYTICS,
+
     // Content
     Permission.READ_CONTENT,
     Permission.UPDATE_CONTENT,
@@ -129,6 +136,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.READ_OWN_PROFILE,
     Permission.READ_OWN_SESSIONS,
     Permission.READ_CONTENT,
+    Permission.VIEW_ANALYTICS,
+    Permission.READ_SUBSCRIPTIONS,
   ],
   viewer: [
     // Profile
@@ -139,6 +148,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
     // Content
     Permission.READ_CONTENT,
+    Permission.VIEW_ANALYTICS,
+    Permission.READ_SUBSCRIPTIONS,
   ],
 };
 

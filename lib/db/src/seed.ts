@@ -4,43 +4,75 @@
 // =============================================================================
 
 import { db } from "./index";
-import { adminUsersTable, genresTable, subscriptionPlansTable } from "./schema";
-import { eq } from "drizzle-orm";
+import {
+  adminUsersTable,
+  genresTable,
+  rolesTable,
+  subscriptionPlansTable,
+} from "./schema";
+import { eq, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 async function bootstrapAdmin(): Promise<void> {
-  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const email = (
+    process.env.SUPER_ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL
+  )
+    ?.trim()
+    .toLowerCase();
+  const password =
+    process.env.SUPER_ADMIN_PASSWORD || process.env.BOOTSTRAP_ADMIN_PASSWORD;
   if (!email && !password) return;
   if (!email || !password) {
     throw new Error(
-      "BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD must be provided together",
+      "SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD must be provided together",
     );
   }
   if (password.length < 12) {
-    throw new Error("BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters");
+    throw new Error("SUPER_ADMIN_PASSWORD must be at least 12 characters");
   }
 
-  const [existingAdmin] = await db
+  const [existingSuperAdmin] = await db
     .select({ id: adminUsersTable.id })
     .from(adminUsersTable)
-    .where(eq(adminUsersTable.email, email))
+    .leftJoin(rolesTable, eq(adminUsersTable.roleId, rolesTable.id))
+    .where(
+      or(
+        eq(adminUsersTable.role, "superadmin"),
+        eq(rolesTable.name, "superadmin"),
+      ),
+    )
     .limit(1);
-  if (existingAdmin) {
-    console.log(`Admin bootstrap skipped; account already exists: ${email}`);
+  if (existingSuperAdmin) {
+    console.log("Superadmin bootstrap skipped; a superadmin already exists");
     return;
+  }
+
+  const [superAdminRole] = await db
+    .select({ id: rolesTable.id })
+    .from(rolesTable)
+    .where(eq(rolesTable.name, "superadmin"))
+    .limit(1);
+  if (!superAdminRole) {
+    throw new Error(
+      "Superadmin role is not configured; run the RBAC seed first",
+    );
   }
 
   const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
   const passwordHash = await bcrypt.hash(password, saltRounds);
   await db.insert(adminUsersTable).values({
     email,
-    name: process.env.BOOTSTRAP_ADMIN_NAME?.trim() || "Administrator",
+    name:
+      (
+        process.env.SUPER_ADMIN_NAME || process.env.BOOTSTRAP_ADMIN_NAME
+      )?.trim() || "Developer",
     passwordHash,
-    role: "admin",
+    role: "superadmin",
+    roleId: superAdminRole.id,
     isActive: true,
+    isEmailVerified: true,
   });
-  console.log(`Admin bootstrap account created: ${email}`);
+  console.log(`Superadmin bootstrap account created: ${email}`);
 }
 
 async function seed() {

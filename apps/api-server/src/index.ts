@@ -2,6 +2,7 @@ import "reflect-metadata";
 import "dotenv/config";
 import app from "@/app";
 import { startBot } from "@/bot/index";
+import { bootstrapSuperAdmin } from "@/modules/identity";
 
 // Increase EventEmitter max listeners to prevent memory leak warnings
 process.setMaxListeners(20);
@@ -19,6 +20,7 @@ if (Number.isNaN(port) || port <= 0) {
 console.log(`Starting server on port ${port}...`);
 
 async function startServer() {
+  await bootstrapSuperAdmin();
   app.listen(port, "0.0.0.0", () => {
     console.log(`Server successfully started on port ${port}`);
 

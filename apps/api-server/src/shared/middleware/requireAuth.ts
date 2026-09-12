@@ -1,10 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
-import { requireAuth as baseRequireAuth } from "@/lib/auth";
+import { getAuthMiddlewareInstance } from "@/modules/identity";
 
+// Use Identity module's canonical auth middleware
+// This consolidates authentication logic and ensures DB is authoritative
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  await baseRequireAuth(req, res, next);
+  const middleware = getAuthMiddlewareInstance();
+  await middleware.requireAuth(req, res, next);
 }

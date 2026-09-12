@@ -178,7 +178,7 @@ function Show-DeploymentInfo {
     Write-Host ""
     Write-Host "Admin access:"
     Write-Host "   Use the explicitly configured bootstrap account, if one was provided."
-    Write-Host "   Remove BOOTSTRAP_ADMIN_PASSWORD from the environment after first use."
+    Write-Host "   Remove SUPER_ADMIN_PASSWORD from the environment after first use."
     Write-Host ""
     Write-Host "Useful commands:"
     Write-Host "   View logs: docker-compose logs -f"

@@ -7,9 +7,7 @@ import {
 
 function getAuthenticatedRole(req: Request): Role | null {
   const authUser = (req as Request & { user?: { role?: string } }).user;
-  const roleName =
-    authUser?.role ??
-    (req as Request & { admin?: { role?: string } }).admin?.role;
+  const roleName = authUser?.role;
   if (!roleName) return null;
   return normalizeRoleName(roleName);
 }
@@ -19,14 +17,25 @@ export function requireRole(minRole: Role) {
     const role = getAuthenticatedRole(req);
 
     if (!role) {
-      res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({ 
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+          timestamp: new Date().toISOString(),
+        }
+      });
       return;
     }
 
     if (!hasRole(role, minRole)) {
       res.status(403).json({
-        error: "Forbidden",
-        message: `Requires ${minRole} role or higher`,
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: `Requires ${minRole} role or higher`,
+          timestamp: new Date().toISOString(),
+        }
       });
       return;
     }

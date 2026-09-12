@@ -8,12 +8,17 @@ function hashToken(token: string): string {
 }
 
 export class DrizzleSessionRepository implements ISessionRepository {
-  async create(adminId: string, token: string, expiresAt: Date, metadata?: {
-    device?: string;
-    ip?: string;
-    userAgent?: string;
-    sessionName?: string;
-  }): Promise<void> {
+  async create(
+    adminId: string,
+    token: string,
+    expiresAt: Date,
+    metadata?: {
+      device?: string;
+      ip?: string;
+      userAgent?: string;
+      sessionName?: string;
+    },
+  ): Promise<void> {
     await db.insert(adminSessionsTable).values({
       adminId,
       tokenHash: hashToken(token),
@@ -68,12 +73,18 @@ export class DrizzleSessionRepository implements ISessionRepository {
       );
   }
 
-  async rotate(adminId: string, oldToken: string, newToken: string, expiresAt: Date): Promise<void> {
+  async rotate(
+    adminId: string,
+    oldToken: string,
+    newToken: string,
+    expiresAt: Date,
+  ): Promise<void> {
     await db.transaction(async (tx) => {
-      // First, check if the old token is still active within the transaction
-      const [session] = await tx
-        .select({ id: adminSessionsTable.id })
-        .from(adminSessionsTable)
+      // Claim the old session in one conditional write so only one concurrent
+      // refresh request can rotate it successfully.
+      const [revokedSession] = await tx
+        .update(adminSessionsTable)
+        .set({ revokedAt: new Date(), lastUsedAt: new Date() })
         .where(
           and(
             eq(adminSessionsTable.adminId, adminId),
@@ -82,23 +93,11 @@ export class DrizzleSessionRepository implements ISessionRepository {
             gt(adminSessionsTable.expiresAt, new Date()),
           ),
         )
-        .limit(1);
+        .returning({ id: adminSessionsTable.id });
 
-      if (!session) {
+      if (!revokedSession) {
         throw new Error("Refresh token has been revoked or expired");
       }
-
-      // Revoke the old token
-      await tx
-        .update(adminSessionsTable)
-        .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(adminSessionsTable.adminId, adminId),
-            eq(adminSessionsTable.tokenHash, hashToken(oldToken)),
-            isNull(adminSessionsTable.revokedAt),
-          ),
-        );
 
       // Create the new token
       await tx.insert(adminSessionsTable).values({
@@ -122,16 +121,18 @@ export class DrizzleSessionRepository implements ISessionRepository {
       );
   }
 
-  async findByAdminId(adminId: string): Promise<Array<{
-    id: string;
-    device?: string;
-    ip?: string;
-    userAgent?: string;
-    sessionName?: string;
-    lastUsedAt?: Date;
-    createdAt: Date;
-    expiresAt: Date;
-  }>> {
+  async findByAdminId(adminId: string): Promise<
+    Array<{
+      id: string;
+      device?: string;
+      ip?: string;
+      userAgent?: string;
+      sessionName?: string;
+      lastUsedAt?: Date;
+      createdAt: Date;
+      expiresAt: Date;
+    }>
+  > {
     const sessions = await db
       .select({
         id: adminSessionsTable.id,
@@ -154,7 +155,7 @@ export class DrizzleSessionRepository implements ISessionRepository {
       .orderBy(adminSessionsTable.createdAt);
 
     // Convert null to undefined for optional fields
-    return sessions.map(session => ({
+    return sessions.map((session) => ({
       id: session.id,
       device: session.device ?? undefined,
       ip: session.ip ?? undefined,

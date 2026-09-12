@@ -2,7 +2,7 @@
   "compilerOptions": {
     "incremental": true,
     "isolatedModules": true,
-    "lib": ["es2022"],
+    "lib": ["es2022", "dom", "dom.iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmitOnError": true,
@@ -18,7 +18,7 @@
     "strictPropertyInitialization": true,
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
-    "skipLibCheck": true,
+    "skipLibCheck": true, // Skip type checking for generated code
     "target": "es2022",
     "customConditions": ["workspace"],
     "experimentalDecorators": true,

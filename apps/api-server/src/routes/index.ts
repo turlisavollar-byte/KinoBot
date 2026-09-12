@@ -3,11 +3,8 @@ import { Router, type IRouter } from "express";
 // ─── Core business routes (still using legacy structure) ─────────────────────
 import telegramRouter from "@/routes/telegram";
 import videoCodesRouter from "@/modules/video-content";
-import adminUsersRouter from "@/routes/admin-users";
-import actorsRouter from "@/routes/catalog/actors";
-import genresRouter from "@/routes/catalog/genres";
-import moviesRouter from "@/routes/catalog/movies";
-import seriesRouter from "@/routes/catalog/series";
+import adminUsersRouter from "@/modules/admin-users/interface/http/routes/admin-users.routes";
+import catalogModuleRouter from "@/modules/catalog";
 import rbacModuleRouter from "@/modules/rbac";
 import notificationModuleRouter from "@/modules/notification";
 
@@ -44,10 +41,7 @@ router.use("/admin-users", adminUsersRouter);
 
 // Legacy CRUD endpoints the dashboard client still calls.
 router.use("/users", userModule.userRouter());
-router.use(actorsRouter);
-router.use(genresRouter);
-router.use(moviesRouter);
-router.use(seriesRouter);
+router.use(catalogModuleRouter);
 
 // ─── Feature modules (modern structure) ───────────────────────────────────────
 router.use(deviceRouter);

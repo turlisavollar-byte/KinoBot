@@ -28,9 +28,10 @@ export class RegisterUseCase {
       throw new Error("An account with this email already exists");
     }
 
-    const role = await this.roleRepo.findByName("user");
+    const roleName = "user";
+    const role = await this.roleRepo.findByName(roleName);
     if (!role) {
-      throw new Error("Default user role is not configured");
+      throw new Error(`Default ${roleName} role is not configured`);
     }
 
     const user = User.create({

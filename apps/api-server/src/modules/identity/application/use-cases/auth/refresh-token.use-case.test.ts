@@ -18,10 +18,19 @@ describe("RefreshTokenUseCase", () => {
       permissions: [],
     });
     const userRepo = {
-      findById: async () => ({ id: "user-1", isActive: true }),
+      findById: async () => ({
+        id: "user-1",
+        email: "person@example.com",
+        name: "Person",
+        isActive: true,
+        role: { name: "user" },
+        permissions: [],
+      }),
     } as any;
     const sessionRepo = {
-      isActive: async () => false,
+      rotate: async () => {
+        throw new Error("Refresh token has been revoked or expired");
+      },
     } as any;
 
     await expect(

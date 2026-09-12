@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { rbacController } from "./controllers/rbac.controller";
 import { requireAuth } from "@/shared/middleware/requireAuth";
-import { adminGuard, superAdminGuard } from "@/shared/middleware/admin.guard";
+import { adminGuard } from "@/shared/middleware/admin.guard";
+import { requireRole } from "@/shared/middleware/requireRole";
 
 export function rbacRouter() {
   const router = Router();
@@ -30,7 +31,7 @@ export function rbacRouter() {
   router.post(
     "/rbac/users/:id/role",
     requireAuth,
-    superAdminGuard,
+    requireRole("admin"),
     (req, res) => void rbacController.assignRole(req, res),
   );
 

@@ -5,19 +5,18 @@ import {
   normalizeRoleName,
 } from "@/shared/constants/roles";
 import { Permission } from "@/shared/constants/permissions";
-import { ROLE_PERMISSIONS } from "@/shared/constants/role-permissions";
-import { accessControl } from "@/shared/utils/access-control";
-import { permissionCache } from "@/shared/utils/permission-cache";
 import { getSessionRepo, getUserRepo } from "@/modules/identity";
+import { DrizzleRoleRepository } from "@/modules/identity/infrastructure/repositories/drizzle-role.repository";
 import { AssignRoleUseCase } from "../application/use-cases/assign-role.use-case";
 import type {
   RoleInfo,
   RoleDetail,
   PermissionGrouped,
-  PermissionCheckResult,
   RoleMatrix,
   AssignRoleResult,
 } from "../types/rbac.types";
+
+const roleRepository = new DrizzleRoleRepository();
 
 const PERMISSION_CATEGORIES: Record<string, string[]> = {
   Profile: ["read:own:profile", "update:own:profile", "delete:own:account"],
@@ -71,30 +70,43 @@ function getInheritsFrom(role: Role): Role[] {
 }
 
 export class RbacService {
-  listRoles(): RoleInfo[] {
-    return Object.values(Roles)
-      .sort((a, b) => RoleHierarchy[a as Role] - RoleHierarchy[b as Role])
+  async listRoles(): Promise<RoleInfo[]> {
+    const roles = await roleRepository.findAll();
+    return roles
+      .map((role) => normalizeRoleName(role.name))
+      .filter((role): role is Role => Boolean(role))
+      .sort((a, b) => RoleHierarchy[a] - RoleHierarchy[b])
       .map((role) => ({
-        role: role as Role,
-        level: RoleHierarchy[role as Role],
-        permissionCount: ROLE_PERMISSIONS[role as Role]?.length ?? 0,
-        inheritsFrom: getInheritsFrom(role as Role),
+        role,
+        level: RoleHierarchy[role],
+        permissionCount:
+          roles.find((item) => normalizeRoleName(item.name) === role)
+            ?.permissions.length ?? 0,
+        inheritsFrom: getInheritsFrom(role),
       }));
   }
 
-  getRoleDetail(role: Role): RoleDetail {
+  async getRoleDetail(role: Role): Promise<RoleDetail> {
+    const roleEntity = await roleRepository.findByName(role);
+    if (!roleEntity) throw new Error(`Role '${role}' not found`);
+
     return {
       role,
-      level: RoleHierarchy[role],
-      permissionCount: ROLE_PERMISSIONS[role]?.length ?? 0,
+      level: roleEntity.level,
+      permissionCount: roleEntity.permissions.length,
       inheritsFrom: getInheritsFrom(role),
-      permissions: ROLE_PERMISSIONS[role] ?? [],
+      permissions: roleEntity.permissions.map(
+        (permission) => permission.name as Permission,
+      ),
     };
   }
 
-  listPermissionsGrouped(): PermissionGrouped[] {
+  async listPermissionsGrouped(): Promise<PermissionGrouped[]> {
     const allPermissions = Object.values(Permission);
-    const allRoles = Object.values(Roles) as Role[];
+    const roleEntities = await roleRepository.findAll();
+    const allRoles = roleEntities
+      .map((role) => normalizeRoleName(role.name))
+      .filter((role): role is Role => Boolean(role));
 
     const grouped = new Map<
       string,
@@ -104,9 +116,10 @@ export class RbacService {
     for (const perm of allPermissions) {
       const cat = getCategory(perm);
       if (!grouped.has(cat)) grouped.set(cat, []);
-      const roles = allRoles.filter((r) =>
-        accessControl.hasPermission(r, perm),
-      );
+      const roles = roleEntities
+        .filter((role) => role.hasPermission(perm))
+        .map((role) => normalizeRoleName(role.name))
+        .filter((role): role is Role => Boolean(role));
       grouped.get(cat)!.push({ permission: perm, roles });
     }
 
@@ -116,40 +129,30 @@ export class RbacService {
     }));
   }
 
-  getPermissionRoles(permission: Permission): Role[] {
-    return Object.values(Roles).filter((r) =>
-      accessControl.hasPermission(r as Role, permission),
-    ) as Role[];
+  async getPermissionRoles(permission: Permission): Promise<Role[]> {
+    const roles = await roleRepository.findAll();
+    return roles
+      .filter((role) => role.hasPermission(permission))
+      .map((role) => normalizeRoleName(role.name))
+      .filter((role): role is Role => Boolean(role));
   }
 
-  getMyPermissions(userId: string, role: Role): Permission[] {
-    return permissionCache.getPermissions(userId, role);
-  }
-
-  checkPermission(
-    userId: string,
-    role: Role,
-    permission: Permission,
-  ): PermissionCheckResult {
-    return {
-      permission,
-      granted: accessControl.hasPermission(role, permission),
-      role,
-      source: "direct",
-    };
-  }
-
-  getMatrix(): RoleMatrix {
-    const roles = Object.values(Roles).sort(
-      (a, b) => RoleHierarchy[a as Role] - RoleHierarchy[b as Role],
-    ) as Role[];
+  async getMatrix(): Promise<RoleMatrix> {
+    const roleEntities = await roleRepository.findAll();
+    const roles = roleEntities
+      .map((role) => normalizeRoleName(role.name))
+      .filter((role): role is Role => Boolean(role))
+      .sort((a, b) => RoleHierarchy[a] - RoleHierarchy[b]);
     const permissions = Object.values(Permission);
 
     const matrix = {} as Record<Role, Record<Permission, boolean>>;
     for (const role of roles) {
+      const roleEntity = roleEntities.find(
+        (item) => normalizeRoleName(item.name) === role,
+      );
       matrix[role] = {} as Record<Permission, boolean>;
       for (const perm of permissions) {
-        matrix[role][perm] = accessControl.hasPermission(role, perm);
+        matrix[role][perm] = roleEntity?.hasPermission(perm) ?? false;
       }
     }
 

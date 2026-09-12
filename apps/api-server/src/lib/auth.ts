@@ -1,15 +1,16 @@
-// lib/auth.ts
+// lib/auth.ts - DEPRECATED
+// ⚠️  This file is deprecated. Use @/shared/middleware/requireAuth instead.
+// The canonical auth middleware is now in @/modules/identity/interface/http/middlewares/auth.middleware.ts
+// This file is kept for backward compatibility during migration.
 
 import type { Request, Response, NextFunction } from "express";
 import { Logger } from "@/shared/utils/logger";
-import { permissionCache } from "@/shared/utils/permission-cache";
 import {
   hasRole as hasRoleHierarchy,
   normalizeRoleName,
   type Role,
 } from "@/shared/constants/roles";
-import { JwtService } from "@/modules/identity/infrastructure/services/jwt.service";
-import { DrizzleUserRepository } from "@/modules/identity/infrastructure/repositories/drizzle-user.repository";
+import { requireAuth as canonicalRequireAuth } from "@/shared/middleware/requireAuth";
 
 const logger = Logger.getInstance("Auth");
 
@@ -46,80 +47,7 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-
-    if (!token) {
-      logger.warn("Unauthorized access attempt - no token", {
-        ip: req.ip,
-        path: req.path,
-        method: req.method,
-      });
-
-      res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Authentication required",
-          timestamp: new Date().toISOString(),
-        },
-      });
-      return;
-    }
-
-    // Verify JWT token using Identity module
-    const jwtService = JwtService.getInstance();
-    const userRepo = new DrizzleUserRepository();
-
-    const decoded = await jwtService.verify(token, "access");
-
-    // Verify user still exists and is active
-    const userEntity = await userRepo.findById(decoded.sub);
-    if (!userEntity || !userEntity.isActive) {
-      logger.warn("Unauthorized access attempt - invalid or inactive user", {
-        ip: req.ip,
-        path: req.path,
-        method: req.method,
-        userId: decoded.sub,
-      });
-
-      res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Invalid or inactive user",
-          timestamp: new Date().toISOString(),
-        },
-      });
-      return;
-    }
-
-    const user = {
-      id: userEntity.id,
-      email: userEntity.email,
-      role: userEntity.role.name,
-      permissions: userEntity.permissions.map((p) => p.name),
-    };
-
-    // The database state is authoritative so role changes take effect before
-    // the old access token expires.
-    const perms = user.permissions.length
-      ? user.permissions
-      : permissionCache.getPermissions(user.id, user.role as unknown as Role);
-
-    (req as any).user = { ...user, permissions: perms };
-    next();
-  } catch (error) {
-    logger.error("Auth middleware error", { error });
-    res.status(401).json({
-      success: false,
-      error: {
-        code: "UNAUTHORIZED",
-        message: "Authentication failed",
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }
+  await canonicalRequireAuth(req, res, next);
 }
 
 /**
@@ -251,39 +179,30 @@ export function requireScope(scope: string | string[]) {
 }
 
 /**
- * Optional auth middleware - doesn't require auth but adds user if present
+ * Optional auth middleware - DEPRECATED
+ * This function is incomplete and should not be used.
+ * Use @/modules/identity/interface/http/middlewares/auth.middleware.ts instead.
  */
 export function optionalAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ): void {
-  // If user is already set, continue
-  if ((req as any).user) {
-    return next();
-  }
-
-  // Try to extract user from token/session
-  try {
-    // This is a placeholder - implement your auth logic here
-    // For example, extract from JWT token, session, etc.
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (token) {
-      // Verify token and set user
-      // (req as any).user = verifyToken(token);
-    }
-  } catch (error) {
-    // Silently fail - optional auth
-    logger.debug("Optional auth failed", { error });
-  }
-
+  logger.warn(
+    "optionalAuth from lib/auth.ts is deprecated and incomplete. Use Identity module's optionalAuth.",
+  );
+  // For now, just pass through - this is intentionally broken to force migration
   next();
 }
 
 /**
- * Auth middleware with custom user resolver
+ * Auth middleware with custom user resolver - DEPRECATED
+ * This function is deprecated. Use Identity module's auth middleware instead.
  */
 export function withAuth(resolver: (req: Request) => Promise<AuthUser | null>) {
+  logger.warn(
+    "withAuth from lib/auth.ts is deprecated. Use Identity module's auth middleware.",
+  );
   return async (
     req: Request,
     res: Response,

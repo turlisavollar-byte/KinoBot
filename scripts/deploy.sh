@@ -148,7 +148,7 @@ show_info() {
     echo ""
     echo "📝 Admin access:"
     echo "   Use the explicitly configured bootstrap account, if one was provided."
-    echo "   Remove BOOTSTRAP_ADMIN_PASSWORD from the environment after first use."
+    echo "   Remove SUPER_ADMIN_PASSWORD from the environment after first use."
     echo ""
     echo "🔧 Useful Commands:"
     echo "   View logs: docker compose -f $COMPOSE_FILE logs -f"

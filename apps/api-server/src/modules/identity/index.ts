@@ -6,6 +6,7 @@ import { PasswordService } from "./infrastructure/services/password.service";
 import { AuthMiddleware } from "./interface/http/middlewares/auth.middleware";
 import { AuthController } from "./interface/http/controllers/auth.controller";
 import { createAuthRoutes } from "./interface/http/routes/auth.routes";
+import { bootstrapSuperAdmin } from "./bootstrap-super-admin";
 
 // Use Cases - Auth only
 import { LoginUseCase } from "./application/use-cases/auth/login.use-case";
@@ -45,7 +46,11 @@ function initializeModule() {
   const sendVerificationEmailUC = new SendVerificationEmailUseCase(userRepo);
   const verifyEmailUC = new VerifyEmailUseCase(userRepo);
   const requestPasswordResetUC = new RequestPasswordResetUseCase(userRepo);
-  const resetPasswordUC = new ResetPasswordUseCase(userRepo, passwordService);
+  const resetPasswordUC = new ResetPasswordUseCase(
+    userRepo,
+    passwordService,
+    sessionRepo,
+  );
 
   // ── Middleware ───────────────────────────────────────────────────
   authMiddlewareInstance = new AuthMiddleware(jwtService, userRepo);
@@ -97,3 +102,5 @@ export function getAuthMiddlewareInstance() {
   initializeModule();
   return authMiddlewareInstance!;
 }
+
+export { bootstrapSuperAdmin };

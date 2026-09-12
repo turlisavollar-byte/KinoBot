@@ -33,6 +33,44 @@ paths:
           description: Unauthorized
         "403":
           description: Forbidden
+  /admin-users/{id}:
+    patch:
+      operationId: updateAdminUser
+      tags: [admin-users]
+      summary: Update an administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminUserBody"
+      responses:
+        "200": { description: Administrative account updated }
+        "400": { description: Invalid request }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteAdminUser
+      tags: [admin-users]
+      summary: Delete an administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Administrative account deleted }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
 
 components:
   schemas:
@@ -77,3 +115,11 @@ components:
         timestamp:
           type: string
           format: date-time
+    UpdateAdminUserBody:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [superadmin, admin, manager, moderator, user, viewer]

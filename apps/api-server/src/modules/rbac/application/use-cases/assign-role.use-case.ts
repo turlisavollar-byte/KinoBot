@@ -27,9 +27,9 @@ export class AssignRoleUseCase {
     const normalizedActorRole = normalizeRoleName(actorRole);
     const normalizedNewRole = normalizeRoleName(newRole);
 
-    if (normalizedActorRole !== "superadmin") {
+    if (!(["superadmin", "admin"] as Role[]).includes(normalizedActorRole)) {
       throw new AppError(
-        "Only superadmin can assign roles",
+        "Only admin or superadmin can assign roles",
         403,
         ErrorCodes.FORBIDDEN,
       );
@@ -63,6 +63,19 @@ export class AssignRoleUseCase {
         409,
         ErrorCodes.CONFLICT,
       );
+    }
+
+    if (previousRole === "superadmin" && normalizedNewRole !== "superadmin") {
+      const superAdminCount = await this.userRepo.count({
+        roleId: "superadmin",
+      });
+      if (superAdminCount <= 1) {
+        throw new AppError(
+          "Last super admin cannot be removed",
+          409,
+          ErrorCodes.CONFLICT,
+        );
+      }
     }
 
     if (

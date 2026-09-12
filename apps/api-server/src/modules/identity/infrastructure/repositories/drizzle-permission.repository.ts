@@ -7,6 +7,8 @@ import {
   Permissions,
   type PermissionName,
 } from "@/shared/constants/permissions";
+import { db, permissionsTable } from "@workspace/db";
+import { eq, like, and, or } from "drizzle-orm";
 
 function resolvePermissionResource(permissionName: string): string {
   const parts = permissionName.split(":");
@@ -41,11 +43,32 @@ function resolvePermissionCategory(permissionName: string): PermissionCategory {
 
 export class DrizzlePermissionRepository implements IPermissionRepository {
   async findById(id: string): Promise<Permission | null> {
-    return this.findByName(id);
+    const [permission] = await db
+      .select()
+      .from(permissionsTable)
+      .where(eq(permissionsTable.id, id))
+      .limit(1);
+
+    if (!permission) return null;
+
+    return this.mapToEntity(permission);
   }
 
   async findByName(name: PermissionName | string): Promise<Permission | null> {
     const permissionName = String(name);
+    
+    // Try to find in database first
+    const [permission] = await db
+      .select()
+      .from(permissionsTable)
+      .where(eq(permissionsTable.name, permissionName))
+      .limit(1);
+
+    if (permission) {
+      return this.mapToEntity(permission);
+    }
+
+    // Fallback to hardcoded permissions if not in database
     const exists = Object.values(Permissions).includes(
       permissionName as PermissionName,
     );
@@ -65,66 +88,99 @@ export class DrizzlePermissionRepository implements IPermissionRepository {
     take?: number;
     category?: string;
   }): Promise<Permission[]> {
-    let permissions = Object.values(Permissions) as PermissionName[];
+    const conditions: ReturnType<typeof eq | typeof like>[] = [];
 
     if (options?.category) {
-      permissions = permissions.filter(
-        (permissionName) =>
-          resolvePermissionCategory(permissionName) === options.category,
-      );
+      conditions.push(eq(permissionsTable.category, options.category));
     }
 
-    if (options?.skip) {
-      permissions = permissions.slice(options.skip);
-    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (options?.take) {
-      permissions = permissions.slice(0, options.take);
-    }
+    const permissions = await db
+      .select()
+      .from(permissionsTable)
+      .where(whereClause)
+      .limit(options?.take ?? 100)
+      .offset(options?.skip ?? 0);
 
-    return permissions.map((permissionName) =>
-      Permission.create({
-        name: permissionName,
-        description: `${permissionName} permission`,
-        category: resolvePermissionCategory(permissionName),
-        resource: resolvePermissionResource(permissionName),
-        action: resolvePermissionAction(permissionName),
-      }),
-    );
+    return permissions.map((permission) => this.mapToEntity(permission));
   }
 
   async create(permission: Permission): Promise<Permission> {
-    // TODO: Implement when permission table is created
-    // For now, just return the permission as is
-    return permission;
+    const [created] = await db
+      .insert(permissionsTable)
+      .values({
+        id: crypto.randomUUID(),
+        name: permission.name,
+        description: permission.description,
+        category: permission.category,
+        resource: permission.resource,
+        action: permission.action,
+      })
+      .returning();
+
+    return this.mapToEntity(created);
   }
 
   async update(
     id: string,
     permission: Partial<Permission>,
   ): Promise<Permission> {
-    // TODO: Implement when permission table is created
-    const existing = await this.findById(id);
-    if (!existing) {
+    const updateData: Partial<{
+      name: string;
+      description: string;
+      category: string;
+      resource: string;
+      action: string;
+    }> = {};
+
+    if (permission.name) updateData.name = permission.name;
+    if (permission.description) updateData.description = permission.description;
+    if (permission.category) updateData.category = permission.category;
+    if (permission.resource) updateData.resource = permission.resource;
+    if (permission.action) updateData.action = permission.action;
+
+    const [updated] = await db
+      .update(permissionsTable)
+      .set(updateData)
+      .where(eq(permissionsTable.id, id))
+      .returning();
+
+    if (!updated) {
       throw new Error("Permission not found");
     }
-    return existing;
+
+    return this.mapToEntity(updated);
   }
 
   async delete(id: string): Promise<void> {
-    // TODO: Implement when permission table is created
+    await db.delete(permissionsTable).where(eq(permissionsTable.id, id));
   }
 
   async count(options?: { category?: string }): Promise<number> {
-    let permissions = Object.values(Permissions) as PermissionName[];
+    const conditions: ReturnType<typeof eq | typeof like>[] = [];
 
     if (options?.category) {
-      permissions = permissions.filter(
-        (permissionName) =>
-          resolvePermissionCategory(permissionName) === options.category,
-      );
+      conditions.push(eq(permissionsTable.category, options.category));
     }
 
-    return permissions.length;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const result = await db
+      .select({ count: permissionsTable.id })
+      .from(permissionsTable)
+      .where(whereClause);
+
+    return result.length;
+  }
+
+  private mapToEntity(dbPermission: any): Permission {
+    return Permission.create({
+      name: dbPermission.name,
+      description: dbPermission.description || `${dbPermission.name} permission`,
+      category: (dbPermission.category as PermissionCategory) || PermissionCategory.SYSTEM,
+      resource: dbPermission.resource || "general",
+      action: (dbPermission.action as "read" | "create" | "update" | "delete" | "manage") || "manage",
+    });
   }
 }

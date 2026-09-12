@@ -61,7 +61,8 @@ import { getRedisUserCache } from "./infrastructure/cache/redis-user-cache";
 // ==================== Interface ====================
 import { Router } from "express";
 import { UserController } from "./interface/http/controllers/user.controller";
-import { requireAuth, requireRole } from "@/shared/middleware";
+import { requireAuth, requirePermission } from "@/shared/middleware";
+import { Permission } from "@/shared/constants/permissions";
 import { validate } from "@/shared/middleware";
 import {
   ListUsersSchema,
@@ -154,42 +155,46 @@ function createUserRouter() {
 
   router.get(
     "/",
-    requireRole("admin"),
+    requirePermission(Permission.READ_USERS),
     validate({ query: ListUsersSchema }),
     controller.list.bind(controller),
   );
 
   router.post(
     "/:id/subscription/grant",
-    requireRole("admin"),
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     controller.grantSubscription.bind(controller),
   );
 
-  router.get("/:id", requireRole("admin"), controller.get.bind(controller));
+  router.get(
+    "/:id",
+    requirePermission(Permission.READ_USERS),
+    controller.get.bind(controller),
+  );
 
   router.patch(
     "/:id",
-    requireRole("admin"),
+    requirePermission(Permission.UPDATE_USERS),
     validate({ body: UpdateUserSchema }),
     controller.update.bind(controller),
   );
 
   router.post(
     "/:id/block",
-    requireRole("admin"),
+    requirePermission(Permission.BLOCK_USERS),
     validate({ body: BlockUserSchema }),
     controller.block.bind(controller),
   );
 
   router.delete(
     "/:id",
-    requireRole("superadmin"),
+    requirePermission(Permission.DELETE_USERS),
     controller.delete.bind(controller),
   );
 
   router.post(
     "/export",
-    requireRole("admin"),
+    requirePermission(Permission.EXPORT_ANALYTICS),
     validate({ query: ExportUsersSchema }),
     controller.export.bind(controller),
   );

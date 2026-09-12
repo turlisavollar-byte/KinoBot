@@ -20,7 +20,8 @@ export class JwtService {
 
   private constructor() {
     const accessSecret = process.env.JWT_SECRET;
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || accessSecret;
+    const configuredRefreshSecret = process.env.JWT_REFRESH_SECRET;
+    const refreshSecret = configuredRefreshSecret || accessSecret;
     const isProduction = process.env.NODE_ENV === "production";
     const isLocalEnvironment =
       !process.env.NODE_ENV ||
@@ -55,6 +56,15 @@ export class JwtService {
     if (!refreshSecret) {
       throw new Error(
         "JWT_REFRESH_SECRET environment variable is required. Please set a strong, cryptographically secure secret (minimum 32 characters).",
+      );
+    }
+
+    if (
+      isProduction &&
+      (!configuredRefreshSecret || configuredRefreshSecret === accessSecret)
+    ) {
+      throw new Error(
+        "JWT_REFRESH_SECRET must be configured and different from JWT_SECRET in production.",
       );
     }
 
@@ -121,7 +131,10 @@ export class JwtService {
     expectedTokenType?: "access" | "refresh",
   ): Promise<JwtPayload> {
     try {
-      const secret = expectedTokenType === "refresh" ? this.refreshSecret : this.accessSecret;
+      const secret =
+        expectedTokenType === "refresh"
+          ? this.refreshSecret
+          : this.accessSecret;
       const decoded = jwt.verify(token, secret) as JwtPayload;
       if (expectedTokenType && decoded.tokenType !== expectedTokenType) {
         throw new Error("Unexpected token type");

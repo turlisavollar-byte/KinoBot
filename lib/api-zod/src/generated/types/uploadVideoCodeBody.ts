@@ -7,7 +7,7 @@
  */
 
 export type UploadVideoCodeBody = {
-  video: Blob;
+  video: Blob | File;
   title: string;
   description?: string;
   channelId?: string;

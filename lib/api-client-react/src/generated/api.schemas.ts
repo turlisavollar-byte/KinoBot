@@ -68,6 +68,24 @@ export interface AdminAccountListResponse {
   timestamp: string;
 }
 
+export type UpdateAdminUserBodyRole = typeof UpdateAdminUserBodyRole[keyof typeof UpdateAdminUserBodyRole];
+
+
+export const UpdateAdminUserBodyRole = {
+  superadmin: 'superadmin',
+  admin: 'admin',
+  manager: 'manager',
+  moderator: 'moderator',
+  user: 'user',
+  viewer: 'viewer',
+} as const;
+
+export interface UpdateAdminUserBody {
+  name?: string;
+  email?: string;
+  role?: UpdateAdminUserBodyRole;
+}
+
 export interface OverviewStats {
   totalUsers: number;
   activeUsers: number;
@@ -805,7 +823,6 @@ export interface Subscription {
   id?: string;
   userId?: string;
   planId?: string;
-  planName?: string;
   status?: string;
   startDate?: string;
   endDate?: string;

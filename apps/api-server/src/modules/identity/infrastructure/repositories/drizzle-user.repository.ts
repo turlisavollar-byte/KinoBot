@@ -15,7 +15,7 @@ import {
   type UserStatus,
   normalizeUserStatus,
 } from "@/shared/constants/user-status";
-import { db, adminUsersTable } from "@workspace/db";
+import { db, adminUsersTable, rolesTable } from "@workspace/db";
 import { eq, and, desc, or, isNull, like, sql } from "drizzle-orm";
 
 type DbUserRow = {
@@ -49,6 +49,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: adminUsersTable.name,
         passwordHash: adminUsersTable.passwordHash,
         role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
@@ -77,6 +78,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: adminUsersTable.name,
         passwordHash: adminUsersTable.passwordHash,
         role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
@@ -101,15 +103,82 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   async findByVerificationToken(token: string): Promise<User | null> {
-    // TODO: Implement once database schema is updated with verification_token column
-    // This is a placeholder for future email verification functionality
-    return null;
+    const [user] = await db
+      .select({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        name: adminUsersTable.name,
+        passwordHash: adminUsersTable.passwordHash,
+        role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
+        isActive: adminUsersTable.isActive,
+        lastLoginAt: adminUsersTable.lastLoginAt,
+        lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
+        failedLoginCount: adminUsersTable.failedLoginCount,
+        lockedUntil: adminUsersTable.lockedUntil,
+        createdAt: adminUsersTable.createdAt,
+        updatedAt: adminUsersTable.updatedAt,
+        deletedAt: adminUsersTable.deletedAt,
+        verificationToken: adminUsersTable.verificationToken,
+        verificationExpiresAt: adminUsersTable.verificationExpiresAt,
+        isEmailVerified: adminUsersTable.isEmailVerified,
+      })
+      .from(adminUsersTable)
+      .where(
+        and(
+          eq(adminUsersTable.verificationToken, token),
+          isNull(adminUsersTable.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!user) return null;
+
+    // Check if token is expired
+    if (user.verificationExpiresAt && user.verificationExpiresAt < new Date()) {
+      return null;
+    }
+
+    return await this.mapToEntity(user);
   }
 
   async findByResetToken(token: string): Promise<User | null> {
-    // TODO: Implement once database schema is updated with reset_token column
-    // This is a placeholder for future password reset functionality
-    return null;
+    const [user] = await db
+      .select({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        name: adminUsersTable.name,
+        passwordHash: adminUsersTable.passwordHash,
+        role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
+        isActive: adminUsersTable.isActive,
+        lastLoginAt: adminUsersTable.lastLoginAt,
+        lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
+        failedLoginCount: adminUsersTable.failedLoginCount,
+        lockedUntil: adminUsersTable.lockedUntil,
+        createdAt: adminUsersTable.createdAt,
+        updatedAt: adminUsersTable.updatedAt,
+        deletedAt: adminUsersTable.deletedAt,
+        resetToken: adminUsersTable.resetToken,
+        resetExpiresAt: adminUsersTable.resetExpiresAt,
+      })
+      .from(adminUsersTable)
+      .where(
+        and(
+          eq(adminUsersTable.resetToken, token),
+          isNull(adminUsersTable.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!user) return null;
+
+    // Check if token is expired
+    if (user.resetExpiresAt && user.resetExpiresAt < new Date()) {
+      return null;
+    }
+
+    return await this.mapToEntity(user);
   }
 
   async findAll(options?: {
@@ -127,7 +196,7 @@ export class DrizzleUserRepository implements IUserRepository {
     }
 
     if (options?.roleId) {
-      conditions.push(eq(adminUsersTable.role, options.roleId));
+      conditions.push(eq(adminUsersTable.roleId, options.roleId));
     }
 
     if (options?.search) {
@@ -141,7 +210,8 @@ export class DrizzleUserRepository implements IUserRepository {
       );
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    conditions.push(isNull(adminUsersTable.deletedAt));
+    const whereClause = and(...conditions);
 
     const users = await db
       .select({
@@ -150,6 +220,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: adminUsersTable.name,
         passwordHash: adminUsersTable.passwordHash,
         role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
@@ -177,6 +248,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: user.name,
         passwordHash: user.passwordHash,
         role: user.role.name,
+        roleId: user.role.id,
         isActive: user.status === "active",
         lastLoginAt: user.lastLoginAt,
         lastFailedLoginAt: user.lastFailedLoginAt,
@@ -189,6 +261,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: adminUsersTable.name,
         passwordHash: adminUsersTable.passwordHash,
         role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
@@ -213,19 +286,57 @@ export class DrizzleUserRepository implements IUserRepository {
       lastFailedLoginAt: Date | null;
       failedLoginCount: number;
       lockedUntil: Date | null;
+      roleId: string;
+      verificationToken: string | null;
+      verificationExpiresAt: Date | null;
+      isEmailVerified: boolean;
+      resetToken: string | null;
+      resetExpiresAt: Date | null;
     }> = {};
 
     if (user.email) updateData.email = user.email;
     if (user.name) updateData.name = user.name;
     if (user.passwordHash) updateData.passwordHash = user.passwordHash;
-    if (user.role) updateData.role = normalizeRoleName(String(user.role));
+    if (user.role) {
+      const roleName =
+        typeof user.role === "string" ? user.role : user.role.name;
+      const normalizedRole = normalizeRoleName(roleName);
+      const [roleRow] = await db
+        .select({ id: rolesTable.id })
+        .from(rolesTable)
+        .where(eq(rolesTable.name, normalizedRole))
+        .limit(1);
+      if (!roleRow) {
+        throw new Error(`Role '${normalizedRole}' not found`);
+      }
+      updateData.role = normalizedRole;
+      updateData.roleId = roleRow.id;
+    }
     if (user.status)
       updateData.isActive =
         normalizeUserStatus(String(user.status)) === "active";
     if (user.lastLoginAt) updateData.lastLoginAt = new Date(user.lastLoginAt);
-    if (user.lastFailedLoginAt) updateData.lastFailedLoginAt = new Date(user.lastFailedLoginAt);
-    if (user.failedLoginCount !== undefined) updateData.failedLoginCount = user.failedLoginCount;
-    if (user.lockedUntil) updateData.lockedUntil = new Date(user.lockedUntil);
+    if (user.lastFailedLoginAt)
+      updateData.lastFailedLoginAt = new Date(user.lastFailedLoginAt);
+    if (user.failedLoginCount !== undefined)
+      updateData.failedLoginCount = user.failedLoginCount;
+    if (user.lockedUntil !== undefined)
+      updateData.lockedUntil = user.lockedUntil
+        ? new Date(user.lockedUntil)
+        : null;
+    if (user.verificationToken !== undefined)
+      updateData.verificationToken = user.verificationToken;
+    if (user.verificationExpiresAt !== undefined)
+      updateData.verificationExpiresAt = user.verificationExpiresAt
+        ? new Date(user.verificationExpiresAt)
+        : null;
+    if (user.isEmailVerified !== undefined)
+      updateData.isEmailVerified = user.isEmailVerified;
+    if (user.resetToken !== undefined) updateData.resetToken = user.resetToken;
+    if (user.resetExpiresAt !== undefined)
+      updateData.resetExpiresAt = user.resetExpiresAt
+        ? new Date(user.resetExpiresAt)
+        : null;
 
     const [updated] = await db
       .update(adminUsersTable)
@@ -237,6 +348,7 @@ export class DrizzleUserRepository implements IUserRepository {
         name: adminUsersTable.name,
         passwordHash: adminUsersTable.passwordHash,
         role: adminUsersTable.role,
+        roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
@@ -259,17 +371,7 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   async updateRole(id: string, role: Role): Promise<User> {
-    const [updated] = await db
-      .update(adminUsersTable)
-      .set({ role: normalizeRoleName(role) })
-      .where(eq(adminUsersTable.id, id))
-      .returning();
-
-    if (!updated) {
-      throw new Error("User not found");
-    }
-
-    return await this.mapToEntity(updated);
+    return this.update(id, { role: normalizeRoleName(role) });
   }
 
   async updateStatus(id: string, status: UserStatus): Promise<User> {
@@ -301,7 +403,7 @@ export class DrizzleUserRepository implements IUserRepository {
     }
 
     if (options?.roleId) {
-      conditions.push(eq(adminUsersTable.role, options.roleId));
+      conditions.push(eq(adminUsersTable.roleId, options.roleId));
     }
 
     if (options?.search) {
@@ -315,7 +417,8 @@ export class DrizzleUserRepository implements IUserRepository {
       );
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    conditions.push(isNull(adminUsersTable.deletedAt));
+    const whereClause = and(...conditions);
 
     const result = await db
       .select({ count: adminUsersTable.id })
@@ -353,18 +456,23 @@ export class DrizzleUserRepository implements IUserRepository {
       if (!foundRole) {
         // Security: In production, fail closed if role not found in DB
         // In development, use fallback for migration support
-        const enableFallback = process.env.ENABLE_ROLE_FALLBACK !== 'false';
+        const enableFallback = process.env.ENABLE_ROLE_FALLBACK !== "false";
         if (!enableFallback) {
-          throw new Error(`Role '${normalizedRole}' not found in database. Fallback roles disabled by configuration.`);
+          throw new Error(
+            `Role '${normalizedRole}' not found in database. Fallback roles disabled by configuration.`,
+          );
         }
-        foundRole = DrizzleUserRepository.getFallbackRoleForName(normalizedRole);
+        foundRole =
+          DrizzleUserRepository.getFallbackRoleForName(normalizedRole);
       }
     }
 
     if (!foundRole) {
-      const enableFallback = process.env.ENABLE_ROLE_FALLBACK !== 'false';
+      const enableFallback = process.env.ENABLE_ROLE_FALLBACK !== "false";
       if (!enableFallback) {
-        throw new Error(`Role '${canonicalRole}' not found in database. Cannot authenticate user.`);
+        throw new Error(
+          `Role '${canonicalRole}' not found in database. Cannot authenticate user.`,
+        );
       }
       foundRole = DrizzleUserRepository.getFallbackRoleForName(canonicalRole);
     }
