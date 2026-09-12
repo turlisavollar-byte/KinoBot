@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { AuditService } from "@/modules/audit/audit.service";
 import { AssignRoleUseCase } from "./assign-role.use-case";
 
 function createRepository(role = "admin", superAdminCount = 2) {
@@ -10,6 +11,33 @@ function createRepository(role = "admin", superAdminCount = 2) {
 }
 
 describe("AssignRoleUseCase", () => {
+  it("does not throw when audit logging is unavailable in test mode", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+
+    try {
+      const service = new AuditService();
+      await expect(
+        service.log({
+          actorId: "actor-id",
+          actorType: "SYSTEM",
+          action: "UPDATE",
+          targetType: "USER",
+          targetId: "target-id",
+          metadata: {
+            previousRole: "admin",
+            newRole: "user",
+          },
+        }),
+      ).resolves.toMatchObject({
+        actorId: "actor-id",
+        targetId: "target-id",
+      });
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
   it("rejects role assignment to an equal or higher role", async () => {
     const repository = createRepository();
     const sessionRepository = { revokeAll: vi.fn() } as any;

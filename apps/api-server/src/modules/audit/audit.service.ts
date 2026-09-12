@@ -19,11 +19,7 @@ import type {
   NewAuditLogTagRow,
 } from "@workspace/db";
 
-import {
-  db,
-  auditLogsTable,
-  auditLogTagsTable,
-} from "@workspace/db";
+import { db, auditLogsTable, auditLogTagsTable } from "@workspace/db";
 
 import {
   and,
@@ -54,7 +50,7 @@ export class AuditError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     this.name = "AuditError";
@@ -91,6 +87,49 @@ export class AuditService {
   private readonly logger = new Logger("AuditService");
   private readonly isProduction = process.env.NODE_ENV === "production";
 
+  private shouldSkipAuditWrites(): boolean {
+    return (
+      this.isProduction ||
+      process.env.NODE_ENV === "test" ||
+      process.env.DISABLE_AUDIT_LOGS === "true" ||
+      process.env.AUDIT_LOGS_ENABLED === "false"
+    );
+  }
+
+  private createFallbackAuditLog(
+    dto: CreateAuditLogDTO,
+    error?: unknown,
+  ): AuditLog {
+    const createdAt = new Date();
+
+    return {
+      id: `fallback_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+      actorId: dto.actorId,
+      actorType: dto.actorType,
+      actorEmail: dto.actorEmail,
+      action: dto.action,
+      targetType: dto.targetType,
+      targetId: dto.targetId,
+      targetName: dto.targetName,
+      oldValue: dto.oldValue,
+      newValue: dto.newValue,
+      diff: dto.diff,
+      metadata: {
+        ...dto.metadata,
+        _fallback: true,
+        ...(error
+          ? { _error: error instanceof Error ? error.message : String(error) }
+          : {}),
+      },
+      ipAddress: dto.ipAddress,
+      userAgent: dto.userAgent,
+      requestId: dto.requestId,
+      sessionId: dto.sessionId,
+      createdAt,
+      createdAtIso: createdAt.toISOString(),
+    } as AuditLog;
+  }
+
   /**
    * Create a new audit log entry
    * @param dto - Audit log data
@@ -100,6 +139,13 @@ export class AuditService {
   async log(dto: CreateAuditLogDTO): Promise<AuditLog> {
     const startTime = Date.now();
 
+    if (this.shouldSkipAuditWrites()) {
+      return this.createFallbackAuditLog(
+        dto,
+        "Audit logging disabled for this environment",
+      );
+    }
+
     try {
       // Validate
       this.validateLogDTO(dto);
@@ -107,28 +153,28 @@ export class AuditService {
       // Prepare row
       const row: NewAuditLogRow = {
         id: generateAuditId(),
-        
+
         // Actor
         actorId: dto.actorId,
         actorType: dto.actorType,
         actorEmail: dto.actorEmail,
         actorIp: dto.metadata?.ipAddress as string,
         actorUserAgent: dto.metadata?.userAgent as string,
-        
+
         // Action
         action: dto.action,
         actionCategory: this.categorizeAction(dto.action),
-        
+
         // Target
         targetType: dto.targetType,
         targetId: dto.targetId,
         targetName: dto.targetName,
-        
+
         // Changes
         oldValue: dto.oldValue,
         newValue: dto.newValue,
         diff: this.calculateDiff(dto.oldValue, dto.newValue),
-        
+
         // Context
         metadata: {
           ...dto.metadata,
@@ -139,12 +185,12 @@ export class AuditService {
         userAgent: dto.userAgent,
         requestId: dto.requestId,
         sessionId: dto.sessionId,
-        
+
         // Additional fields
         environment: process.env.NODE_ENV,
         serviceName: process.env.SERVICE_NAME || "api-server",
         retentionDays: DEFAULT_RETENTION_DAYS,
-        
+
         // Timestamps
         createdAt: new Date(),
       };
@@ -156,10 +202,7 @@ export class AuditService {
         .returning();
 
       if (!inserted) {
-        throw new AuditError(
-          "Failed to create audit log",
-          "INSERT_FAILED"
-        );
+        throw new AuditError("Failed to create audit log", "INSERT_FAILED");
       }
 
       // Insert tags if provided
@@ -174,39 +217,19 @@ export class AuditService {
       });
 
       return this.mapRowToAuditLog(inserted);
-
     } catch (error) {
       this.logger.error("Failed to create audit log", { error, dto });
-      
-      // NEVER throw errors in production - audit failures should not crash the application
-      // Instead, log to fallback mechanism (console/file) for later recovery
-      if (this.isProduction) {
-        // Fallback logging for production
-        console.error('[AUDIT_FALLBACK] Failed to create audit log:', {
+
+      if (this.shouldSkipAuditWrites()) {
+        console.error("[AUDIT_FALLBACK] Failed to create audit log:", {
           timestamp: new Date().toISOString(),
-          dto: JSON.stringify(dto),
+          dto,
           error: error instanceof Error ? error.message : String(error),
         });
-        
-        // Return a minimal audit log object to maintain API contract
-        return {
-          id: `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          actorId: dto.actorId,
-          actorType: dto.actorType,
-          action: dto.action,
-          targetType: dto.targetType,
-          targetId: dto.targetId,
-          targetName: dto.targetName,
-          metadata: {
-            ...dto.metadata,
-            _fallback: true,
-            _error: error instanceof Error ? error.message : String(error),
-          },
-          createdAt: new Date(),
-          createdAtIso: new Date().toISOString(),
-        } as any;
+
+        return this.createFallbackAuditLog(dto, error);
       }
-      
+
       // In development, throw to surface issues early
       throw error;
     }
@@ -215,14 +238,16 @@ export class AuditService {
   /**
    * List audit logs with advanced filtering and cursor pagination
    */
-  async list(options: AuditLogQueryOptions = {}): Promise<AuditLogListResponse> {
+  async list(
+    options: AuditLogQueryOptions = {},
+  ): Promise<AuditLogListResponse> {
     try {
       const limit = this.normalizeLimit(options.limit);
       const conditions = await this.buildConditions(options);
 
       // Build base query conditions
       const allConditions = [...conditions];
-      
+
       // If search is provided, add search conditions
       if (options.search) {
         const searchConditions = this.buildSearchConditions(options.search);
@@ -236,10 +261,7 @@ export class AuditService {
         .select()
         .from(auditLogsTable)
         .where(allConditions.length > 0 ? and(...allConditions) : undefined)
-        .orderBy(
-          desc(auditLogsTable.createdAt),
-          desc(auditLogsTable.id)
-        )
+        .orderBy(desc(auditLogsTable.createdAt), desc(auditLogsTable.id))
         .limit(limit + 1);
 
       const rows = await query;
@@ -260,7 +282,7 @@ export class AuditService {
 
       return {
         data: await Promise.all(
-          items.map((row) => this.mapRowToAuditLogWithTags(row))
+          items.map((row) => this.mapRowToAuditLogWithTags(row)),
         ),
         meta: {
           limit,
@@ -270,14 +292,11 @@ export class AuditService {
           filteredCount: items.length,
         },
       };
-
     } catch (error) {
       this.logger.error("Failed to list audit logs", { error, options });
-      throw new AuditError(
-        "Failed to retrieve audit logs",
-        "LIST_FAILED",
-        { error }
-      );
+      throw new AuditError("Failed to retrieve audit logs", "LIST_FAILED", {
+        error,
+      });
     }
   }
 
@@ -297,14 +316,12 @@ export class AuditService {
       }
 
       return this.mapRowToAuditLogWithTags(row);
-
     } catch (error) {
       this.logger.error("Failed to get audit log", { error, id });
-      throw new AuditError(
-        "Failed to retrieve audit log",
-        "GET_FAILED",
-        { error, id }
-      );
+      throw new AuditError("Failed to retrieve audit log", "GET_FAILED", {
+        error,
+        id,
+      });
     }
   }
 
@@ -324,10 +341,10 @@ export class AuditService {
    */
   async search(
     query: string,
-    options: AuditLogQueryOptions = {}
+    options: AuditLogQueryOptions = {},
   ): Promise<AuditLogListResponse> {
     const trimmedQuery = query.trim();
-    
+
     if (!trimmedQuery) {
       return this.list(options);
     }
@@ -347,19 +364,19 @@ export class AuditService {
     options?: {
       groupBy?: ("action" | "actorType" | "targetType" | "hour" | "day")[];
       includeInsights?: boolean;
-    }
+    },
   ): Promise<AuditLogStatistics> {
     if (startDate > endDate) {
-      throw new AuditValidationError(
-        "startDate must be before endDate",
-        { startDate, endDate }
-      );
+      throw new AuditValidationError("startDate must be before endDate", {
+        startDate,
+        endDate,
+      });
     }
 
     try {
       const where = and(
         gte(auditLogsTable.createdAt, startDate),
-        lte(auditLogsTable.createdAt, endDate)
+        lte(auditLogsTable.createdAt, endDate),
       );
 
       // Run all queries in parallel
@@ -372,10 +389,7 @@ export class AuditService {
         insights,
       ] = await Promise.all([
         // Total count
-        db
-          .select({ count: count() })
-          .from(auditLogsTable)
-          .where(where),
+        db.select({ count: count() }).from(auditLogsTable).where(where),
 
         // By action
         db
@@ -417,12 +431,7 @@ export class AuditService {
             count: count(),
           })
           .from(auditLogsTable)
-          .where(
-            and(
-              where,
-              isNotNull(sql`metadata->>'severity'`)
-            )
-          )
+          .where(and(where, isNotNull(sql`metadata->>'severity'`)))
           .groupBy(sql`metadata->>'severity'`),
 
         // Insights (if requested)
@@ -434,27 +443,30 @@ export class AuditService {
       return {
         total: totalResult[0]?.count ?? 0,
         byAction: Object.fromEntries(
-          byAction.map((item) => [item.action, item.count])
+          byAction.map((item) => [item.action, item.count]),
         ) as Record<AuditAction, number>,
         byActorType: Object.fromEntries(
-          byActorType.map((item) => [item.actorType, item.count])
+          byActorType.map((item) => [item.actorType, item.count]),
         ) as Record<AuditActorType, number>,
         byTargetType: Object.fromEntries(
-          byTargetType.map((item) => [item.targetType, item.count])
+          byTargetType.map((item) => [item.targetType, item.count]),
         ) as Record<AuditTargetType, number>,
         bySeverity: Object.fromEntries(
-          bySeverity.map((item) => [item.severity as any, item.count])
+          bySeverity.map((item) => [item.severity as any, item.count]),
         ),
         period: { start: startDate, end: endDate },
         insights,
       };
-
     } catch (error) {
-      this.logger.error("Failed to get statistics", { error, startDate, endDate });
+      this.logger.error("Failed to get statistics", {
+        error,
+        startDate,
+        endDate,
+      });
       throw new AuditError(
         "Failed to retrieve statistics",
         "STATISTICS_FAILED",
-        { error }
+        { error },
       );
     }
   }
@@ -537,22 +549,22 @@ export class AuditService {
         .where(
           and(
             lte(auditLogsTable.createdAt, date),
-            isNull(auditLogsTable.archivedAt)
-          )
+            isNull(auditLogsTable.archivedAt),
+          ),
         )
         .returning({ id: auditLogsTable.id });
 
-      this.logger.info(`Deleted ${deleted.length} audit logs older than ${date.toISOString()}`);
+      this.logger.info(
+        `Deleted ${deleted.length} audit logs older than ${date.toISOString()}`,
+      );
 
       return deleted.length;
-
     } catch (error) {
       this.logger.error("Failed to delete old logs", { error, date });
-      throw new AuditError(
-        "Failed to delete old audit logs",
-        "DELETE_FAILED",
-        { error, date }
-      );
+      throw new AuditError("Failed to delete old audit logs", "DELETE_FAILED", {
+        error,
+        date,
+      });
     }
   }
 
@@ -569,8 +581,8 @@ export class AuditService {
       .where(
         and(
           lte(auditLogsTable.createdAt, date),
-          isNull(auditLogsTable.archivedAt)
-        )
+          isNull(auditLogsTable.archivedAt),
+        ),
       )
       .returning({ id: auditLogsTable.id });
 
@@ -607,7 +619,7 @@ export class AuditService {
   async getTimeline(
     targetType: string,
     targetId: string,
-    limit = 50
+    limit = 50,
   ): Promise<AuditLog[]> {
     const rows = await db
       .select()
@@ -615,8 +627,8 @@ export class AuditService {
       .where(
         and(
           eq(auditLogsTable.targetType, targetType),
-          eq(auditLogsTable.targetId, targetId)
-        )
+          eq(auditLogsTable.targetId, targetId),
+        ),
       )
       .orderBy(desc(auditLogsTable.createdAt))
       .limit(limit);
@@ -634,8 +646,8 @@ export class AuditService {
       .where(
         or(
           eq(auditLogsTable.actorId, userId),
-          eq(auditLogsTable.targetId, userId)
-        )
+          eq(auditLogsTable.targetId, userId),
+        ),
       )
       .orderBy(desc(auditLogsTable.createdAt))
       .limit(limit);
@@ -650,7 +662,7 @@ export class AuditService {
    */
   private buildSearchConditions(searchTerm: string): any[] {
     const searchValue = `%${searchTerm}%`;
-    
+
     return [
       or(
         like(auditLogsTable.actorEmail, searchValue),
@@ -661,7 +673,7 @@ export class AuditService {
         like(auditLogsTable.ipAddress, searchValue),
         like(auditLogsTable.action, searchValue),
         like(auditLogsTable.targetType, searchValue),
-        like(sql<string>`metadata::text`, searchValue)
+        like(sql<string>`metadata::text`, searchValue),
       ),
     ];
   }
@@ -669,9 +681,7 @@ export class AuditService {
   /**
    * Build query conditions from options
    */
-  private async buildConditions(
-    options: AuditLogQueryOptions
-  ): Promise<any[]> {
+  private async buildConditions(options: AuditLogQueryOptions): Promise<any[]> {
     const conditions = [];
 
     if (options.actorId) {
@@ -687,7 +697,9 @@ export class AuditService {
     }
 
     if (options.actionCategory) {
-      conditions.push(eq(auditLogsTable.actionCategory, options.actionCategory));
+      conditions.push(
+        eq(auditLogsTable.actionCategory, options.actionCategory),
+      );
     }
 
     if (options.targetType) {
@@ -707,9 +719,7 @@ export class AuditService {
     }
 
     if (options.severity) {
-      conditions.push(
-        sql`metadata->>'severity' = ${options.severity}`
-      );
+      conditions.push(sql`metadata->>'severity' = ${options.severity}`);
     }
 
     if (options.tags && options.tags.length > 0) {
@@ -720,10 +730,12 @@ export class AuditService {
             .select({ logId: auditLogTagsTable.auditLogId })
             .from(auditLogTagsTable)
             .where(eq(auditLogTagsTable.tag, tag));
-          
+
           const logIds = tagRows.map((r) => r.logId);
-          return logIds.length > 0 ? inArray(auditLogsTable.id, logIds) : undefined;
-        })
+          return logIds.length > 0
+            ? inArray(auditLogsTable.id, logIds)
+            : undefined;
+        }),
       );
 
       const validTagConditions = tagConditions.filter((c) => c !== undefined);
@@ -751,7 +763,7 @@ export class AuditService {
               ${auditLogsTable.createdAt} = ${cursorLog.createdAt}
               AND ${auditLogsTable.id} < ${cursorLog.id}
             )
-          )`
+          )`,
         );
       }
     }
@@ -810,36 +822,38 @@ export class AuditService {
   private mapRowToAuditLog(row: AuditLogRow): AuditLog {
     return {
       id: row.id,
-      
+
       // Actor
       actorId: row.actorId ?? undefined,
       actorType: row.actorType as any,
       actorEmail: row.actorEmail ?? undefined,
-      
+
       // Action
       action: row.action as any,
-      
+
       // Target
       targetType: row.targetType as any,
       targetId: row.targetId ?? undefined,
       targetName: row.targetName ?? undefined,
-      
+
       // Changes
       oldValue: (row.oldValue as Record<string, unknown>) ?? undefined,
       newValue: (row.newValue as Record<string, unknown>) ?? undefined,
-      diff: (row.diff as Record<string, { old: unknown; new: unknown }>) ?? undefined,
-      
+      diff:
+        (row.diff as Record<string, { old: unknown; new: unknown }>) ??
+        undefined,
+
       // Context
       metadata: (row.metadata as Record<string, unknown>) ?? undefined,
       ipAddress: row.ipAddress ?? undefined,
       userAgent: row.userAgent ?? undefined,
       requestId: row.requestId ?? undefined,
       sessionId: row.sessionId ?? undefined,
-      
+
       // Timestamps
       createdAt: row.createdAt,
       createdAtIso: row.createdAt.toISOString(),
-      
+
       // Additional
       severity: (row.metadata as any)?.severity,
     };
@@ -850,7 +864,7 @@ export class AuditService {
    */
   private calculateDiff(
     oldValue?: Record<string, unknown>,
-    newValue?: Record<string, unknown>
+    newValue?: Record<string, unknown>,
   ): Record<string, { old: unknown; new: unknown }> | undefined {
     if (!oldValue || !newValue) return undefined;
 
@@ -875,8 +889,21 @@ export class AuditService {
   private categorizeAction(action: string): string {
     const categories: Record<string, string[]> = {
       CRUD: ["CREATE", "READ", "UPDATE", "DELETE", "UPSERT"],
-      AUTH: ["LOGIN", "LOGOUT", "LOGIN_FAILED", "REGISTER", "VERIFY_EMAIL", "RESET_PASSWORD"],
-      PAYMENT: ["PAYMENT_COMPLETED", "PAYMENT_FAILED", "PAYMENT_REFUNDED", "SUBSCRIPTION_CREATED", "SUBSCRIPTION_CANCELLED"],
+      AUTH: [
+        "LOGIN",
+        "LOGOUT",
+        "LOGIN_FAILED",
+        "REGISTER",
+        "VERIFY_EMAIL",
+        "RESET_PASSWORD",
+      ],
+      PAYMENT: [
+        "PAYMENT_COMPLETED",
+        "PAYMENT_FAILED",
+        "PAYMENT_REFUNDED",
+        "SUBSCRIPTION_CREATED",
+        "SUBSCRIPTION_CANCELLED",
+      ],
       SYSTEM: ["SYSTEM_START", "SYSTEM_STOP", "ERROR", "WARNING"],
       SECURITY: ["SECURITY_ALERT", "COMPLIANCE_CHECK"],
       ADMIN: ["ROLE_CHANGED", "PERMISSION_CHANGED", "CONFIG_CHANGED"],
@@ -930,7 +957,7 @@ export class AuditService {
   private async calculateInsights(
     startDate: Date,
     endDate: Date,
-    where: any
+    where: any,
   ): Promise<AuditLogStatistics["insights"]> {
     // Top actions
     const topActions = await db
@@ -951,12 +978,7 @@ export class AuditService {
         count: count(),
       })
       .from(auditLogsTable)
-      .where(
-        and(
-          where,
-          isNotNull(auditLogsTable.actorId)
-        )
-      )
+      .where(and(where, isNotNull(auditLogsTable.actorId)))
       .groupBy(auditLogsTable.actorId)
       .orderBy(desc(count()))
       .limit(5);
@@ -982,7 +1004,7 @@ export class AuditService {
    */
   private async detectAnomalies(
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<Array<{ type: string; description: string }>> {
     const anomalies: Array<{ type: string; description: string }> = [];
 
@@ -994,8 +1016,8 @@ export class AuditService {
         and(
           gte(auditLogsTable.createdAt, startDate),
           lte(auditLogsTable.createdAt, endDate),
-          eq(auditLogsTable.action, "LOGIN_FAILED")
-        )
+          eq(auditLogsTable.action, "LOGIN_FAILED"),
+        ),
       );
 
     if ((failedLogins[0]?.count || 0) > 50) {
@@ -1013,8 +1035,8 @@ export class AuditService {
         and(
           gte(auditLogsTable.createdAt, startDate),
           lte(auditLogsTable.createdAt, endDate),
-          sql`metadata->>'batch' IS NOT NULL`
-        )
+          sql`metadata->>'batch' IS NOT NULL`,
+        ),
       );
 
     if ((rapidOps[0]?.count || 0) > 100) {
