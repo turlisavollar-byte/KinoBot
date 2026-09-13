@@ -136,7 +136,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.READ_OWN_PROFILE,
     Permission.READ_OWN_SESSIONS,
     Permission.READ_CONTENT,
-    Permission.VIEW_ANALYTICS,
     Permission.READ_SUBSCRIPTIONS,
   ],
   viewer: [
@@ -148,7 +147,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
     // Content
     Permission.READ_CONTENT,
-    Permission.VIEW_ANALYTICS,
     Permission.READ_SUBSCRIPTIONS,
   ],
 };

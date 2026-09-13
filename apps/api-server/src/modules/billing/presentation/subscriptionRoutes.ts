@@ -10,10 +10,13 @@ import {
   ListSubscriptionsQuerySchema,
   CreatePlanSchema,
   UpdatePlanSchema,
+  UpdateSubscriptionPlanSchema,
   PlanIdSchema,
 } from "../application";
 
-export function createSubscriptionRouter(controller: BillingController): Router {
+export function createSubscriptionRouter(
+  controller: BillingController,
+): Router {
   const router = Router();
 
   // Apply authentication to all subscription routes
@@ -40,8 +43,8 @@ export function createSubscriptionRouter(controller: BillingController): Router 
   router.patch(
     "/plans/:id",
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
-    validate({ params: PlanIdSchema, body: UpdatePlanSchema }),
-    (req, res, next) => controller.updatePlan(req, res, next),
+    validate({ params: PlanIdSchema, body: UpdateSubscriptionPlanSchema }),
+    (req, res, next) => controller.updateSubscriptionPlan(req, res, next),
   );
 
   // ===== Subscriptions =====

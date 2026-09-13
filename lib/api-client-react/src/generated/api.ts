@@ -54,6 +54,7 @@ import type {
   CreateSeasonBody,
   CreateSeriesBody,
   CreateSubscriptionBody,
+  CreateSubscriptionPlan201,
   CreateSubscriptionPlanBody,
   CreateUzcardPayment200,
   CreateUzcardPaymentBody,
@@ -112,6 +113,7 @@ import type {
   ListPayments200,
   ListPaymentsParams,
   ListSeriesParams,
+  ListSubscriptionPlans200,
   ListSubscriptionsParams,
   ListUserInvoices200,
   ListUserInvoicesParams,
@@ -129,6 +131,7 @@ import type {
   MoviePage,
   NotificationTemplate,
   NotificationTemplateInput,
+  NotificationTemplateUpdateInput,
   PublishEpisodeBody,
   PublishMovieBody,
   PublishSeriesBody,
@@ -140,7 +143,6 @@ import type {
   SeriesPage,
   Subscription,
   SubscriptionPage,
-  SubscriptionPlan,
   TelegramChannel,
   TelegramChannelInput,
   TelegramConfig,
@@ -154,6 +156,7 @@ import type {
   UpdateGenreBody,
   UpdateMovieBody,
   UpdateSeriesBody,
+  UpdateSubscriptionPlan200,
   UpdateSubscriptionPlanBody,
   UpdateUserInput,
   UpdateVideoCodeBody,
@@ -7080,6 +7083,169 @@ export const useCreateNotificationTemplate = <TError = ErrorType<unknown>,
       return useMutation(getCreateNotificationTemplateMutationOptions(options));
     }
 
+export const getUpdateNotificationTemplateUrl = (id: string,) => {
+
+
+
+
+  return `/api/notifications/templates/${id}`
+}
+
+/**
+ * @summary Update notification template
+ */
+export const updateNotificationTemplate = async (id: string,
+    notificationTemplateUpdateInput: NotificationTemplateUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<NotificationTemplate> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<NotificationTemplate>(getUpdateNotificationTemplateUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(notificationTemplateUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateNotificationTemplateMutationKey = () => ['updateNotificationTemplate'] as const;
+
+export const getUpdateNotificationTemplateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNotificationTemplate>>, TError,UpdateNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateNotificationTemplate>>, TError,UpdateNotificationTemplateMutationVariables, TContext> => {
+
+const mutationKey = getUpdateNotificationTemplateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateNotificationTemplate>>, UpdateNotificationTemplateMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateNotificationTemplate(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateNotificationTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof updateNotificationTemplate>>>
+    export type UpdateNotificationTemplateMutationBody = BodyType<NotificationTemplateUpdateInput>
+    export type UpdateNotificationTemplateMutationError = ErrorType<unknown>
+    export type UpdateNotificationTemplateMutationVariables = {id: string;data: BodyType<NotificationTemplateUpdateInput>}
+
+    /**
+ * @summary Update notification template
+ */
+export const useUpdateNotificationTemplate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNotificationTemplate>>, TError,UpdateNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateNotificationTemplate>>,
+        TError,
+        UpdateNotificationTemplateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateNotificationTemplateMutationOptions(options));
+    }
+
+export const getDeleteNotificationTemplateUrl = (id: string,) => {
+
+
+
+
+  return `/api/notifications/templates/${id}`
+}
+
+/**
+ * @summary Delete notification template
+ */
+export const deleteNotificationTemplate = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteNotificationTemplateUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteNotificationTemplateMutationKey = () => ['deleteNotificationTemplate'] as const;
+
+export const getDeleteNotificationTemplateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationTemplate>>, TError,DeleteNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationTemplate>>, TError,DeleteNotificationTemplateMutationVariables, TContext> => {
+
+const mutationKey = getDeleteNotificationTemplateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteNotificationTemplate>>, DeleteNotificationTemplateMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteNotificationTemplate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteNotificationTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof deleteNotificationTemplate>>>
+
+    export type DeleteNotificationTemplateMutationError = ErrorType<unknown>
+    export type DeleteNotificationTemplateMutationVariables = {id: string}
+
+    /**
+ * @summary Delete notification template
+ */
+export const useDeleteNotificationTemplate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationTemplate>>, TError,DeleteNotificationTemplateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteNotificationTemplate>>,
+        TError,
+        DeleteNotificationTemplateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteNotificationTemplateMutationOptions(options));
+    }
+
 export const getBroadcastNotificationUrl = () => {
 
 
@@ -7263,9 +7429,9 @@ export const getListSubscriptionPlansUrl = () => {
 /**
  * @summary List available subscription plans
  */
-export const listSubscriptionPlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPlan[]> => {
+export const listSubscriptionPlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListSubscriptionPlans200> => {
 
-  return customFetch<SubscriptionPlan[]>(getListSubscriptionPlansUrl(),
+  return customFetch<ListSubscriptionPlans200>(getListSubscriptionPlansUrl(),
   {
     ...options,
     method: 'GET'
@@ -7340,7 +7506,7 @@ export const getCreateSubscriptionPlanUrl = () => {
 /**
  * @summary Create a new subscription plan
  */
-export const createSubscriptionPlan = async (createSubscriptionPlanBody: CreateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPlan> => {
+export const createSubscriptionPlan = async (createSubscriptionPlanBody: CreateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateSubscriptionPlan201> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -7356,7 +7522,7 @@ export const createSubscriptionPlan = async (createSubscriptionPlanBody: CreateS
     }
     return headers;
   };
-return customFetch<SubscriptionPlan>(getCreateSubscriptionPlanUrl(),
+return customFetch<CreateSubscriptionPlan201>(getCreateSubscriptionPlanUrl(),
   {
     ...options,
     method: 'POST',
@@ -7429,7 +7595,7 @@ export const getUpdateSubscriptionPlanUrl = (id: string,) => {
  * @summary Update subscription plan
  */
 export const updateSubscriptionPlan = async (id: string,
-    updateSubscriptionPlanBody: UpdateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionPlan> => {
+    updateSubscriptionPlanBody: UpdateSubscriptionPlanBody, options?: Parameters<typeof customFetch>[1]): Promise<UpdateSubscriptionPlan200> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -7445,7 +7611,7 @@ export const updateSubscriptionPlan = async (id: string,
     }
     return headers;
   };
-return customFetch<SubscriptionPlan>(getUpdateSubscriptionPlanUrl(id),
+return customFetch<UpdateSubscriptionPlan200>(getUpdateSubscriptionPlanUrl(id),
   {
     ...options,
     method: 'PATCH',

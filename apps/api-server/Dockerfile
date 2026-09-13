@@ -4,7 +4,8 @@
 # =============================================================================
 
 # Stage 1: Base image with dependencies
-FROM node:24-bookworm-slim AS base
+# Use the maintained LTS runtime to reduce known base-image vulnerabilities.
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
 
 # Apply the latest Debian security fixes from the base image repository.
@@ -36,7 +37,7 @@ ENV NODE_ENV=production
 RUN pnpm --filter @workspace/api-server run build
 
 # Stage 4: Production image
-FROM node:24-bookworm-slim AS production
+FROM node:22-bookworm-slim AS production
 
 # Install dumb-init for proper signal handling
 RUN apt-get update \
@@ -68,7 +69,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:8080/api/healthz', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:8080/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

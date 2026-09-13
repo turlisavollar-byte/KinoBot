@@ -43,6 +43,20 @@
       "when": 1788818323681,
       "tag": "0005_short_ghost_rider",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789293050041,
+      "tag": "0006_outstanding_lucky_pierre",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789305154248,
+      "tag": "0007_sad_fenris",
+      "breakpoints": true
     }
   ]
 }

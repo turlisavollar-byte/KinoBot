@@ -1,37 +1,90 @@
-/**
- * Device Repository — STUB
- *
- * TODO: Add `devicesTable` to DB schema (lib/db/src/schema/).
- * Schema fields: id, userId, telegramId, platform, deviceName,
- *   deviceModel, osVersion, appVersion, fcmToken, status,
- *   lastActiveAt, createdAt, deletedAt
- */
+import { and, count, eq, isNull } from "drizzle-orm";
+import { db, devicesTable } from "@workspace/db";
+import type {
+  DeviceInfo,
+  RegisterDeviceDTO,
+} from "@/modules/device/device.types";
 
-import { logger } from "@/lib/logger";
-import type { DeviceInfo, RegisterDeviceDTO } from "@/modules/device/device.types";
+const toDeviceInfo = (row: typeof devicesTable.$inferSelect): DeviceInfo => ({
+  id: row.id,
+  userId: row.userId,
+  telegramId: row.telegramId ?? undefined,
+  platform: row.platform as DeviceInfo["platform"],
+  deviceName: row.deviceName,
+  deviceModel: row.deviceModel ?? undefined,
+  osVersion: row.osVersion ?? undefined,
+  appVersion: row.appVersion ?? undefined,
+  fcmToken: row.fcmToken ?? undefined,
+  status: row.status as DeviceInfo["status"],
+  lastActiveAt: row.lastActiveAt ?? undefined,
+  createdAt: row.createdAt,
+});
 
 export class DeviceRepository {
-  async findByUserId(_userId: string): Promise<DeviceInfo[]> {
-    logger.warn("DeviceRepository.findByUserId: stub — schema not yet created");
-    return [];
+  async findByUserId(userId: string): Promise<DeviceInfo[]> {
+    const rows = await db
+      .select()
+      .from(devicesTable)
+      .where(
+        and(eq(devicesTable.userId, userId), isNull(devicesTable.deletedAt)),
+      );
+    return rows.map(toDeviceInfo);
   }
 
-  async findById(_id: string): Promise<DeviceInfo | null> {
-    return null;
+  async findById(id: string): Promise<DeviceInfo | null> {
+    const [row] = await db
+      .select()
+      .from(devicesTable)
+      .where(and(eq(devicesTable.id, id), isNull(devicesTable.deletedAt)))
+      .limit(1);
+    return row ? toDeviceInfo(row) : null;
   }
 
-  async create(_userId: string, _dto: RegisterDeviceDTO): Promise<DeviceInfo> {
-    throw new Error("DeviceRepository.create: stub");
+  async create(userId: string, dto: RegisterDeviceDTO): Promise<DeviceInfo> {
+    const [row] = await db
+      .insert(devicesTable)
+      .values({
+        userId,
+        ...dto,
+        lastActiveAt: new Date(),
+      })
+      .returning();
+    return toDeviceInfo(row);
   }
 
-  async updateLastActive(_id: string): Promise<void> {}
+  async updateLastActive(id: string): Promise<void> {
+    await db
+      .update(devicesTable)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(devicesTable.id, id));
+  }
 
-  async block(_id: string): Promise<void> {}
+  async block(id: string): Promise<void> {
+    await db
+      .update(devicesTable)
+      .set({ status: "blocked" })
+      .where(eq(devicesTable.id, id));
+  }
 
-  async remove(_id: string): Promise<void> {}
+  async remove(id: string): Promise<void> {
+    await db
+      .update(devicesTable)
+      .set({ status: "removed", deletedAt: new Date() })
+      .where(eq(devicesTable.id, id));
+  }
 
-  async countActiveByUser(_userId: string): Promise<number> {
-    return 0;
+  async countActiveByUser(userId: string): Promise<number> {
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(devicesTable)
+      .where(
+        and(
+          eq(devicesTable.userId, userId),
+          eq(devicesTable.status, "active"),
+          isNull(devicesTable.deletedAt),
+        ),
+      );
+    return Number(total);
   }
 }
 

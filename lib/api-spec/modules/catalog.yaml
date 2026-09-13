@@ -601,6 +601,12 @@ components:
           type: string
         trailerUrl:
           type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
         isPublished:
           type: boolean
         seasonsCount:
@@ -634,6 +640,12 @@ components:
           type: string
         trailerUrl:
           type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
         releaseDate:
           type: string
           format: date-time
@@ -656,6 +668,12 @@ components:
         backgroundUrl:
           type: string
         trailerUrl:
+          type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
           type: string
         releaseDate:
           type: string

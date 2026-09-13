@@ -1,28 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
+import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Load .env file using dotenv for proper parsing
+config({ path: resolve(root, ".env") });
+
 const environment = { ...process.env };
-
-if (existsSync(resolve(root, ".env"))) {
-  const envContent = readFileSync(resolve(root, ".env"), "utf8");
-
-  for (const line of envContent.split(/\r?\n/)) {
-    // Skip empty lines and comments
-    if (!line.trim() || line.trim().startsWith("#")) continue;
-
-    const match = line.match(/^\s*([^#=]+)=(.*)\s*$/);
-    if (!match) continue;
-    const [, key, rawValue] = match;
-    if (environment[key] !== undefined) continue;
-    environment[key] = rawValue.replace(/^(['"])(.*)\1$/, "$2");
-  }
-} else {
-  console.warn(".env file not found at:", resolve(root, ".env"));
-}
 
 async function isPortAvailable(port) {
   return new Promise((resolve) => {
@@ -48,6 +35,67 @@ async function findAvailablePort(preferred) {
   }
   throw new Error("No available ports found.");
 }
+
+async function waitForHttpReady(
+  url,
+  timeoutMs = 45000,
+  exitCheck = () => false,
+) {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    if (exitCheck()) {
+      throw new Error(`Process exited before ${url} became ready.`);
+    }
+
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Retry until the server is genuinely ready.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Timed out waiting for ${url} to become ready.`);
+}
+
+async function cleanupStaleProjectProcesses() {
+  if (process.platform !== "win32") return;
+
+  const ports = [
+    8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 3000, 3001,
+    3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010,
+  ];
+
+  try {
+    const result = spawnSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        [
+          "$ports = @(" + ports.join(", ") + ")",
+          "$pids = Get-NetTCPConnection | Where-Object { $_.LocalPort -in $ports -and $_.State -eq 'Listen' } | Select-Object -ExpandProperty OwningProcess -Unique",
+          "if ($pids) { $pids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } ; $pids -join ',' } else { '' }",
+        ].join("; "),
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    const output = result.stdout?.toString().trim();
+    if (output) {
+      console.log(`Stopped stale dev processes: ${output}`);
+    }
+  } catch {
+    // Ignore cleanup errors; startup should continue if ports are free.
+  }
+}
+
+await cleanupStaleProjectProcesses();
 
 const preferredApiPort = environment.API_PORT ?? environment.PORT ?? "8080";
 const preferredDashboardPort = environment.DASHBOARD_PORT ?? "3000";
@@ -111,22 +159,68 @@ const services = [
   },
 ];
 
-const children = services.map(({ name, command, args, env }) => {
-  const child = spawn(command, args, {
+let shuttingDown = false;
+
+const children = [];
+const apiState = { exited: false, code: null, signal: null };
+
+// Start API server normally (non-detached)
+const apiService = services.find((s) => s.name === "api-server");
+if (apiService) {
+  console.log(`Starting ${apiService.name}...`);
+
+  const apiChild = spawn(apiService.command, apiService.args, {
     cwd: root,
-    env,
+    env: { ...process.env, ...apiService.env },
     stdio: "inherit",
-    shell: process.platform === "win32" && command.endsWith(".cmd"),
   });
-  child.on("exit", (code, signal) => {
+  children.push(apiChild);
+  apiChild.on("spawn", () => {
+    console.log(`${apiService.name} started (pid ${apiChild.pid})`);
+  });
+  apiChild.on("exit", (code, signal) => {
+    apiState.exited = true;
+    apiState.code = code;
+    apiState.signal = signal;
     if (shuttingDown) return;
-    console.error(`${name} exited with ${signal ?? `code ${code}`}`);
+    console.error(`${apiService.name} exited with ${signal ?? `code ${code}`}`);
     shutdown(code ?? 1);
   });
-  return child;
-});
 
-let shuttingDown = false;
+  await waitForHttpReady(
+    `http://127.0.0.1:${apiPort}/api/health`,
+    45_000,
+    () => apiState.exited,
+  );
+}
+
+// Start dashboard only after the API health endpoint becomes ready.
+const dashboardService = services.find((s) => s.name === "dashboard");
+if (dashboardService) {
+  const dashboardChild = spawn(
+    dashboardService.command,
+    dashboardService.args,
+    {
+      cwd: root,
+      env: { ...process.env, ...dashboardService.env },
+      stdio: "inherit",
+      shell:
+        process.platform === "win32" &&
+        dashboardService.command.endsWith(".cmd"),
+    },
+  );
+  children.push(dashboardChild);
+  dashboardChild.on("spawn", () => {
+    console.log(`${dashboardService.name} started (pid ${dashboardChild.pid})`);
+  });
+  dashboardChild.on("exit", (code, signal) => {
+    if (shuttingDown) return;
+    console.error(
+      `${dashboardService.name} exited with ${signal ?? `code ${code}`}`,
+    );
+    shutdown(code ?? 1);
+  });
+}
 
 function shutdown(code = 0) {
   if (shuttingDown) return;
@@ -137,3 +231,10 @@ function shutdown(code = 0) {
 
 process.on("SIGINT", () => shutdown());
 process.on("SIGTERM", () => shutdown());
+
+// Keep the orchestrator process alive while child services run
+setInterval(() => {
+  // Keep the process alive
+}, 60_000);
+
+process.stdin.resume();

@@ -65,6 +65,39 @@ export class NotificationController {
     }
   };
 
+  updateTemplate = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const paramsId = String(req.params.id);
+      const parsed = CreateNotificationTemplateBody.partial().safeParse(
+        req.body,
+      );
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.message });
+        return;
+      }
+      res.json(await this.adminService.updateTemplate(paramsId, parsed.data));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  deleteTemplate = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      await this.adminService.deleteTemplate(String(req.params.id));
+      res.sendStatus(204);
+    } catch (err) {
+      next(err);
+    }
+  };
+
   listNotifications = async (
     req: Request,
     res: Response,

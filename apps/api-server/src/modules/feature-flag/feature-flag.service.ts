@@ -1,24 +1,53 @@
-/**
- * Feature Flag Service — STUB
- *
- * TODO: Add `featureFlagsTable` to DB schema.
- * In production, consider LaunchDarkly or Unleash integration.
- */
+import { desc, eq } from "drizzle-orm";
+import { db, featureFlagsTable } from "@workspace/db";
+import type {
+  FeatureFlag,
+  CreateFlagDTO,
+  EvaluateResult,
+  FlagStatus,
+} from "@/modules/feature-flag/feature-flag.types";
 
-import type { FeatureFlag, CreateFlagDTO, EvaluateResult, FlagStatus } from "@/modules/feature-flag/feature-flag.types";
-
-// In-memory flag store until DB schema is added
-const _flags = new Map<string, FeatureFlag>();
+const toFeatureFlag = (row: {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  status: string;
+  rolloutPercentage: number | null;
+  enabledForUserIds: string[] | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}): FeatureFlag => ({
+  id: row.id,
+  key: row.key,
+  name: row.name,
+  description: row.description ?? undefined,
+  status: row.status as FlagStatus,
+  rolloutPercentage: row.rolloutPercentage ?? undefined,
+  enabledForUserIds: row.enabledForUserIds ?? [],
+  metadata: row.metadata ?? undefined,
+  createdAt: row.createdAt ?? new Date(),
+  updatedAt: row.updatedAt ?? new Date(),
+});
 
 export class FeatureFlagService {
   async evaluate(key: string, userId?: string): Promise<EvaluateResult> {
-    const flag = _flags.get(key);
-    if (!flag) return { key, enabled: false, reason: "flag_not_found" };
+    const [flagRow] = await db
+      .select()
+      .from(featureFlagsTable)
+      .where(eq(featureFlagsTable.key, key))
+      .limit(1);
 
-    if (flag.status === "disabled") return { key, enabled: false, reason: "disabled" };
-    if (flag.status === "enabled") return { key, enabled: true, reason: "enabled" };
+    if (!flagRow) return { key, enabled: false, reason: "flag_not_found" };
 
-    // Rollout: deterministic per userId
+    const flag = toFeatureFlag(flagRow);
+
+    if (flag.status === "disabled")
+      return { key, enabled: false, reason: "disabled" };
+    if (flag.status === "enabled")
+      return { key, enabled: true, reason: "enabled" };
+
     if (flag.status === "rollout" && userId) {
       const hash = [...userId].reduce((acc, c) => acc + c.charCodeAt(0), 0);
       const bucket = hash % 100;
@@ -26,7 +55,6 @@ export class FeatureFlagService {
       return { key, enabled, reason: `rollout_${flag.rolloutPercentage}%` };
     }
 
-    // Check allowlist
     if (flag.enabledForUserIds?.includes(userId ?? "")) {
       return { key, enabled: true, reason: "allowlist" };
     }
@@ -35,33 +63,55 @@ export class FeatureFlagService {
   }
 
   async list(): Promise<FeatureFlag[]> {
-    return [..._flags.values()];
+    const rows = await db
+      .select()
+      .from(featureFlagsTable)
+      .orderBy(desc(featureFlagsTable.updatedAt));
+
+    return rows.map((row) => toFeatureFlag(row));
   }
 
   async upsert(dto: CreateFlagDTO): Promise<FeatureFlag> {
-    const existing = _flags.get(dto.key);
     const now = new Date();
-    const flag: FeatureFlag = {
-      id: existing?.id ?? crypto.randomUUID(),
+    const payload = {
       key: dto.key,
       name: dto.name,
-      description: dto.description,
+      description: dto.description ?? null,
       status: (dto.status ?? "disabled") as FlagStatus,
-      rolloutPercentage: dto.rolloutPercentage,
-      createdAt: existing?.createdAt ?? now,
+      rolloutPercentage: dto.rolloutPercentage ?? 0,
+      enabledForUserIds: [],
+      metadata: {},
       updatedAt: now,
     };
-    _flags.set(dto.key, flag);
-    return flag;
+
+    const [row] = await db
+      .insert(featureFlagsTable)
+      .values(payload)
+      .onConflictDoUpdate({
+        target: featureFlagsTable.key,
+        set: {
+          name: dto.name,
+          description: dto.description ?? null,
+          status: (dto.status ?? "disabled") as FlagStatus,
+          rolloutPercentage: dto.rolloutPercentage ?? 0,
+          metadata: {},
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    return toFeatureFlag(row);
   }
 
   async setStatus(key: string, status: FlagStatus): Promise<void> {
-    const flag = _flags.get(key);
-    if (flag) { flag.status = status; flag.updatedAt = new Date(); }
+    await db
+      .update(featureFlagsTable)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(featureFlagsTable.key, key));
   }
 
   async delete(key: string): Promise<void> {
-    _flags.delete(key);
+    await db.delete(featureFlagsTable).where(eq(featureFlagsTable.key, key));
   }
 }
 

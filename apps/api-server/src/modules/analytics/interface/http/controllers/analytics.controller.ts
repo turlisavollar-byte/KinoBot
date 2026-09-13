@@ -125,18 +125,19 @@ export class AnalyticsController {
         validated.offset,
       );
 
-      let items = content.items;
+      const serialized = content.toJSON();
+      let items = serialized.items;
       if (validated.type) {
-        items = content.filterByType(validated.type);
+        items = serialized.items.filter((item) => item.type === validated.type);
       }
 
       res.json({
         success: true,
         data: {
           items,
-          totalViews: content.toJSON().totalViews,
-          averageViews: content.toJSON().averageViews,
-          period: content.toJSON().period,
+          totalViews: serialized.totalViews,
+          averageViews: serialized.averageViews,
+          period: serialized.period,
           limit: validated.limit,
           offset: validated.offset,
         },

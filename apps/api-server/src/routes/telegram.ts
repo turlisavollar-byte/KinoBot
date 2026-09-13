@@ -17,6 +17,33 @@ import { startBot, stopBot, isBotRunning } from "@/bot/index";
 import { getRecentFileIds } from "@/bot/handlers/storage";
 
 const router: IRouter = Router();
+
+// Public bot status endpoint (no auth required)
+router.get("/telegram/status", async (_req, res): Promise<void> => {
+  const [config] = await db.select().from(telegramConfigTable).limit(1);
+  const [{ totalUsers }] = await db
+    .select({ totalUsers: sql<number>`COUNT(*)::int` })
+    .from(usersTable);
+  const [{ totalMessages }] = await db
+    .select({ totalMessages: sql<number>`COUNT(*)::int` })
+    .from(telegramMessagesTable);
+  const [{ storageFiles }] = await db
+    .select({
+      storageFiles: sql<number>`COALESCE(SUM(${telegramChannelsTable.filesCount}), 0)`,
+    })
+    .from(telegramChannelsTable);
+
+  res.json({
+    isOnline: isBotRunning(),
+    botUsername: config?.botUsername ?? null,
+    totalUsers,
+    totalMessages,
+    storageFilesCount: storageFiles ?? 0,
+    lastActivity: config?.updatedAt ?? null,
+  });
+});
+
+// Authenticated routes
 router.use(requireAuth);
 
 router.get(
@@ -77,34 +104,6 @@ router.patch(
     res.json({
       ...config,
       botToken: config.botToken ? "***configured***" : null,
-    });
-  },
-);
-
-router.get(
-  "/telegram/status",
-  requirePermission(Permission.READ_TELEGRAM),
-  async (_req, res): Promise<void> => {
-    const [config] = await db.select().from(telegramConfigTable).limit(1);
-    const [{ totalUsers }] = await db
-      .select({ totalUsers: sql<number>`COUNT(*)::int` })
-      .from(usersTable);
-    const [{ totalMessages }] = await db
-      .select({ totalMessages: sql<number>`COUNT(*)::int` })
-      .from(telegramMessagesTable);
-    const [{ storageFiles }] = await db
-      .select({
-        storageFiles: sql<number>`COALESCE(SUM(${telegramChannelsTable.filesCount}), 0)`,
-      })
-      .from(telegramChannelsTable);
-
-    res.json({
-      isOnline: isBotRunning(),
-      botUsername: config?.botUsername ?? null,
-      totalUsers,
-      totalMessages,
-      storageFilesCount: storageFiles ?? 0,
-      lastActivity: config?.updatedAt ?? null,
     });
   },
 );

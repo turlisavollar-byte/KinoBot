@@ -62,7 +62,8 @@ export default function UserDetail() {
   const queryClient = useQueryClient();
   const { data: userResponse, isLoading } = useGetUser(userId);
   const user = userResponse?.data as UserDetailWithLimits | undefined;
-  const { data: plans } = useListSubscriptionPlans();
+  const { data: plansResponse } = useListSubscriptionPlans();
+  const planList = Array.isArray(plansResponse?.data) ? plansResponse.data : [];
   const blockUser = useBlockUser();
   const updateUser = useUpdateUser();
   const grantSubscription = useGrantUserSubscription();
@@ -125,7 +126,9 @@ export default function UserDetail() {
       {
         onSuccess: () => {
           refreshUser();
-          toast.success(user.isBlocked ? t("users.unblocked") : t("users.blocked"));
+          toast.success(
+            user.isBlocked ? t("users.unblocked") : t("users.blocked"),
+          );
         },
         onError: () => toast.error(t("users.statusUpdateFailed")),
       },
@@ -179,7 +182,7 @@ export default function UserDetail() {
 
   const openGrant = () => {
     setPlanId(
-      plans?.find((plan) => plan.price === 0)?.id ?? plans?.[0]?.id ?? "",
+      planList.find((plan) => plan.price === 0)?.id ?? planList[0]?.id ?? "",
     );
     setDurationDays("");
     setAutoRenew(false);
@@ -264,12 +267,15 @@ export default function UserDetail() {
     );
   if (!user)
     return (
-      <div className="text-center py-12 text-destructive">{t("users.userNotFound")}</div>
+      <div className="text-center py-12 text-destructive">
+        {t("users.userNotFound")}
+      </div>
     );
 
   const fullName =
-    [user.firstName, user.lastName].filter(Boolean).join(" ") || t("users.unnamedUser");
-  const activePlan = plans?.find(
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    t("users.unnamedUser");
+  const activePlan = planList.find(
     (plan) => plan.id === user.activeSubscription?.planId,
   );
   const isSubscriptionActionPending =
@@ -321,13 +327,23 @@ export default function UserDetail() {
               label={t("users.joined")}
               value={new Date(user.createdAt).toLocaleDateString()}
             />
-            <Info label={t("users.watchSessions")} value={String(user.watchCount || 0)} />
+            <Info
+              label={t("users.watchSessions")}
+              value={String(user.watchCount || 0)}
+            />
             <Info
               label={t("users.watchTime")}
               value={`${user.totalWatchMinutes || 0} ${t("users.minutes")}`}
             />
-            <Info label={t("users.referralCode")} value={user.referralCode || "—"} mono />
-            <Info label={t("users.referredBy")} value={user.referredBy || t("users.organic")} />
+            <Info
+              label={t("users.referralCode")}
+              value={user.referralCode || "—"}
+              mono
+            />
+            <Info
+              label={t("users.referredBy")}
+              value={user.referredBy || t("users.organic")}
+            />
             <Info
               label={t("users.acquisition")}
               value={user.acquisitionSource || t("users.organic")}
@@ -370,7 +386,9 @@ export default function UserDetail() {
                     {t("users.autoRenew")}
                   </div>
                   <div className="font-medium">
-                    {user.activeSubscription.autoRenew ? t("users.enabled") : t("users.disabled")}
+                    {user.activeSubscription.autoRenew
+                      ? t("users.enabled")
+                      : t("users.disabled")}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -481,7 +499,9 @@ export default function UserDetail() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="daily-limit">{t("users.dailyVideoCodeLimit")}</Label>
+              <Label htmlFor="daily-limit">
+                {t("users.dailyVideoCodeLimit")}
+              </Label>
               <Input
                 id="daily-limit"
                 type="number"
@@ -495,7 +515,9 @@ export default function UserDetail() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="weekly-limit">{t("users.weeklyVideoCodeLimit")}</Label>
+              <Label htmlFor="weekly-limit">
+                {t("users.weeklyVideoCodeLimit")}
+              </Label>
               <Input
                 id="weekly-limit"
                 type="number"
@@ -509,7 +531,9 @@ export default function UserDetail() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="monthly-limit">{t("users.monthlyVideoCodeLimit")}</Label>
+              <Label htmlFor="monthly-limit">
+                {t("users.monthlyVideoCodeLimit")}
+              </Label>
               <Input
                 id="monthly-limit"
                 type="number"
@@ -523,7 +547,9 @@ export default function UserDetail() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reward-tier">{t("users.referralRewardTier")}</Label>
+              <Label htmlFor="reward-tier">
+                {t("users.referralRewardTier")}
+              </Label>
               <Input
                 id="reward-tier"
                 type="number"
@@ -561,7 +587,10 @@ export default function UserDetail() {
             value={user.referralCode || t("users.notAssigned")}
             mono
           />
-          <Info label={t("users.source")} value={user.acquisitionSource || t("users.organic")} />
+          <Info
+            label={t("users.source")}
+            value={user.acquisitionSource || t("users.organic")}
+          />
         </CardContent>
       </Card>
 
@@ -588,10 +617,12 @@ export default function UserDetail() {
                 <Label>{t("users.plan")}</Label>
                 <Select value={planId} onValueChange={setPlanId}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t("users.choosePlanPlaceholder")} />
+                    <SelectValue
+                      placeholder={t("users.choosePlanPlaceholder")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {plans?.map((plan) => (
+                    {planList.map((plan) => (
                       <SelectItem key={plan.id} value={plan.id ?? ""}>
                         {plan.name} ·{" "}
                         {plan.price === 0 || plan.price === undefined
@@ -640,7 +671,9 @@ export default function UserDetail() {
               onClick={handleSubscriptionAction}
               disabled={isSubscriptionActionPending}
             >
-              {dialogMode === "extend" ? t("users.extendSubscription") : t("users.grantSubscriptionAccess")}
+              {dialogMode === "extend"
+                ? t("users.extendSubscription")
+                : t("users.grantSubscriptionAccess")}
             </Button>
           </DialogFooter>
         </DialogContent>

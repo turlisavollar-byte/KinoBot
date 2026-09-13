@@ -202,15 +202,7 @@ export function initBillingModule(router: any): void {
   // Mount billing routes at /billing (since main router is already at /api)
   router.use("/billing", billingRouter);
 
-  if (!outboxTimer) {
-    const processor = container.resolve(DrizzleBillingOutboxProcessor);
-    outboxTimer = setInterval(() => {
-      void processor.processBatch().catch((error) => {
-        logger.error("Billing outbox processing failed", { error });
-      });
-    }, 10_000);
-    outboxTimer.unref();
-  }
+  startOutboxProcessor();
 
   logger.info("Billing module initialized");
 }
@@ -225,17 +217,34 @@ export function initSubscriptionModule(router: any): void {
   // Mount subscription routes at /subscriptions (since main router is already at /api)
   router.use("/subscriptions", subscriptionRouter);
 
-  if (!outboxTimer) {
-    const processor = container.resolve(DrizzleBillingOutboxProcessor);
-    outboxTimer = setInterval(() => {
-      void processor.processBatch().catch((error) => {
-        logger.error("Billing outbox processing failed", { error });
-      });
-    }, 10_000);
-    outboxTimer.unref();
-  }
+  startOutboxProcessor();
 
   logger.info("Subscription module initialized");
+}
+
+// ==================== Outbox Processor ====================
+function startOutboxProcessor() {
+  if (!outboxTimer) {
+    // Start outbox processor in next tick to avoid blocking startup
+    process.nextTick(() => {
+      try {
+        const processor = container.resolve(DrizzleBillingOutboxProcessor);
+        outboxTimer = setInterval(() => {
+          void processor.processBatch().catch((error) => {
+            logger.error("Billing outbox processing failed", undefined, error);
+          });
+        }, 10_000);
+        outboxTimer.unref();
+        logger.info("Billing outbox processor started");
+      } catch (error) {
+        logger.error(
+          "Failed to start billing outbox processor",
+          undefined,
+          error,
+        );
+      }
+    });
+  }
 }
 
 // ==================== Default Export ====================

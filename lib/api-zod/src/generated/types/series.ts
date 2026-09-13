@@ -16,6 +16,9 @@ export interface Series {
   posterUrl?: string;
   backgroundUrl?: string;
   trailerUrl?: string;
+  telegramFileId?: string;
+  storageKey?: string;
+  sourceType?: string;
   isPublished?: boolean;
   seasonsCount?: number;
   releaseDate?: Date;

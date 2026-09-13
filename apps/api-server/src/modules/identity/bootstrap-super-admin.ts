@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, adminUsersTable, rolesTable } from "@workspace/db";
 
 function getEnvValue(primary: string, legacy: string): string | undefined {
@@ -16,22 +16,6 @@ export async function bootstrapSuperAdmin(): Promise<void> {
   const name =
     getEnvValue("SUPER_ADMIN_NAME", "BOOTSTRAP_ADMIN_NAME") || "Developer";
 
-  const [existingSuperAdmin] = await db
-    .select({ id: adminUsersTable.id })
-    .from(adminUsersTable)
-    .leftJoin(rolesTable, eq(adminUsersTable.roleId, rolesTable.id))
-    .where(
-      or(
-        eq(adminUsersTable.role, "superadmin"),
-        eq(rolesTable.name, "superadmin"),
-      ),
-    )
-    .limit(1);
-
-  if (existingSuperAdmin) {
-    return;
-  }
-
   if (!email && !password) {
     return;
   }
@@ -44,18 +28,6 @@ export async function bootstrapSuperAdmin(): Promise<void> {
 
   if (password.length < 12) {
     throw new Error("SUPER_ADMIN_PASSWORD must be at least 12 characters");
-  }
-
-  const [existingUser] = await db
-    .select({ id: adminUsersTable.id, role: adminUsersTable.role })
-    .from(adminUsersTable)
-    .where(eq(adminUsersTable.email, email))
-    .limit(1);
-
-  if (existingUser) {
-    throw new Error(
-      `Cannot bootstrap superadmin: ${email} already belongs to role '${existingUser.role}'`,
-    );
   }
 
   let [superAdminRole] = await db
@@ -82,6 +54,30 @@ export async function bootstrapSuperAdmin(): Promise<void> {
 
   const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
   const passwordHash = await bcrypt.hash(password, saltRounds);
+
+  const [existingUser] = await db
+    .select({ id: adminUsersTable.id, role: adminUsersTable.role })
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.email, email))
+    .limit(1);
+
+  if (existingUser) {
+    await db
+      .update(adminUsersTable)
+      .set({
+        name,
+        passwordHash,
+        role: "superadmin",
+        roleId: superAdminRole.id,
+        isActive: true,
+        isEmailVerified: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(adminUsersTable.email, email));
+
+    console.log(`Superadmin bootstrap account promoted: ${email}`);
+    return;
+  }
 
   await db.insert(adminUsersTable).values({
     email,

@@ -98,6 +98,28 @@ function ProtectedRoute({
 
   if (error || !user) return <Login />;
 
+  const role = String(user.role ?? "").toLowerCase();
+  const canUseDashboard = [
+    "superadmin",
+    "admin",
+    "manager",
+    "moderator",
+  ].includes(role);
+
+  if (!canUseDashboard) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="max-w-md text-center space-y-3">
+          <h1 className="text-xl font-semibold">Dashboard access required</h1>
+          <p className="text-muted-foreground">
+            This account is a customer account and does not have dashboard
+            permissions.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout>
       <Component />

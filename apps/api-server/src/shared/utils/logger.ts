@@ -41,6 +41,29 @@ export interface LoggerOptions {
   enablePerformance?: boolean;
 }
 
+function serializeError(value: unknown): unknown {
+  if (value instanceof Error) {
+    const serialized: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    };
+
+    for (const key of ["code", "query", "params", "detail", "hint"]) {
+      const property = (value as unknown as Record<string, unknown>)[key];
+      if (property !== undefined) serialized[key] = property;
+    }
+
+    if (value.cause !== undefined) {
+      serialized.cause = serializeError(value.cause);
+    }
+
+    return serialized;
+  }
+
+  return value;
+}
+
 // ==================== Custom Formats ====================
 
 /**
@@ -380,15 +403,7 @@ export class Logger {
 
     // Add error if provided
     if (error) {
-      if (error instanceof Error) {
-        entry.error = {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        };
-      } else {
-        entry.error = error;
-      }
+      entry.error = serializeError(error);
     }
 
     // Add caller information
@@ -547,7 +562,11 @@ export class Logger {
 
       // Check for nested sensitive data
       if (value && typeof value === "object") {
-        sanitized[key] = this.sanitizeContext(value as LogContext);
+        if (value instanceof Error) {
+          sanitized[key] = serializeError(value);
+        } else {
+          sanitized[key] = this.sanitizeContext(value as LogContext);
+        }
       } else {
         sanitized[key] = value;
       }

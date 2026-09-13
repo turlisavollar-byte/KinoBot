@@ -18,64 +18,88 @@ export type BotContext = Context & SessionFlavor<SessionData>;
 
 let _bot: Bot<BotContext> | null = null;
 let _isRunning = false;
+let _startPromise: Promise<void> | null = null;
 
 export function getBot(): Bot<BotContext> | null {
   return _bot;
 }
 
 export async function startBot(): Promise<void> {
-  if (_isRunning) {
-    await stopBot();
-  }
-
-  const [config] = await db
-    .select()
-    .from(telegramConfigTable)
-    .where(eq(telegramConfigTable.isActive, true))
-    .limit(1);
-
-  if (!config?.botToken) {
-    logger.info("Telegram bot: no active config with token, skipping start");
+  if (_isRunning && _bot) {
     return;
   }
 
-  try {
-    _bot = new Bot<BotContext>(config.botToken);
+  if (_startPromise) {
+    await _startPromise;
+    return;
+  }
 
-    _bot.use(
-      session({
-        initial(): SessionData {
-          return { language: "uz", page: 0 };
+  _startPromise = (async () => {
+    if (_isRunning && _bot) {
+      return;
+    }
+
+    const [config] = await db
+      .select()
+      .from(telegramConfigTable)
+      .where(eq(telegramConfigTable.isActive, true))
+      .limit(1);
+
+    if (!config?.botToken) {
+      logger.info("Telegram bot: no active config with token, skipping start");
+      return;
+    }
+
+    try {
+      if (_bot) {
+        await stopBot();
+      }
+
+      _bot = new Bot<BotContext>(config.botToken);
+
+      _bot.use(
+        session({
+          initial(): SessionData {
+            return { language: "uz", page: 0 };
+          },
+        }),
+      );
+
+      // Register all handlers
+      registerStorageHandler(_bot);
+      registerStartHandler(_bot);
+      registerCatalogHandler(_bot);
+      registerSubscriptionHandler(_bot);
+
+      // Global error handler
+      _bot.catch((err) => {
+        logger.error({ err: err.error, ctx: err.ctx?.update }, "Bot error");
+      });
+
+      // Set running flag before starting polling to avoid race conditions with status checks
+      _isRunning = true;
+
+      // Start polling and await the result so startup failures are handled here
+      await _bot.start({
+        onStart: (info) => {
+          logger.info(
+            { botUsername: info.username },
+            "Telegram bot started (polling)",
+          );
         },
-      }),
-    );
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to start Telegram bot");
+      _bot = null;
+      _isRunning = false;
+      throw err;
+    }
+  })();
 
-    // Register all handlers
-    registerStorageHandler(_bot);
-    registerStartHandler(_bot);
-    registerCatalogHandler(_bot);
-    registerSubscriptionHandler(_bot);
-
-    // Global error handler
-    _bot.catch((err) => {
-      logger.error({ err: err.error, ctx: err.ctx?.update }, "Bot error");
-    });
-
-    // Start polling in background
-    _bot.start({
-      onStart: (info) => {
-        logger.info(
-          { botUsername: info.username },
-          "Telegram bot started (polling)",
-        );
-      },
-    });
-
-    _isRunning = true;
-  } catch (err) {
-    logger.error({ err }, "Failed to start Telegram bot");
-    _bot = null;
-    _isRunning = false;
+  try {
+    await _startPromise;
+  } finally {
+    _startPromise = null;
   }
 }
 

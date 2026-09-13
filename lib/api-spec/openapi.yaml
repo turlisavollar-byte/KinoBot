@@ -2192,6 +2192,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationTemplate'
+  /notifications/templates/{id}:
+    put:
+      operationId: updateNotificationTemplate
+      tags:
+        - notifications
+      summary: Update notification template
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationTemplateUpdateInput'
+      responses:
+        '200':
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplate'
+    delete:
+      operationId: deleteNotificationTemplate
+      tags:
+        - notifications
+      summary: Delete notification template
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Template deleted
   /notifications/broadcast:
     post:
       operationId: broadcastNotification
@@ -2274,9 +2317,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SubscriptionPlan'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
     post:
       operationId: createSubscriptionPlan
       tags:
@@ -2296,7 +2346,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionPlan'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SubscriptionPlan'
   /subscriptions/plans/{id}:
     patch:
       operationId: updateSubscriptionPlan
@@ -2323,7 +2378,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionPlan'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SubscriptionPlan'
   /subscriptions/{id}/cancel:
     post:
       operationId: cancelSubscription
@@ -3635,8 +3695,6 @@ components:
         - page
         - limit
         - totalPages
-        - hasNext
-        - hasPrevious
       properties:
         total:
           type: integer
@@ -3646,10 +3704,6 @@ components:
           type: integer
         totalPages:
           type: integer
-        hasNext:
-          type: boolean
-        hasPrevious:
-          type: boolean
     BillingPlan:
       type: object
       required:
@@ -4211,6 +4265,12 @@ components:
           type: string
         trailerUrl:
           type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
         isPublished:
           type: boolean
         seasonsCount:
@@ -4244,6 +4304,12 @@ components:
           type: string
         trailerUrl:
           type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
+          type: string
         releaseDate:
           type: string
           format: date-time
@@ -4265,6 +4331,12 @@ components:
         backgroundUrl:
           type: string
         trailerUrl:
+          type: string
+        telegramFileId:
+          type: string
+        storageKey:
+          type: string
+        sourceType:
           type: string
         releaseDate:
           type: string
@@ -4643,6 +4715,51 @@ components:
             - Markdown
             - MarkdownV2
           default: HTML
+        buttons:
+          type: array
+          items:
+            type: object
+            required:
+              - text
+              - url
+            properties:
+              text:
+                type: string
+              url:
+                type: string
+                format: uri
+        variables:
+          type: array
+          items:
+            type: string
+    NotificationTemplateUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+        channel:
+          type: string
+        content:
+          type: string
+        contentType:
+          type: string
+          enum:
+            - text
+            - photo
+            - video
+            - animation
+            - audio
+            - voice
+            - document
+        mediaFileId:
+          type: string
+          nullable: true
+        parseMode:
+          type: string
+          enum:
+            - HTML
+            - Markdown
+            - MarkdownV2
         buttons:
           type: array
           items:

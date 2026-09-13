@@ -140,6 +140,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/NotificationTemplate"
 
+  /notifications/templates/{id}:
+    put:
+      operationId: updateNotificationTemplate
+      tags: [notifications]
+      summary: Update notification template
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationTemplateUpdateInput"
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTemplate"
+
+    delete:
+      operationId: deleteNotificationTemplate
+      tags: [notifications]
+      summary: Delete notification template
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Template deleted
+
   /notifications/broadcast:
     post:
       operationId: broadcastNotification
@@ -284,6 +327,40 @@ components:
           type: string
           enum: [HTML, Markdown, MarkdownV2]
           default: HTML
+        buttons:
+          type: array
+          items:
+            type: object
+            required: [text, url]
+            properties:
+              text:
+                type: string
+              url:
+                type: string
+                format: uri
+        variables:
+          type: array
+          items:
+            type: string
+
+    NotificationTemplateUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+        channel:
+          type: string
+        content:
+          type: string
+        contentType:
+          type: string
+          enum: [text, photo, video, animation, audio, voice, document]
+        mediaFileId:
+          type: string
+          nullable: true
+        parseMode:
+          type: string
+          enum: [HTML, Markdown, MarkdownV2]
         buttons:
           type: array
           items:

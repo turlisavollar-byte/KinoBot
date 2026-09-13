@@ -189,8 +189,6 @@ export interface PaginationMeta {
   page: number;
   limit: number;
   totalPages: number;
-  hasNext: boolean;
-  hasPrevious: boolean;
 }
 
 export type BillingPlanInterval = typeof BillingPlanInterval[keyof typeof BillingPlanInterval];
@@ -519,6 +517,9 @@ export interface Series {
   posterUrl?: string;
   backgroundUrl?: string;
   trailerUrl?: string;
+  telegramFileId?: string;
+  storageKey?: string;
+  sourceType?: string;
   isPublished?: boolean;
   seasonsCount?: number;
   releaseDate?: string;
@@ -542,6 +543,9 @@ export interface CreateSeriesBody {
   posterUrl?: string;
   backgroundUrl?: string;
   trailerUrl?: string;
+  telegramFileId?: string;
+  storageKey?: string;
+  sourceType?: string;
   releaseDate?: string;
 }
 
@@ -554,6 +558,9 @@ export interface UpdateSeriesBody {
   posterUrl?: string;
   backgroundUrl?: string;
   trailerUrl?: string;
+  telegramFileId?: string;
+  storageKey?: string;
+  sourceType?: string;
   releaseDate?: string;
 }
 
@@ -795,6 +802,44 @@ export interface NotificationTemplateInput {
   mediaFileId?: string | null;
   parseMode?: NotificationTemplateInputParseMode;
   buttons?: NotificationTemplateInputButtonsItem[];
+  variables?: string[];
+}
+
+export type NotificationTemplateUpdateInputContentType = typeof NotificationTemplateUpdateInputContentType[keyof typeof NotificationTemplateUpdateInputContentType];
+
+
+export const NotificationTemplateUpdateInputContentType = {
+  text: 'text',
+  photo: 'photo',
+  video: 'video',
+  animation: 'animation',
+  audio: 'audio',
+  voice: 'voice',
+  document: 'document',
+} as const;
+
+export type NotificationTemplateUpdateInputParseMode = typeof NotificationTemplateUpdateInputParseMode[keyof typeof NotificationTemplateUpdateInputParseMode];
+
+
+export const NotificationTemplateUpdateInputParseMode = {
+  HTML: 'HTML',
+  Markdown: 'Markdown',
+  MarkdownV2: 'MarkdownV2',
+} as const;
+
+export type NotificationTemplateUpdateInputButtonsItem = {
+  text: string;
+  url: string;
+};
+
+export interface NotificationTemplateUpdateInput {
+  name?: string;
+  channel?: string;
+  content?: string;
+  contentType?: NotificationTemplateUpdateInputContentType;
+  mediaFileId?: string | null;
+  parseMode?: NotificationTemplateUpdateInputParseMode;
+  buttons?: NotificationTemplateUpdateInputButtonsItem[];
   variables?: string[];
 }
 
@@ -1848,6 +1893,22 @@ export const ListSubscriptionsStatus = {
   expired: 'expired',
   cancelled: 'cancelled',
 } as const;
+
+export type ListSubscriptionPlans200 = {
+  success?: boolean;
+  data?: SubscriptionPlan[];
+  pagination?: PaginationMeta;
+};
+
+export type CreateSubscriptionPlan201 = {
+  success?: boolean;
+  data?: SubscriptionPlan;
+};
+
+export type UpdateSubscriptionPlan200 = {
+  success?: boolean;
+  data?: SubscriptionPlan;
+};
 
 export type ListUsersParams = {
 /**

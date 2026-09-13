@@ -12,6 +12,7 @@ import {
   sum,
   avg,
   countDistinct,
+  ne,
 } from "drizzle-orm";
 import {
   db,
@@ -54,6 +55,7 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
       totalRevenue,
       monthlyRevenue,
       dailyRevenue,
+      totalWatchSessions,
       watchSessions,
       watchSessionsWeek,
       totalWatchMinutes,
@@ -72,6 +74,7 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
       this.getTotalRevenue(),
       this.getMonthlyRevenue(),
       this.getDailyRevenue(),
+      this.getTotalWatchSessions(),
       this.getWatchSessionsToday(),
       this.getWatchSessionsWeek(),
       this.getTotalWatchMinutes(),
@@ -81,7 +84,6 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
       this.getTotalCodeViews(),
     ]);
 
-    // Calculate retention and churn
     const [retentionRate, churnRate] = await Promise.all([
       this.calculateRetentionRate(dateRange),
       this.calculateChurnRate(dateRange),
@@ -105,14 +107,15 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
       totalRevenue,
       monthlyRevenue,
       dailyRevenue,
+      totalWatchSessions,
       watchSessionsToday: watchSessions,
       watchSessionsThisWeek: watchSessionsWeek,
       totalWatchMinutes,
       averageWatchTime,
       userRetentionRate: retentionRate,
       churnRate,
-      videoCodesTotal: videoCodes,
-      videoCodesActive: activeVideoCodes,
+      totalVideoCodes: videoCodes,
+      activeVideoCodes,
       totalCodeViews,
       timestamp: new Date(),
     });
@@ -250,7 +253,7 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
         id: moviesTable.id,
         title: moviesTable.title,
         type: sql<string>`'movie'`,
-        viewCount: count(watchSessionsTable.id),
+        viewCount: sql<number>`GREATEST(${moviesTable.viewsCount}, COUNT(${watchSessionsTable.id}))`,
         uniqueViewers: countDistinct(watchSessionsTable.userId),
         totalWatchTime: sum(watchSessionsTable.durationWatched),
         averageWatchTime: avg(watchSessionsTable.durationWatched),
@@ -259,22 +262,28 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
         ratingCount: sql<number>`COALESCE(COUNT(${moviesTable.ratingAvg}), 0)`,
         posterUrl: moviesTable.posterUrl,
       })
-      .from(watchSessionsTable)
-      .innerJoin(
-        moviesTable,
+      .from(moviesTable)
+      .leftJoin(
+        watchSessionsTable,
         and(
           eq(watchSessionsTable.contentId, moviesTable.id),
           eq(watchSessionsTable.contentType, "movie"),
-        ),
-      )
-      .where(
-        and(
           gte(watchSessionsTable.createdAt, dateRange.start),
           lte(watchSessionsTable.createdAt, dateRange.end),
         ),
       )
-      .groupBy(moviesTable.id, moviesTable.title, moviesTable.posterUrl)
-      .orderBy(desc(count(watchSessionsTable.id)))
+      .where(sql`${moviesTable.deletedAt} IS NULL`)
+      .groupBy(
+        moviesTable.id,
+        moviesTable.title,
+        moviesTable.posterUrl,
+        moviesTable.viewsCount,
+      )
+      .orderBy(
+        desc(
+          sql`GREATEST(${moviesTable.viewsCount}, COUNT(${watchSessionsTable.id}))`,
+        ),
+      )
       .limit(limit)
       .offset(offset);
 
@@ -284,7 +293,7 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
         id: seriesTable.id,
         title: seriesTable.title,
         type: sql<string>`'series'`,
-        viewCount: count(watchSessionsTable.id),
+        viewCount: sql<number>`GREATEST(${seriesTable.viewsCount}, COUNT(${watchSessionsTable.id}))`,
         uniqueViewers: countDistinct(watchSessionsTable.userId),
         totalWatchTime: sum(watchSessionsTable.durationWatched),
         averageWatchTime: avg(watchSessionsTable.durationWatched),
@@ -293,22 +302,48 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
         ratingCount: sql<number>`COALESCE(COUNT(${seriesTable.ratingAvg}), 0)`,
         posterUrl: seriesTable.posterUrl,
       })
-      .from(watchSessionsTable)
-      .innerJoin(
-        seriesTable,
+      .from(seriesTable)
+      .leftJoin(
+        watchSessionsTable,
         and(
           eq(watchSessionsTable.contentId, seriesTable.id),
           eq(watchSessionsTable.contentType, "series"),
-        ),
-      )
-      .where(
-        and(
           gte(watchSessionsTable.createdAt, dateRange.start),
           lte(watchSessionsTable.createdAt, dateRange.end),
         ),
       )
-      .groupBy(seriesTable.id, seriesTable.title, seriesTable.posterUrl)
-      .orderBy(desc(count(watchSessionsTable.id)))
+      .where(sql`${seriesTable.deletedAt} IS NULL`)
+      .groupBy(
+        seriesTable.id,
+        seriesTable.title,
+        seriesTable.posterUrl,
+        seriesTable.viewsCount,
+      )
+      .orderBy(
+        desc(
+          sql`GREATEST(${seriesTable.viewsCount}, COUNT(${watchSessionsTable.id}))`,
+        ),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    const videoCodes = await db
+      .select({
+        id: videoCodesTable.id,
+        title: videoCodesTable.title,
+        type: sql<string>`'video_code'`,
+        viewCount: videoCodesTable.viewsCount,
+        uniqueViewers: sql<number>`0`,
+        totalWatchTime: sql<number>`0`,
+        averageWatchTime: sql<number>`0`,
+        completionRate: sql<number>`0`,
+        rating: sql<number>`0`,
+        ratingCount: sql<number>`0`,
+        posterUrl: sql<string | null>`NULL`,
+      })
+      .from(videoCodesTable)
+      .where(sql`${videoCodesTable.viewsCount} > 0`)
+      .orderBy(desc(videoCodesTable.viewsCount))
       .limit(limit)
       .offset(offset);
 
@@ -324,11 +359,11 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
       );
 
     // Combine and sort
-    const allContent = [...movies, ...series]
+    const allContent = [...movies, ...series, ...videoCodes]
       .map((item) => ({
         id: item.id,
         title: item.title,
-        type: item.type as "movie" | "series",
+        type: item.type as "movie" | "series" | "video_code",
         viewCount: Number(item.viewCount),
         uniqueViewers: Number(item.uniqueViewers),
         totalWatchTime: Number(item.totalWatchTime || 0),
@@ -762,6 +797,24 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
         ),
       );
     return Number(result?.value || 0);
+  }
+
+  private async getTotalWatchSessions(): Promise<number> {
+    const [watchSessions, videoCodeViews] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(watchSessionsTable)
+        .where(ne(watchSessionsTable.contentType, "video_code")),
+      db
+        .select({
+          value: sql<number>`COALESCE(SUM(${videoCodesTable.viewsCount}), 0)`,
+        })
+        .from(videoCodesTable),
+    ]);
+    return (
+      Number(watchSessions[0]?.value || 0) +
+      Number(videoCodeViews[0]?.value || 0)
+    );
   }
 
   private async getWatchSessionsToday(): Promise<number> {

@@ -1,6 +1,8 @@
 import {
   useListNotificationTemplates,
   useCreateNotificationTemplate,
+  useUpdateNotificationTemplate,
+  useDeleteNotificationTemplate,
   useBroadcastNotification,
   getListNotificationTemplatesQueryKey,
   useListTelegramChannels,
@@ -22,6 +24,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send,
   Plus,
+  Pencil,
+  Trash2,
   MessageSquare,
   Image,
   Video,
@@ -46,12 +50,17 @@ export default function NotificationsList() {
   const { t } = useI18n();
   const { data: templates, isLoading } = useListNotificationTemplates();
   const createTemplate = useCreateNotificationTemplate();
+  const updateTemplate = useUpdateNotificationTemplate();
+  const deleteTemplate = useDeleteNotificationTemplate();
   const broadcast = useBroadcastNotification();
   const { data: channels } = useListTelegramChannels();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    null,
+  );
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [contentType, setContentType] = useState("text");
@@ -69,45 +78,86 @@ export default function NotificationsList() {
   );
   const [selectedChannel, setSelectedChannel] = useState("");
 
-  const handleCreate = () => {
+  const resetForm = () => {
+    setEditingTemplateId(null);
+    setName("");
+    setContent("");
+    setContentType("text");
+    setMediaFileId("");
+    setParseMode("HTML");
+    setButtons([{ text: "", url: "" }]);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setIsOpen(true);
+  };
+
+  const openEdit = (template: NonNullable<typeof templates>[number]) => {
+    setEditingTemplateId(template.id);
+    setName(template.name);
+    setContent(template.content);
+    setContentType(template.contentType ?? "text");
+    setMediaFileId(template.mediaFileId ?? "");
+    setParseMode(template.parseMode ?? "HTML");
+    setButtons(
+      template.buttons?.length
+        ? template.buttons.map((button) => ({ ...button }))
+        : [{ text: "", url: "" }],
+    );
+    setIsOpen(true);
+  };
+
+  const handleSave = () => {
     if (!name || !content) return;
     if (contentType !== "text" && !mediaFileId.trim()) {
       toast({ title: "Media File ID is required", variant: "destructive" });
       return;
     }
-    createTemplate.mutate(
-      {
-        data: {
-          name,
-          content,
-          channel: "telegram",
-          contentType: contentType as
-            | "text"
-            | "photo"
-            | "video"
-            | "animation"
-            | "audio"
-            | "voice"
-            | "document",
-          mediaFileId: mediaFileId.trim() || null,
-          parseMode: parseMode as "HTML" | "Markdown" | "MarkdownV2",
-          buttons: buttons.filter(
-            (button) => button.text.trim() && button.url.trim(),
-          ),
-        },
+    const data = {
+      name,
+      content,
+      channel: "telegram",
+      contentType: contentType as
+        | "text"
+        | "photo"
+        | "video"
+        | "animation"
+        | "audio"
+        | "voice"
+        | "document",
+      mediaFileId: mediaFileId.trim() || null,
+      parseMode: parseMode as "HTML" | "Markdown" | "MarkdownV2",
+      buttons: buttons.filter(
+        (button) => button.text.trim() && button.url.trim(),
+      ),
+    };
+    const options = {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: getListNotificationTemplatesQueryKey(),
+        });
+        setIsOpen(false);
+        resetForm();
       },
+    };
+    if (editingTemplateId) {
+      updateTemplate.mutate({ id: editingTemplateId, data }, options);
+    } else {
+      createTemplate.mutate({ data }, options);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!window.confirm(t("notifications.deleteConfirm"))) return;
+    deleteTemplate.mutate(
+      { id },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({
             queryKey: getListNotificationTemplatesQueryKey(),
           });
-          setIsOpen(false);
-          setName("");
-          setContent("");
-          setContentType("text");
-          setMediaFileId("");
-          setParseMode("HTML");
-          setButtons([{ text: "", url: "" }]);
+          if (selectedTemplate === id) setSelectedTemplate("");
         },
       },
     );
@@ -142,13 +192,13 @@ export default function NotificationsList() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("notifications.title")}</h1>
-          <p className="text-muted-foreground">
-            {t("notifications.list")}
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t("notifications.title")}
+          </h1>
+          <p className="text-muted-foreground">{t("notifications.list")}</p>
         </div>
         <div className="space-x-2">
-          <Button variant="outline" onClick={() => setIsOpen(true)}>
+          <Button variant="outline" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
             {t("notifications.add")}
           </Button>
@@ -177,8 +227,27 @@ export default function NotificationsList() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex justify-between">
                   <span>{t.name}</span>
-                  <span className="text-xs uppercase bg-muted px-2 py-1 rounded text-muted-foreground">
-                    {t.channel}
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs uppercase bg-muted px-2 py-1 rounded text-muted-foreground">
+                      {t.channel}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEdit(t)}
+                      aria-label="Edit notification template"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(t.id)}
+                      disabled={deleteTemplate.isPending}
+                      aria-label="Delete notification template"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -195,7 +264,11 @@ export default function NotificationsList() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t("notifications.add")}</DialogTitle>
+            <DialogTitle>
+              {editingTemplateId
+                ? t("notifications.edit")
+                : t("notifications.add")}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -226,13 +299,27 @@ export default function NotificationsList() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="text">{t("notifications.textMessage")}</SelectItem>
-                    <SelectItem value="photo">{t("notifications.photo")}</SelectItem>
-                    <SelectItem value="video">{t("notifications.video")}</SelectItem>
-                    <SelectItem value="animation">{t("notifications.animation")}</SelectItem>
-                    <SelectItem value="audio">{t("notifications.audio")}</SelectItem>
-                    <SelectItem value="voice">{t("notifications.voice")}</SelectItem>
-                    <SelectItem value="document">{t("notifications.document")}</SelectItem>
+                    <SelectItem value="text">
+                      {t("notifications.textMessage")}
+                    </SelectItem>
+                    <SelectItem value="photo">
+                      {t("notifications.photo")}
+                    </SelectItem>
+                    <SelectItem value="video">
+                      {t("notifications.video")}
+                    </SelectItem>
+                    <SelectItem value="animation">
+                      {t("notifications.animation")}
+                    </SelectItem>
+                    <SelectItem value="audio">
+                      {t("notifications.audio")}
+                    </SelectItem>
+                    <SelectItem value="voice">
+                      {t("notifications.voice")}
+                    </SelectItem>
+                    <SelectItem value="document">
+                      {t("notifications.document")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -277,7 +364,8 @@ export default function NotificationsList() {
                   }
                   disabled={buttons.length >= 3}
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" /> {t("notifications.addButton")}
+                  <Plus className="h-3.5 w-3.5 mr-1" />{" "}
+                  {t("notifications.addButton")}
                 </Button>
               </div>
               {buttons.map((button, index) => (
@@ -334,7 +422,8 @@ export default function NotificationsList() {
             </div>
             <div className="rounded-lg border border-sky-500/20 bg-sky-950/20 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold text-sky-300 mb-3">
-                <Eye className="h-3.5 w-3.5" /> {t("notifications.telegramPreview")}
+                <Eye className="h-3.5 w-3.5" />{" "}
+                {t("notifications.telegramPreview")}
               </div>
               <div className="rounded-md bg-slate-900/80 p-3 text-sm whitespace-pre-wrap">
                 {content || t("notifications.previewPlaceholder")}
@@ -357,7 +446,8 @@ export default function NotificationsList() {
               )}
               {contentType !== "text" && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Image className="h-3.5 w-3.5" /> {contentType} {t("notifications.mediaAttached")}
+                  <Image className="h-3.5 w-3.5" /> {contentType}{" "}
+                  {t("notifications.mediaAttached")}
                 </div>
               )}
             </div>
@@ -366,8 +456,13 @@ export default function NotificationsList() {
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={handleCreate} disabled={createTemplate.isPending}>
-              {t("notifications.add")}
+            <Button
+              onClick={handleSave}
+              disabled={createTemplate.isPending || updateTemplate.isPending}
+            >
+              {editingTemplateId
+                ? t("notifications.save")
+                : t("notifications.add")}
             </Button>
           </div>
         </DialogContent>

@@ -43,7 +43,7 @@ router.get(
   "/top-content",
   requirePermission(Permission.VIEW_ANALYTICS),
   analyticsRateLimit,
-  analyticsCacheMiddleware("top-content", 600),
+  analyticsCacheMiddleware("top-content-v2", 600),
   (req, res, next) => getController().getTopContent(req, res, next),
 );
 

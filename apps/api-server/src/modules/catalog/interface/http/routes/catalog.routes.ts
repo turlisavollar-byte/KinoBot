@@ -114,7 +114,7 @@ async function getSeriesWithGenres(id: string) {
   const [series] = await db
     .select()
     .from(seriesTable)
-    .where(eq(seriesTable.id, id))
+    .where(and(eq(seriesTable.id, id), sql`${seriesTable.deletedAt} IS NULL`))
     .limit(1);
   if (!series) return null;
 
@@ -182,7 +182,12 @@ router.patch(
     await db
       .update(seriesTable)
       .set(body.data)
-      .where(eq(seriesTable.id, params.data.id));
+      .where(
+        and(
+          eq(seriesTable.id, params.data.id),
+          sql`${seriesTable.deletedAt} IS NULL`,
+        ),
+      );
     const series = await getSeriesWithGenres(params.data.id);
     if (!series) {
       res.status(404).json({ error: "Series not found" });
@@ -204,7 +209,12 @@ router.delete(
     await db
       .update(seriesTable)
       .set({ deletedAt: new Date() })
-      .where(eq(seriesTable.id, params.data.id));
+      .where(
+        and(
+          eq(seriesTable.id, params.data.id),
+          sql`${seriesTable.deletedAt} IS NULL`,
+        ),
+      );
     res.sendStatus(204);
   },
 );
@@ -224,7 +234,12 @@ router.post(
     await db
       .update(seriesTable)
       .set({ isPublished: body.data.published })
-      .where(eq(seriesTable.id, params.data.id));
+      .where(
+        and(
+          eq(seriesTable.id, params.data.id),
+          sql`${seriesTable.deletedAt} IS NULL`,
+        ),
+      );
     const series = await getSeriesWithGenres(params.data.id);
     if (!series) {
       res.status(404).json({ error: "Series not found" });
@@ -342,7 +357,12 @@ router.patch(
     const [episode] = await db
       .update(episodesTable)
       .set(body.data)
-      .where(eq(episodesTable.id, params.data.id))
+      .where(
+        and(
+          eq(episodesTable.id, params.data.id),
+          sql`${episodesTable.deletedAt} IS NULL`,
+        ),
+      )
       .returning();
     if (!episode) {
       res.status(404).json({ error: "Episode not found" });
@@ -364,7 +384,12 @@ router.delete(
     await db
       .update(episodesTable)
       .set({ deletedAt: new Date() })
-      .where(eq(episodesTable.id, params.data.id));
+      .where(
+        and(
+          eq(episodesTable.id, params.data.id),
+          sql`${episodesTable.deletedAt} IS NULL`,
+        ),
+      );
     res.sendStatus(204);
   },
 );
@@ -384,7 +409,12 @@ router.post(
     const [episode] = await db
       .update(episodesTable)
       .set({ isPublished: body.data.published })
-      .where(eq(episodesTable.id, params.data.id))
+      .where(
+        and(
+          eq(episodesTable.id, params.data.id),
+          sql`${episodesTable.deletedAt} IS NULL`,
+        ),
+      )
       .returning();
     if (!episode) {
       res.status(404).json({ error: "Episode not found" });
@@ -396,16 +426,137 @@ router.post(
 
 // ─── GENRES ──────────────────────────────────────────────────────────────────
 router.get(
+  "/genres",
+  requirePermission(Permission.READ_CONTENT),
+  (req, res, next) => getController().listGenres(req, res, next),
+);
+router.get(
   "/catalog/genres",
   requirePermission(Permission.READ_CONTENT),
   (req, res, next) => getController().listGenres(req, res, next),
 );
+router.post(
+  "/genres",
+  requirePermission(Permission.CREATE_CONTENT),
+  async (req, res): Promise<void> => {
+    const parsed = CreateGenreBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [genre] = await db
+      .insert(genresTable)
+      .values(parsed.data)
+      .returning();
+    res.status(201).json(genre);
+  },
+);
+router.patch(
+  "/genres/:id",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res): Promise<void> => {
+    const params = UpdateGenreParams.safeParse(req.params);
+    const body = UpdateGenreBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
+      return;
+    }
+    const [genre] = await db
+      .update(genresTable)
+      .set(body.data)
+      .where(
+        and(
+          eq(genresTable.id, params.data.id),
+          sql`${genresTable.deletedAt} IS NULL`,
+        ),
+      )
+      .returning();
+    if (!genre) {
+      res.status(404).json({ error: "Genre not found" });
+      return;
+    }
+    res.json(genre);
+  },
+);
+router.delete(
+  "/genres/:id",
+  requirePermission(Permission.DELETE_CONTENT),
+  async (req, res): Promise<void> => {
+    const params = DeleteGenreParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .update(genresTable)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(genresTable.id, params.data.id),
+          sql`${genresTable.deletedAt} IS NULL`,
+        ),
+      );
+    res.sendStatus(204);
+  },
+);
 
 // ─── ACTORS ──────────────────────────────────────────────────────────────────
+router.get(
+  "/actors",
+  requirePermission(Permission.READ_CONTENT),
+  (req, res, next) => getController().listActors(req, res, next),
+);
 router.get(
   "/catalog/actors",
   requirePermission(Permission.READ_CONTENT),
   (req, res, next) => getController().listActors(req, res, next),
+);
+router.post(
+  "/actors",
+  requirePermission(Permission.CREATE_CONTENT),
+  async (req, res): Promise<void> => {
+    const parsed = CreateActorBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [actor] = await db
+      .insert(actorsTable)
+      .values(parsed.data)
+      .returning();
+    res.status(201).json(actor);
+  },
+);
+router.patch(
+  "/actors/:id",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res): Promise<void> => {
+    const params = UpdateActorParams.safeParse(req.params);
+    const body = UpdateActorBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
+      return;
+    }
+    const [actor] = await db
+      .update(actorsTable)
+      .set(body.data)
+      .where(
+        and(
+          eq(actorsTable.id, params.data.id),
+          sql`${actorsTable.deletedAt} IS NULL`,
+        ),
+      )
+      .returning();
+    if (!actor) {
+      res.status(404).json({ error: "Actor not found" });
+      return;
+    }
+    res.json(actor);
+  },
 );
 
 router.post(
@@ -432,17 +583,20 @@ router.patch(
     const params = UpdateActorParams.safeParse(req.params);
     const body = UpdateActorBody.safeParse(req.body);
     if (!params.success || !body.success) {
-      res
-        .status(400)
-        .json({
-          error: params.success ? body.error?.message : params.error.message,
-        });
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
       return;
     }
     const [actor] = await db
       .update(actorsTable)
       .set(body.data)
-      .where(eq(actorsTable.id, params.data.id))
+      .where(
+        and(
+          eq(actorsTable.id, params.data.id),
+          sql`${actorsTable.deletedAt} IS NULL`,
+        ),
+      )
       .returning();
     if (!actor) {
       res.status(404).json({ error: "Actor not found" });
@@ -476,17 +630,20 @@ router.patch(
     const params = UpdateGenreParams.safeParse(req.params);
     const body = UpdateGenreBody.safeParse(req.body);
     if (!params.success || !body.success) {
-      res
-        .status(400)
-        .json({
-          error: params.success ? body.error?.message : params.error.message,
-        });
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
       return;
     }
     const [genre] = await db
       .update(genresTable)
       .set(body.data)
-      .where(eq(genresTable.id, params.data.id))
+      .where(
+        and(
+          eq(genresTable.id, params.data.id),
+          sql`${genresTable.deletedAt} IS NULL`,
+        ),
+      )
       .returning();
     if (!genre) {
       res.status(404).json({ error: "Genre not found" });
@@ -508,7 +665,12 @@ router.delete(
     await db
       .update(genresTable)
       .set({ deletedAt: new Date() })
-      .where(eq(genresTable.id, params.data.id));
+      .where(
+        and(
+          eq(genresTable.id, params.data.id),
+          sql`${genresTable.deletedAt} IS NULL`,
+        ),
+      );
     res.sendStatus(204);
   },
 );

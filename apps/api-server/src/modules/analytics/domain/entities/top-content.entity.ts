@@ -3,8 +3,9 @@
 export interface ContentItem {
   id: string;
   title: string;
-  type: 'movie' | 'series' | 'episode';
+  type: "movie" | "series" | "episode" | "video_code";
   viewCount: number;
+  viewsCount?: number;
   uniqueViewers: number;
   totalWatchTime: number;
   averageWatchTime: number;
@@ -37,16 +38,28 @@ export class TopContent {
     return new TopContent(props);
   }
 
-  get items(): ContentItem[] { return this.props.items; }
-  get hasMore(): boolean { return this.props.hasMore; }
+  get items(): ContentItem[] {
+    return this.props.items;
+  }
+  get hasMore(): boolean {
+    return this.props.hasMore;
+  }
 
   toJSON(): TopContentProps {
-    return { ...this.props };
+    return {
+      ...this.props,
+      items: this.props.items.map((item) => ({
+        ...item,
+        viewsCount: item.viewCount,
+      })),
+    };
   }
 
   // Get top by category
-  filterByType(type: 'movie' | 'series' | 'episode'): ContentItem[] {
-    return this.items.filter(item => item.type === type);
+  filterByType(
+    type: "movie" | "series" | "episode" | "video_code",
+  ): ContentItem[] {
+    return this.items.filter((item) => item.type === type);
   }
 
   // Get sorted by engagement

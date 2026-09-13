@@ -1,3 +1,8 @@
+const permissionAliasMap: Record<string, string> = {
+  "manage:system": "manage:security",
+  "manage:security": "manage:security",
+};
+
 export const Permissions = {
   READ_OWN_PROFILE: "read:own:profile",
   UPDATE_OWN_PROFILE: "update:own:profile",
@@ -70,10 +75,13 @@ export function normalizePermissionName(
   if (!permission) return null;
 
   const candidate = permission.trim();
-  return (
-    Object.values(Permissions).find(
-      (value) =>
-        value === candidate || value.toLowerCase() === candidate.toLowerCase(),
-    ) ?? null
+  const normalized = candidate.toLowerCase();
+  const alias = permissionAliasMap[normalized];
+  const canonical = alias ?? candidate;
+
+  const matchedPermission = Object.values(Permissions).find(
+    (value) => value.toLowerCase() === canonical.toLowerCase(),
   );
+
+  return (matchedPermission as PermissionName | undefined) ?? null;
 }

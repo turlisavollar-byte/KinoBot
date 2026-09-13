@@ -4,10 +4,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   title: z.string().min(1, "movies.titleRequired"),
@@ -34,11 +42,20 @@ export default function NewMovie() {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    createMovie.mutate({ data: values }, {
-      onSuccess: (data) => {
-        setLocation(`/catalog/movies/${data.id}`);
-      }
-    });
+    createMovie.mutate(
+      { data: values },
+      {
+        onSuccess: (data) => {
+          toast.success(t("movies.createSuccess"));
+          setLocation(`/catalog/movies/${data.id}`);
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof Error ? error.message : t("movies.createError"),
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -83,7 +100,10 @@ export default function NewMovie() {
               <FormItem>
                 <FormLabel>{t("movies.description")}</FormLabel>
                 <FormControl>
-                  <Textarea placeholder={t("movies.synopsisPlaceholder")} {...field} />
+                  <Textarea
+                    placeholder={t("movies.synopsisPlaceholder")}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -97,7 +117,7 @@ export default function NewMovie() {
                 <FormItem>
                   <FormLabel>{t("movies.releaseYear")}</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -110,7 +130,7 @@ export default function NewMovie() {
                 <FormItem>
                   <FormLabel>{t("movies.durationMin")}</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -123,7 +143,10 @@ export default function NewMovie() {
                 <FormItem>
                   <FormLabel>{t("movies.ageRating")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("movies.ageRatingPlaceholder")} {...field} />
+                    <Input
+                      placeholder={t("movies.ageRatingPlaceholder")}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -131,7 +154,9 @@ export default function NewMovie() {
             />
           </div>
           <Button type="submit" disabled={createMovie.isPending}>
-            {createMovie.isPending ? t("movies.creating") : t("movies.createMovie")}
+            {createMovie.isPending
+              ? t("movies.creating")
+              : t("movies.createMovie")}
           </Button>
         </form>
       </Form>

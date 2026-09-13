@@ -3,6 +3,7 @@ import {
   useGetRevenueTrend,
   useGetTopContent,
   useGetSubscriptionTrend,
+  useListVideoCodes,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -59,6 +60,7 @@ function InstagramDeeplinkCard() {
   const { t } = useI18n();
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const { data: videoCodes = [] } = useListVideoCodes({ status: "active" });
 
   const link = code.trim()
     ? `https://t.me/${BOT_USERNAME}?start=ig_${code.trim().toUpperCase()}`
@@ -74,7 +76,8 @@ function InstagramDeeplinkCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Instagram className="w-4 h-4 text-pink-500" /> {t("analytics.instagramLinkGenerator")}
+          <Instagram className="w-4 h-4 text-pink-500" />{" "}
+          {t("analytics.instagramLinkGenerator")}
         </CardTitle>
         <CardDescription>
           {t("analytics.instagramLinkDescription")}
@@ -85,11 +88,30 @@ function InstagramDeeplinkCard() {
           <label className="text-xs text-muted-foreground mb-1 block">
             {t("analytics.videoCodeLabel")}
           </label>
+          <Select
+            value={code || "all"}
+            onValueChange={(value) => setCode(value === "all" ? "" : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("analytics.videoCodePlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {t("analytics.instagramAllContent")}
+              </SelectItem>
+              {videoCodes.map((video) => (
+                <SelectItem key={video.id} value={video.code ?? ""}>
+                  {video.code} — {video.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder={t("analytics.videoCodePlaceholder")}
             className="font-mono uppercase"
+            aria-label={t("analytics.videoCodeLabel")}
           />
         </div>
         <div className="flex gap-2">
@@ -160,7 +182,9 @@ export default function Analytics() {
     {
       label: t("analytics.totalUsers"),
       value: statsData?.totalUsers?.toLocaleString() ?? "0",
-      sub: t("analytics.newUsersToday", { count: statsData?.newUsersToday ?? 0 }),
+      sub: t("analytics.newUsersToday", {
+        count: statsData?.newUsersToday ?? 0,
+      }),
       icon: <Users className="w-4 h-4" />,
       color: "text-blue-500",
     },
@@ -174,7 +198,9 @@ export default function Analytics() {
     {
       label: t("analytics.monthlyRevenue"),
       value: formatUzs(statsData?.monthlyRevenue ?? 0),
-      sub: t("analytics.totalRevenue", { value: formatUzs(statsData?.totalRevenue ?? 0) }),
+      sub: t("analytics.totalRevenue", {
+        value: formatUzs(statsData?.totalRevenue ?? 0),
+      }),
       icon: <TrendingUp className="w-4 h-4" />,
       color: "text-amber-500",
     },
@@ -188,7 +214,10 @@ export default function Analytics() {
     {
       label: t("analytics.movies"),
       value: statsData?.totalMovies?.toLocaleString() ?? "0",
-      sub: t("analytics.seriesAndEpisodes", { series: statsData?.totalSeries ?? 0, episodes: statsData?.totalEpisodes ?? 0 }),
+      sub: t("analytics.seriesAndEpisodes", {
+        series: statsData?.totalSeries ?? 0,
+        episodes: statsData?.totalEpisodes ?? 0,
+      }),
       icon: <Film className="w-4 h-4" />,
       color: "text-rose-500",
     },
@@ -205,7 +234,9 @@ export default function Analytics() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("analytics.title")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t("analytics.title")}
+          </h1>
           <p className="text-muted-foreground">{t("analytics.subtitle")}</p>
         </div>
         <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
@@ -327,7 +358,9 @@ export default function Analytics() {
         <Card>
           <CardHeader>
             <CardTitle>{t("analytics.subscriptionGrowth")}</CardTitle>
-            <CardDescription>{t("analytics.subscriptionDescription")}</CardDescription>
+            <CardDescription>
+              {t("analytics.subscriptionDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="h-70">
             {trendData.length > 0 ? (
@@ -362,7 +395,10 @@ export default function Analytics() {
                       borderColor: "hsl(var(--border))",
                       borderRadius: "8px",
                     }}
-                    formatter={(v: number) => [v, t("analytics.newSubscription")]}
+                    formatter={(v: number) => [
+                      v,
+                      t("analytics.newSubscription"),
+                    ]}
                     labelFormatter={(l) => formatDate(l, period)}
                   />
                   <Bar
@@ -385,7 +421,9 @@ export default function Analytics() {
       <Card>
         <CardHeader>
           <CardTitle>{t("analytics.topContent")}</CardTitle>
-          <CardDescription>{t("analytics.topContentDescription")}</CardDescription>
+          <CardDescription>
+            {t("analytics.topContentDescription")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {topContentData.length > 0 ? (
@@ -405,6 +443,8 @@ export default function Analytics() {
                     <div className="w-9 h-12 bg-muted rounded flex items-center justify-center shrink-0">
                       {item.type === "movie" ? (
                         <Film className="w-4 h-4 text-muted-foreground" />
+                      ) : item.type === "video_code" ? (
+                        <Code2 className="w-4 h-4 text-muted-foreground" />
                       ) : (
                         <Tv className="w-4 h-4 text-muted-foreground" />
                       )}
@@ -416,7 +456,11 @@ export default function Analytics() {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Badge variant="outline" className="text-xs py-0 h-4">
-                        {item.type === "movie" ? t("analytics.movie") : t("analytics.series")}
+                        {item.type === "movie"
+                          ? t("analytics.movie")
+                          : item.type === "video_code"
+                            ? t("analytics.videoCode")
+                            : t("analytics.series")}
                       </Badge>
                       {(() => {
                         const ratingNum = parseRating(item.rating ?? 0);
@@ -433,7 +477,9 @@ export default function Analytics() {
                     <div className="font-bold text-sm">
                       {(item.viewsCount || 0).toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground">{t("analytics.views")}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t("analytics.views")}
+                    </div>
                   </div>
                 </div>
               ))}

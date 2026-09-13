@@ -299,9 +299,7 @@ export const ListBillingPlansResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -474,9 +472,7 @@ export const ListUserSubscriptionsResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -641,9 +637,7 @@ export const ListUserInvoicesResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -752,9 +746,7 @@ export const ListPaymentsResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -830,9 +822,7 @@ export const ListUserPaymentsResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -1316,6 +1306,9 @@ export const ListSeriesResponse = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "isPublished": zod.boolean().optional(),
   "seasonsCount": zod.number().int().optional(),
   "releaseDate": zod.date().optional(),
@@ -1340,6 +1333,9 @@ export const CreateSeriesBody = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "releaseDate": zod.date().optional()
 })
 
@@ -1353,6 +1349,9 @@ export const CreateSeriesResponse = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "isPublished": zod.boolean().optional(),
   "seasonsCount": zod.number().int().optional(),
   "releaseDate": zod.date().optional(),
@@ -1378,6 +1377,9 @@ export const GetSeriesResponse = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "isPublished": zod.boolean().optional(),
   "seasonsCount": zod.number().int().optional(),
   "releaseDate": zod.date().optional(),
@@ -1402,6 +1404,9 @@ export const UpdateSeriesBody = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "releaseDate": zod.date().optional()
 })
 
@@ -1415,6 +1420,9 @@ export const UpdateSeriesResponse = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "isPublished": zod.boolean().optional(),
   "seasonsCount": zod.number().int().optional(),
   "releaseDate": zod.date().optional(),
@@ -1454,6 +1462,9 @@ export const PublishSeriesResponse = zod.object({
   "posterUrl": zod.string().optional(),
   "backgroundUrl": zod.string().optional(),
   "trailerUrl": zod.string().optional(),
+  "telegramFileId": zod.string().optional(),
+  "storageKey": zod.string().optional(),
+  "sourceType": zod.string().optional(),
   "isPublished": zod.boolean().optional(),
   "seasonsCount": zod.number().int().optional(),
   "releaseDate": zod.date().optional(),
@@ -1843,9 +1854,7 @@ export const ListNotificationsResponse = zod.object({
   "total": zod.number().int(),
   "page": zod.number().int(),
   "limit": zod.number().int(),
-  "totalPages": zod.number().int(),
-  "hasNext": zod.boolean(),
-  "hasPrevious": zod.boolean()
+  "totalPages": zod.number().int()
 }).optional()
 })
 
@@ -1945,6 +1954,55 @@ export const CreateNotificationTemplateResponse = zod.object({
 
 
 /**
+ * @summary Update notification template
+ */
+export const UpdateNotificationTemplateParams = zod.object({
+  "id": zod.string()
+})
+
+export const UpdateNotificationTemplateBody = zod.object({
+  "name": zod.string().optional(),
+  "channel": zod.string().optional(),
+  "content": zod.string().optional(),
+  "contentType": zod.enum(['text', 'photo', 'video', 'animation', 'audio', 'voice', 'document']).optional(),
+  "mediaFileId": zod.string().nullish(),
+  "parseMode": zod.enum(['HTML', 'Markdown', 'MarkdownV2']).optional(),
+  "buttons": zod.array(zod.object({
+  "text": zod.string(),
+  "url": zod.string().url()
+})).optional(),
+  "variables": zod.array(zod.string()).optional()
+})
+
+export const UpdateNotificationTemplateResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "channel": zod.string(),
+  "content": zod.string(),
+  "contentType": zod.enum(['text', 'photo', 'video', 'animation', 'audio', 'voice', 'document']).optional(),
+  "mediaFileId": zod.string().nullish(),
+  "parseMode": zod.enum(['HTML', 'Markdown', 'MarkdownV2']).optional(),
+  "buttons": zod.array(zod.object({
+  "text": zod.string(),
+  "url": zod.string().url()
+})).optional(),
+  "variables": zod.array(zod.string()).optional(),
+  "isActive": zod.boolean().optional(),
+  "createdAt": zod.date().optional()
+})
+
+
+/**
+ * @summary Delete notification template
+ */
+export const DeleteNotificationTemplateParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteNotificationTemplateResponse = zod.void()
+
+
+/**
  * @summary Send broadcast notification to users
  */
 export const BroadcastNotificationBody = zod.object({
@@ -1997,7 +2055,9 @@ export const ListSubscriptionsResponse = zod.object({
 /**
  * @summary List available subscription plans
  */
-export const ListSubscriptionPlansResponseItem = zod.object({
+export const ListSubscriptionPlansResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "data": zod.array(zod.object({
   "id": zod.string().optional(),
   "name": zod.string().optional(),
   "tier": zod.string().optional(),
@@ -2008,8 +2068,14 @@ export const ListSubscriptionPlansResponseItem = zod.object({
   "description": zod.string().optional(),
   "isActive": zod.boolean().optional(),
   "features": zod.array(zod.string()).optional()
+})).optional(),
+  "pagination": zod.object({
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "limit": zod.number().int(),
+  "totalPages": zod.number().int()
+}).optional()
 })
-export const ListSubscriptionPlansResponse = zod.array(ListSubscriptionPlansResponseItem)
 
 
 /**
@@ -2024,6 +2090,8 @@ export const CreateSubscriptionPlanBody = zod.object({
 })
 
 export const CreateSubscriptionPlanResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "data": zod.object({
   "id": zod.string().optional(),
   "name": zod.string().optional(),
   "tier": zod.string().optional(),
@@ -2034,6 +2102,7 @@ export const CreateSubscriptionPlanResponse = zod.object({
   "description": zod.string().optional(),
   "isActive": zod.boolean().optional(),
   "features": zod.array(zod.string()).optional()
+}).optional()
 })
 
 
@@ -2057,6 +2126,8 @@ export const UpdateSubscriptionPlanBody = zod.object({
 })
 
 export const UpdateSubscriptionPlanResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "data": zod.object({
   "id": zod.string().optional(),
   "name": zod.string().optional(),
   "tier": zod.string().optional(),
@@ -2067,6 +2138,7 @@ export const UpdateSubscriptionPlanResponse = zod.object({
   "description": zod.string().optional(),
   "isActive": zod.boolean().optional(),
   "features": zod.array(zod.string()).optional()
+}).optional()
 })
 
 

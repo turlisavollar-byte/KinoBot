@@ -20,6 +20,18 @@ export function createNotificationsRouter(
     requirePermission(Permission.MANAGE_NOTIFICATIONS),
     notificationController.createTemplate,
   );
+  router.put(
+    "/templates/:id",
+    requireAuth,
+    requirePermission(Permission.MANAGE_NOTIFICATIONS),
+    notificationController.updateTemplate,
+  );
+  router.delete(
+    "/templates/:id",
+    requireAuth,
+    requirePermission(Permission.MANAGE_NOTIFICATIONS),
+    notificationController.deleteTemplate,
+  );
   router.post(
     "/broadcast",
     requireAuth,

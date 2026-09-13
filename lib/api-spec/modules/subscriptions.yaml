@@ -47,9 +47,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SubscriptionPlan"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SubscriptionPlan"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
 
     post:
       operationId: createSubscriptionPlan
@@ -69,7 +76,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SubscriptionPlan"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/SubscriptionPlan"
 
   /subscriptions/plans/{id}:
     patch:
@@ -95,7 +107,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SubscriptionPlan"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/SubscriptionPlan"
 
   /subscriptions/{id}/cancel:
     post:
@@ -145,6 +162,19 @@ paths:
 
 components:
   schemas:
+    PaginationMeta:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
     SubscriptionPage:
       type: object
       properties:

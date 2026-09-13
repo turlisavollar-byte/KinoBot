@@ -18,7 +18,11 @@ try {
 }
 
 // Register a getter that reads from the in-memory variable
-setAuthTokenGetter(() => _accessToken);
+// This ensures that the custom fetch in api-client-react includes the Authorization header
+setAuthTokenGetter(() => {
+  console.log('[Auth Token Getter] Token requested:', _accessToken ? 'Token exists' : 'No token');
+  return _accessToken;
+});
 
 export function setTokens(accessToken: string, refreshToken: string): void {
   _accessToken = accessToken;

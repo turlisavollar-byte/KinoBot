@@ -32,7 +32,7 @@ export class NotificationAdminService {
     }
     const [template] = await db
       .insert(notificationTemplatesTable)
-      .values({  
+      .values({
         ...input,
         contentType,
         mediaFileId: input.mediaFileId?.trim() || null,
@@ -40,6 +40,79 @@ export class NotificationAdminService {
       })
       .returning();
     return template;
+  }
+
+  async updateTemplate(
+    id: string,
+    input: Partial<{
+      name: string;
+      channel: string;
+      content: string;
+      contentType:
+        | "text"
+        | "photo"
+        | "video"
+        | "animation"
+        | "audio"
+        | "voice"
+        | "document";
+      mediaFileId: string | null;
+      parseMode: "HTML" | "Markdown" | "MarkdownV2";
+      buttons: Array<{ text: string; url: string }>;
+      variables: string[];
+    }>,
+  ) {
+    const [existing] = await db
+      .select()
+      .from(notificationTemplatesTable)
+      .where(
+        and(
+          eq(notificationTemplatesTable.id, id),
+          sql`${notificationTemplatesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    if (!existing) throw new Error("Notification template not found");
+
+    const contentType = input.contentType ?? existing.contentType;
+    const mediaFileId =
+      input.mediaFileId === undefined
+        ? existing.mediaFileId
+        : input.mediaFileId?.trim() || null;
+    if (contentType !== "text" && !mediaFileId) {
+      throw new Error("mediaFileId is required for media templates");
+    }
+    const [template] = await db
+      .update(notificationTemplatesTable)
+      .set({
+        ...input,
+        contentType,
+        mediaFileId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(notificationTemplatesTable.id, id),
+          sql`${notificationTemplatesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .returning();
+    if (!template) throw new Error("Notification template not found");
+    return template;
+  }
+
+  async deleteTemplate(id: string) {
+    const [template] = await db
+      .update(notificationTemplatesTable)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(notificationTemplatesTable.id, id),
+          sql`${notificationTemplatesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .returning({ id: notificationTemplatesTable.id });
+    if (!template) throw new Error("Notification template not found");
   }
 
   async createBroadcast(input: {

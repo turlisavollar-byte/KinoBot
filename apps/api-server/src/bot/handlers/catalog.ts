@@ -10,11 +10,73 @@ import {
   subscriptionsTable,
   videoCodesTable,
   telegramConfigTable,
+  watchSessionsTable,
 } from "@workspace/db";
 import type { BotContext } from "@/bot/index";
 import { checkUserSubscription } from "@/bot/handlers/subscription";
 
 const PAGE_SIZE = 5;
+
+async function recordVideoCodeWatch(
+  telegramId: string,
+  entry: typeof videoCodesTable.$inferSelect,
+) {
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId))
+    .limit(1);
+
+  if (!user) return;
+
+  await db.insert(watchSessionsTable).values({
+    userId: user.id,
+    contentId: entry.id,
+    contentType: "video_code",
+    durationWatched: entry.duration ?? 0,
+    completedAt: null,
+  });
+}
+
+export function isDifferentUtcDay(resetAt: Date, now: Date): boolean {
+  return resetAt.toISOString().slice(0, 10) !== now.toISOString().slice(0, 10);
+}
+
+export function isDifferentUtcWeek(resetAt: Date, now: Date): boolean {
+  const getUtcWeekStart = (date: Date) => {
+    const copy = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    const day = copy.getUTCDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    copy.setUTCDate(copy.getUTCDate() + diffToMonday);
+    copy.setUTCHours(0, 0, 0, 0);
+    return copy;
+  };
+
+  return getUtcWeekStart(resetAt).getTime() !== getUtcWeekStart(now).getTime();
+}
+
+export function isDifferentUtcMonth(resetAt: Date, now: Date): boolean {
+  return (
+    resetAt.getUTCFullYear() !== now.getUTCFullYear() ||
+    resetAt.getUTCMonth() !== now.getUTCMonth()
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character,
+  );
+}
 
 /**
  * Consume one daily code allowance. A null limit means unlimited.
@@ -59,21 +121,13 @@ async function consumeCodeAllowance(telegramId: string): Promise<boolean> {
   const dailyReset = new Date(user.dailyCodeResetAt);
   const weeklyReset = new Date(user.weeklyCodeResetAt);
   const monthlyReset = new Date(user.monthlyCodeResetAt);
-  const isDifferentUtcDay =
-    dailyReset.toISOString().slice(0, 10) !== now.toISOString().slice(0, 10);
-  const isDifferentUtcWeek =
-    now.getTime() - weeklyReset.getTime() >= 7 * 24 * 60 * 60 * 1000;
-  const isDifferentUtcMonth =
-    monthlyReset.getUTCFullYear() !== now.getUTCFullYear() ||
-    monthlyReset.getUTCMonth() !== now.getUTCMonth();
+  const dailyChanged = isDifferentUtcDay(dailyReset, now);
+  const weeklyChanged = isDifferentUtcWeek(weeklyReset, now);
+  const monthlyChanged = isDifferentUtcMonth(monthlyReset, now);
   const resetData = {
-    ...(isDifferentUtcDay ? { dailyCodeUsed: 0, dailyCodeResetAt: now } : {}),
-    ...(isDifferentUtcWeek
-      ? { weeklyCodeUsed: 0, weeklyCodeResetAt: now }
-      : {}),
-    ...(isDifferentUtcMonth
-      ? { monthlyCodeUsed: 0, monthlyCodeResetAt: now }
-      : {}),
+    ...(dailyChanged ? { dailyCodeUsed: 0, dailyCodeResetAt: now } : {}),
+    ...(weeklyChanged ? { weeklyCodeUsed: 0, weeklyCodeResetAt: now } : {}),
+    ...(monthlyChanged ? { monthlyCodeUsed: 0, monthlyCodeResetAt: now } : {}),
   };
   if (Object.keys(resetData).length > 0) {
     await db
@@ -237,6 +291,7 @@ export async function deliverVideoCodeByDeeplink(
     .update(videoCodesTable)
     .set({ viewsCount: sql`${videoCodesTable.viewsCount} + 1` })
     .where(eq(videoCodesTable.id, entry.id));
+  await recordVideoCodeWatch(telegramId, entry);
 
   return msg;
 }
@@ -475,7 +530,7 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
   });
 
   // ─── SERIES DETAIL (SEASONS) ─────────────────────────────────────────────────
-  bot.callbackQuery(/^series:(.+)$/, async (ctx) => {
+  bot.callbackQuery(/^series:([^:]+)$/, async (ctx) => {
     const seriesId = ctx.match[1];
     const isUz = ctx.session.language === "uz";
 
@@ -516,18 +571,98 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
         )
         .row();
     }
+
+    // Add watch button if series has a direct video file
+    if (series.telegramFileId) {
+      keyboard
+        .text(
+          isUz ? "▶️ Serialni ko'rish" : "▶️ Смотреть сериал",
+          `series:watch:${series.id}`,
+        )
+        .row();
+    }
+
     keyboard.text(isUz ? "🔙 Seriallar" : "🔙 Сериалы", "catalog:series");
 
+    if (seasons.length === 0) {
+      await ctx.answerCallbackQuery(
+        isUz
+          ? "Bu serialda hali mavsum yo'q"
+          : "У этого сериала пока нет сезонов",
+      );
+      await ctx.editMessageText(
+        isUz
+          ? `📺 <b>${escapeHtml(series.title)}</b>\n\n⚠️ Bu serialda hali mavsumlar qo'shilmagan.`
+          : `📺 <b>${escapeHtml(series.title)}</b>\n\n⚠️ Для этого сериала ещё не добавлены сезоны.`,
+        { parse_mode: "HTML", reply_markup: keyboard },
+      );
+      return;
+    }
+
     const desc = series.description
-      ? `\n\n${series.description.slice(0, 150)}...`
+      ? `\n\n${escapeHtml(series.description.slice(0, 150))}${series.description.length > 150 ? "..." : ""}`
       : "";
-    const text = `📺 <b>${series.title}</b>${desc}`;
+    const text = `📺 <b>${escapeHtml(series.title)}</b>${desc}`;
 
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(text, {
       parse_mode: "HTML",
       reply_markup: keyboard,
     });
+  });
+
+  // ─── SERIES WATCH (direct video if series has telegramFileId) ───────────────
+  bot.callbackQuery(/^series:watch:(.+)$/, async (ctx) => {
+    const seriesId = ctx.match[1];
+    const isUz = ctx.session.language === "uz";
+    const telegramId = String(ctx.from.id);
+
+    const hasAccess = await checkUserSubscription(telegramId);
+    if (!hasAccess) {
+      const keyboard = new InlineKeyboard().text(
+        isUz ? "💳 Obuna olish" : "💳 Оформить подписку",
+        "subscription:plans",
+      );
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageText(
+        isUz
+          ? "🔒 Bu serial faqat obunachilarga mavjud."
+          : "🔒 Этот сериал доступен только подписчикам.",
+        { reply_markup: keyboard },
+      );
+      return;
+    }
+
+    const [series] = await db
+      .select()
+      .from(seriesTable)
+      .where(
+        and(eq(seriesTable.id, seriesId), eq(seriesTable.isPublished, true)),
+      )
+      .limit(1);
+
+    if (!series) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
+    if (!series.telegramFileId) {
+      await ctx.answerCallbackQuery(
+        isUz ? "Hali yuklanmagan" : "Ещё не загружено",
+      );
+      return;
+    }
+
+    await ctx.answerCallbackQuery(isUz ? "Yuborilmoqda..." : "Отправляем...");
+    await ctx.replyWithVideo(series.telegramFileId, {
+      caption: `📺 <b>${escapeHtml(series.title)}</b>`,
+      parse_mode: "HTML",
+    });
+
+    await db
+      .update(seriesTable)
+      .set({ viewsCount: sql`${seriesTable.viewsCount} + 1` })
+      .where(eq(seriesTable.id, seriesId));
   });
 
   // ─── SEASON (EPISODES) ───────────────────────────────────────────────────────
@@ -558,8 +693,17 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       .orderBy(episodesTable.episodeNumber);
 
     if (episodes.length === 0) {
-      await ctx.answerCallbackQuery(
-        isUz ? "Hali epizodlar yo'q" : "Эпизодов пока нет",
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageText(
+        isUz
+          ? "⚠️ Bu mavsumda hali ko'rish uchun epizodlar yo'q."
+          : "⚠️ В этом сезоне пока нет доступных эпизодов.",
+        {
+          reply_markup: new InlineKeyboard().text(
+            isUz ? "🔙 Orqaga" : "🔙 Назад",
+            `series:${season.seriesId}`,
+          ),
+        },
       );
       return;
     }
@@ -577,7 +721,9 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       (isUz ? `${season.seasonNumber}-mavsum` : `Сезон ${season.seasonNumber}`);
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      isUz ? `📂 <b>${seasonTitle}</b>` : `📂 <b>${seasonTitle}</b>`,
+      isUz
+        ? `📂 <b>${escapeHtml(seasonTitle)}</b>`
+        : `📂 <b>${escapeHtml(seasonTitle)}</b>`,
       { parse_mode: "HTML", reply_markup: keyboard },
     );
   });
@@ -710,6 +856,7 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       .update(videoCodesTable)
       .set({ viewsCount: sql`${videoCodesTable.viewsCount} + 1` })
       .where(eq(videoCodesTable.id, entry.id));
+    await recordVideoCodeWatch(String(ctx.from!.id), entry);
 
     return msg;
   }

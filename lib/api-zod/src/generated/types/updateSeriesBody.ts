@@ -15,5 +15,8 @@ export interface UpdateSeriesBody {
   posterUrl?: string;
   backgroundUrl?: string;
   trailerUrl?: string;
+  telegramFileId?: string;
+  storageKey?: string;
+  sourceType?: string;
   releaseDate?: Date;
 }

@@ -232,12 +232,33 @@ export function registerStartHandler(bot: Bot<BotContext>) {
     const isUz = ctx.session.language === "uz";
     ctx.session.step = undefined;
 
+    const text = isUz
+      ? `📱 <b>Asosiy menyu</b>\n\nQuyidagi bo'limlardan birini tanlang:`
+      : `📱 <b>Главное меню</b>\n\nВыберите один из разделов:`;
+
     await ctx.answerCallbackQuery();
-    await ctx.editMessageText(
-      isUz
-        ? `📱 <b>Asosiy menyu</b>\n\nQuyidagi bo'limlardan birini tanlang:`
-        : `📱 <b>Главное меню</b>\n\nВыберите один из разделов:`,
-      { parse_mode: "HTML", reply_markup: mainMenuInline(isUz) },
-    );
+
+    const msg = ctx.callbackQuery.message;
+    const hasMedia =
+      msg &&
+      ("photo" in msg ||
+        "video" in msg ||
+        "audio" in msg ||
+        "document" in msg ||
+        "sticker" in msg ||
+        "animation" in msg);
+
+    if (hasMedia) {
+      await ctx.reply(text, {
+        parse_mode: "HTML",
+        reply_markup: mainMenuInline(isUz),
+      });
+      return;
+    }
+
+    await ctx.editMessageText(text, {
+      parse_mode: "HTML",
+      reply_markup: mainMenuInline(isUz),
+    });
   });
 }

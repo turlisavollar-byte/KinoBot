@@ -1,13 +1,25 @@
-import { useCreateSeries } from "@workspace/api-client-react";
+import {
+  getListSeriesQueryKey,
+  useCreateSeries,
+} from "@workspace/api-client-react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   title: z.string().min(1, "series.titleRequired"),
@@ -20,6 +32,7 @@ const formSchema = z.object({
 export default function NewSeries() {
   const { t } = useI18n();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const createSeries = useCreateSeries();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -33,11 +46,23 @@ export default function NewSeries() {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    createSeries.mutate({ data: values }, {
-      onSuccess: (data) => {
-        setLocation(`/catalog/series/${data.id}`);
-      }
-    });
+    createSeries.mutate(
+      { data: values },
+      {
+        onSuccess: (data) => {
+          queryClient.invalidateQueries({
+            queryKey: getListSeriesQueryKey(),
+          });
+          toast.success(t("series.createSuccess"));
+          setLocation(`/catalog/series/${data.id}`);
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof Error ? error.message : t("series.createError"),
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -82,7 +107,10 @@ export default function NewSeries() {
               <FormItem>
                 <FormLabel>{t("series.description")}</FormLabel>
                 <FormControl>
-                  <Textarea placeholder={t("series.synopsisPlaceholder")} {...field} />
+                  <Textarea
+                    placeholder={t("series.synopsisPlaceholder")}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -96,7 +124,7 @@ export default function NewSeries() {
                 <FormItem>
                   <FormLabel>{t("series.releaseYear")}</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -109,7 +137,10 @@ export default function NewSeries() {
                 <FormItem>
                   <FormLabel>{t("series.ageRating")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("series.ageRatingPlaceholder")} {...field} />
+                    <Input
+                      placeholder={t("series.ageRatingPlaceholder")}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -117,7 +148,9 @@ export default function NewSeries() {
             />
           </div>
           <Button type="submit" disabled={createSeries.isPending}>
-            {createSeries.isPending ? t("series.creating") : t("series.createSeries")}
+            {createSeries.isPending
+              ? t("series.creating")
+              : t("series.createSeries")}
           </Button>
         </form>
       </Form>

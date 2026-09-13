@@ -39,6 +39,7 @@ import {
   HandleOctoWebhookUseCase,
   CreatePlanSchema,
   UpdatePlanSchema,
+  UpdateSubscriptionPlanSchema,
   ListPlansQuerySchema,
   CreateSubscriptionSchema,
   CancelSubscriptionSchema,
@@ -226,6 +227,55 @@ export class BillingController {
       const dto = UpdatePlanSchema.parse(req.body);
       const plan = await this.updatePlanUC.execute(id, dto);
       res.json({ success: true, data: this.planResponse(plan) });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async updateSubscriptionPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = routeParam(req.params.id);
+      const dto = UpdateSubscriptionPlanSchema.parse(req.body);
+      const [plan] = await db
+        .update(subscriptionPlansTable)
+        .set({
+          ...(dto.name !== undefined ? { name: dto.name } : {}),
+          ...(dto.tier !== undefined ? { tier: dto.tier } : {}),
+          ...(dto.price !== undefined ? { price: String(dto.price) } : {}),
+          ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
+          ...(dto.durationDays !== undefined
+            ? { durationDays: dto.durationDays }
+            : {}),
+          ...(dto.maxDevices !== undefined
+            ? { maxDevices: dto.maxDevices }
+            : {}),
+          ...(dto.description !== undefined
+            ? { description: dto.description }
+            : {}),
+          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(subscriptionPlansTable.id, id),
+            isNull(subscriptionPlansTable.deletedAt),
+          ),
+        )
+        .returning();
+
+      if (!plan) {
+        res.status(404).json({
+          success: false,
+          error: `Subscription plan with id ${id} not found`,
+        });
+        return;
+      }
+
+      res.json({ success: true, data: plan });
     } catch (err) {
       next(err);
     }

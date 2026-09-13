@@ -8,3 +8,5 @@ export * from "./notifications";
 export * from "./viewing";
 export * from "./audit";
 export * from "./roles";
+export * from "./feature-flags";
+export * from "./devices";

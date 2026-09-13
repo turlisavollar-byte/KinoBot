@@ -4,12 +4,20 @@ import { requireAuth, requirePermission } from "@/lib/auth";
 import { Permission } from "@/shared/constants/permissions";
 
 const router = Router();
+
+// Public endpoint for dashboard to read feature flags
+router.get(
+  "/feature-flags",
+  featureFlagController.list.bind(featureFlagController),
+);
+
+// Authenticated endpoints for management
 router.use(requireAuth);
 
 router.get(
-  "/feature-flags",
+  "/feature-flags/:key/evaluate",
   requirePermission(Permission.MANAGE_SYSTEM),
-  featureFlagController.list.bind(featureFlagController),
+  featureFlagController.evaluate.bind(featureFlagController),
 );
 router.get(
   "/feature-flags/:key/evaluate",

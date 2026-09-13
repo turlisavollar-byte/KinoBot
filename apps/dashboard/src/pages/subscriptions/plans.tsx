@@ -32,9 +32,7 @@ import { useI18n } from "@/lib/i18n";
 export default function PlansList() {
   const { t } = useI18n();
   const { data: plans, isLoading } = useListSubscriptionPlans();
-  const planList = Array.isArray(plans)
-    ? plans
-    : ((plans as { data?: typeof plans } | undefined)?.data ?? []);
+  const planList = Array.isArray(plans?.data) ? plans.data : [];
   const createPlan = useCreateSubscriptionPlan();
   const updatePlan = useUpdateSubscriptionPlan();
   const queryClient = useQueryClient();
