@@ -54,6 +54,11 @@ paths:
                   type: string
                 channelId:
                   type: string
+                accessPolicy:
+                  type: string
+                  enum: [free, subscription, channels]
+                requiredChannelIds:
+                  type: string
       responses:
         "201":
           description: Video code created
@@ -163,6 +168,12 @@ components:
           type: integer
         viewsCount:
           type: integer
+        accessPolicy:
+          type: string
+          enum: [free, subscription, channels]
+        requiredChannelIds:
+          type: string
+          nullable: true
         expiresAt:
           type: string
           format: date-time
@@ -186,6 +197,12 @@ components:
           type: string
         duration:
           type: integer
+        accessPolicy:
+          type: string
+          enum: [free, subscription, channels]
+        requiredChannelIds:
+          type: string
+          nullable: true
         expiresAt:
           type: string
           format: date-time

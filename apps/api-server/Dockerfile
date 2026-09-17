@@ -4,8 +4,8 @@
 # =============================================================================
 
 # Stage 1: Base image with dependencies
-# Use the maintained LTS runtime to reduce known base-image vulnerabilities.
-FROM node:22-bookworm-slim AS base
+# Use the maintained LTS runtime on the current Debian stable slim base.
+FROM node:22-trixie-slim AS base
 WORKDIR /app
 
 # Apply the latest Debian security fixes from the base image repository.
@@ -13,21 +13,28 @@ RUN apt-get update \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm@11.5.2
+# Install the repository-pinned pnpm version so frozen lockfile installs remain reproducible.
+RUN npm install -g pnpm@9.15.0
 
 # Stage 2: Install dependencies
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api-server/package.json ./apps/api-server/
+COPY apps/dashboard/package.json ./apps/dashboard/
+COPY lib/api-client-react/package.json ./lib/api-client-react/
+COPY lib/api-spec/package.json ./lib/api-spec/
 COPY lib/db/package.json ./lib/db/
 COPY lib/api-zod/package.json ./lib/api-zod/
+COPY scripts/package.json ./scripts/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --config.auto-install-peers=false
 
 # Stage 3: Build application
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api-server/node_modules ./apps/api-server/node_modules
+COPY --from=deps /app/lib/api-zod/node_modules ./lib/api-zod/node_modules
+COPY --from=deps /app/lib/db/node_modules ./lib/db/node_modules
 COPY . .
 
 # Set environment for build
@@ -37,7 +44,7 @@ ENV NODE_ENV=production
 RUN pnpm --filter @workspace/api-server run build
 
 # Stage 4: Production image
-FROM node:22-bookworm-slim AS production
+FROM node:22-trixie-slim AS production
 
 # Install dumb-init for proper signal handling
 RUN apt-get update \
@@ -53,13 +60,25 @@ WORKDIR /app
 
 # Copy built application
 COPY --from=build --chown=streamops:streamops /app/apps/api-server/dist ./dist
+COPY --from=build --chown=streamops:streamops /app/lib/db/drizzle-canonical ./lib/db/drizzle-canonical
+COPY --from=build --chown=streamops:streamops /app/lib/db/scripts ./lib/db/scripts
+COPY --from=build --chown=streamops:streamops /app/lib/db/src ./lib/db/src
+COPY --from=build --chown=streamops:streamops /app/lib/db/drizzle.config.ts ./lib/db/drizzle.config.ts
 COPY --from=deps --chown=streamops:streamops /app/node_modules ./node_modules
+COPY --from=deps --chown=streamops:streamops /app/apps/api-server/node_modules ./apps/api-server/node_modules
+COPY --from=deps --chown=streamops:streamops /app/lib/db/node_modules ./lib/db/node_modules
 COPY --chown=streamops:streamops package.json ./
 COPY --chown=streamops:streamops pnpm-workspace.yaml ./
 
 # Create necessary directories
-RUN mkdir -p /var/uploads && \
-    chown -R streamops:streamops /var/uploads
+RUN for dependency in /app/apps/api-server/node_modules/*; do \
+    name="$(basename "$dependency")"; \
+    if [ "$name" != ".bin" ] && [ ! -e "/app/node_modules/$name" ]; then \
+    ln -s "$dependency" "/app/node_modules/$name"; \
+    fi; \
+    done && \
+    mkdir -p /app/logs /var/uploads && \
+    chown -R streamops:streamops /app/logs /var/uploads
 
 # Switch to non-root user
 USER streamops

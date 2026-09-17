@@ -60,6 +60,13 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Database backups may contain production data and must stay local.
+/backups/
+
+# Local or server-provisioned TLS material; never commit private keys.
+/nginx/ssl/*.pem
+
 lib/api-spec/openapi.yaml.backup
 .git-history-backup/
 

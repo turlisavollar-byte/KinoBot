@@ -13,7 +13,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "127.0.0.1:6379:6379"  # Only accessible locally
+      - "127.0.0.1:16379:6379"  # Only accessible locally; avoid conflicts with a host Redis.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -27,6 +27,41 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Apply tracked migrations before seeding or starting the API.
+  db-migrator:
+    build:
+      context: .
+      dockerfile: apps/api-server/Dockerfile
+    container_name: streamops-db-migrator-prod
+    restart: "no"
+    working_dir: /app/lib/db
+    command: ["sh", "-c", "node /app/lib/db/scripts/assert-migration-state.mjs && node /app/lib/db/scripts/migrate-live.mjs"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    networks:
+      - streamops-network
+
+  # Seed defaults only after all migrations have completed.
+  db-seed:
+    build:
+      context: .
+      dockerfile: apps/api-server/Dockerfile
+    container_name: streamops-db-seed-prod
+    restart: "no"
+    working_dir: /app/lib/db
+    command: ["/app/node_modules/.bin/tsx", "src/seed.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-Developer}
+      BCRYPT_SALT_ROUNDS: 12
+    depends_on:
+      db-migrator:
+        condition: service_completed_successfully
+    networks:
+      - streamops-network
+
   # API Server with production settings
   api-server:
     build:
@@ -39,8 +74,8 @@ services:
       PORT: 8080
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: redis://redis:6379
-      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID}
-      PAYME_KEY: ${PAYME_KEY}
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
+      PAYME_KEY: ${PAYME_KEY:-}
       PAYME_IS_TEST: "false"
       P2P_ENABLED: ${P2P_ENABLED:-false}
       P2P_MERCHANT_ID: ${P2P_MERCHANT_ID:-}
@@ -48,7 +83,8 @@ services:
       P2P_API_URL: ${P2P_API_URL:-}
       P2P_CHECKOUT_BASE_URL: ${P2P_CHECKOUT_BASE_URL:-}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       LOG_LEVEL: info
       LOG_FORMAT: json
@@ -58,8 +94,10 @@ services:
       - "127.0.0.1:8080:8080"  # Only accessible locally
     volumes:
       - upload_data:/var/uploads
-      - ./logs/api:/var/log
+      - ./logs/api:/app/logs
     depends_on:
+      db-seed:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:

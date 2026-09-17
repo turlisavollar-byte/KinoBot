@@ -1,5 +1,5 @@
 import { type Bot, InlineKeyboard, Keyboard } from "grammy";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { container } from "tsyringe";
 import {
   db,
@@ -17,6 +17,27 @@ import { deliverVideoCodeByDeeplink } from "@/bot/handlers/catalog";
 const DEEPLINK_SOURCE_PREFIXES: Record<string, string> = {
   ig: "instagram",
 };
+const TRIAL_DAYS = 30;
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character,
+  );
+}
+
+function resolveTelegramLanguage(
+  languageCode: string | undefined,
+): "uz" | "ru" {
+  return languageCode?.toLowerCase().startsWith("ru") ? "ru" : "uz";
+}
 
 function parseDeeplinkPayload(payload: string | undefined): {
   source: string | null;
@@ -24,11 +45,17 @@ function parseDeeplinkPayload(payload: string | undefined): {
 } {
   if (!payload) return { source: null, code: null };
 
-  const [prefix, code] = payload.split("_");
+  const separatorIndex = payload.indexOf("_");
+  const prefix =
+    separatorIndex === -1 ? payload : payload.slice(0, separatorIndex);
+  const code =
+    separatorIndex === -1 ? null : payload.slice(separatorIndex + 1) || null;
   const source = DEEPLINK_SOURCE_PREFIXES[prefix.toLowerCase()] ?? null;
-  if (!source) return { source: null, code: null };
+  if (!source || (code !== null && !code)) {
+    return { source: null, code: null };
+  }
 
-  return { source, code: code ?? null };
+  return { source, code };
 }
 
 async function registerOrGetUser(
@@ -38,22 +65,6 @@ async function registerOrGetUser(
   const tg = ctx.from!;
   const telegramId = String(tg.id);
 
-  const [existing] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.telegramId, telegramId))
-    .limit(1);
-
-  if (existing) {
-    if (!existing.isActive && !existing.isBlocked) {
-      await db
-        .update(usersTable)
-        .set({ isActive: true })
-        .where(eq(usersTable.id, existing.id));
-    }
-    return existing;
-  }
-
   const [user] = await db
     .insert(usersTable)
     .values({
@@ -61,18 +72,40 @@ async function registerOrGetUser(
       username: tg.username ?? null,
       firstName: tg.first_name ?? null,
       lastName: tg.last_name ?? null,
-      languageCode: tg.language_code === "ru" ? "ru" : "uz",
+      languageCode: resolveTelegramLanguage(tg.language_code),
       isActive: true,
       acquisitionSource,
-      trialExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      trialExpiresAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
     })
+    .onConflictDoNothing({ target: usersTable.telegramId })
     .returning();
 
-  logger.info(
-    { telegramId, userId: user.id, acquisitionSource },
-    "New user registered via bot",
-  );
-  return user;
+  if (user) {
+    logger.info(
+      { telegramId, userId: user.id, acquisitionSource },
+      "New user registered via bot",
+    );
+    return user;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.telegramId, telegramId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("User registration conflict could not be resolved");
+  }
+
+  if (!existing.isActive && !existing.isBlocked) {
+    await db
+      .update(usersTable)
+      .set({ isActive: true })
+      .where(eq(usersTable.id, existing.id));
+  }
+
+  return existing;
 }
 
 function mainMenuInline(isUz: boolean) {
@@ -85,7 +118,9 @@ function mainMenuInline(isUz: boolean) {
     .text(isUz ? "🔍 Qidirish" : "🔍 Поиск", "search:start")
     .text(isUz ? "👤 Profil" : "👤 Профиль", "profile:show")
     .row()
-    .text(isUz ? "💳 Obuna" : "💳 Подписка", "subscription:status");
+    .text(isUz ? "💳 Obuna" : "💳 Подписка", "subscription:status")
+    .row()
+    .text("🌐 Til / Язык", "lang:menu");
 }
 
 function menuReplyKeyboard(isUz: boolean) {
@@ -95,6 +130,35 @@ function menuReplyKeyboard(isUz: boolean) {
     .persistent();
 }
 
+function languageKeyboard() {
+  return new InlineKeyboard()
+    .text("🇺🇿 O'zbek", "lang:uz")
+    .text("🇷🇺 Русский", "lang:ru");
+}
+
+function hasMediaMessage(message: unknown): boolean {
+  if (!message || typeof message !== "object") return false;
+  return ["photo", "video", "audio", "document", "sticker", "animation"].some(
+    (key) => key in message,
+  );
+}
+
+async function editOrReplyMenu(
+  ctx: BotContext,
+  text: string,
+  isUz: boolean,
+): Promise<void> {
+  const extra = {
+    parse_mode: "HTML" as const,
+    reply_markup: mainMenuInline(isUz),
+  };
+  if (hasMediaMessage(ctx.callbackQuery?.message)) {
+    await ctx.reply(text, extra);
+    return;
+  }
+  await ctx.editMessageText(text, extra);
+}
+
 export function registerStartHandler(bot: Bot<BotContext>) {
   // ─── /start ────────────────────────────────────────────────────────────────
   bot.command("start", async (ctx) => {
@@ -102,12 +166,13 @@ export function registerStartHandler(bot: Bot<BotContext>) {
     const { source, code } = parseDeeplinkPayload(payload);
 
     const user = await registerOrGetUser(ctx, source);
-    ctx.session.language = (user.languageCode as "uz" | "ru") ?? "uz";
+    ctx.session.language = user.languageCode === "ru" ? "ru" : "uz";
     ctx.session.step = undefined;
 
     const isUz = ctx.session.language === "uz";
-    const name =
-      ctx.from?.first_name ?? (isUz ? "Foydalanuvchi" : "Пользователь");
+    const name = escapeHtml(
+      ctx.from?.first_name ?? (isUz ? "Foydalanuvchi" : "Пользователь"),
+    );
 
     // Log the touch even for existing users so we can measure ongoing campaign traffic,
     // not just first-time signups (acquisitionSource on the user row is first-touch only).
@@ -155,16 +220,26 @@ export function registerStartHandler(bot: Bot<BotContext>) {
 
   // ─── /lang command ─────────────────────────────────────────────────────────
   bot.command("lang", async (ctx) => {
-    const keyboard = new InlineKeyboard()
-      .text("🇺🇿 O'zbek", "lang:uz")
-      .text("🇷🇺 Русский", "lang:ru");
     await ctx.reply("Tilni tanlang / Выберите язык:", {
-      reply_markup: keyboard,
+      reply_markup: languageKeyboard(),
     });
   });
 
+  bot.callbackQuery("lang:menu", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (hasMediaMessage(ctx.callbackQuery.message)) {
+      await ctx.reply("Tilni tanlang / Выберите язык:", {
+        reply_markup: languageKeyboard(),
+      });
+    } else {
+      await ctx.editMessageText("Tilni tanlang / Выберите язык:", {
+        reply_markup: languageKeyboard(),
+      });
+    }
+  });
+
   bot.callbackQuery(/^lang:(uz|ru)$/, async (ctx) => {
-    const lang = ctx.match[1] as "uz" | "ru";
+    const lang = ctx.match[1] === "ru" ? "ru" : "uz";
     ctx.session.language = lang;
 
     const telegramId = String(ctx.from.id);
@@ -178,7 +253,7 @@ export function registerStartHandler(bot: Bot<BotContext>) {
         ? "✅ Til o'zgartirildi: O'zbek 🇺🇿"
         : "✅ Язык изменён: Русский 🇷🇺";
     await ctx.answerCallbackQuery(msg);
-    await ctx.editMessageText(msg);
+    await editOrReplyMenu(ctx, msg, lang === "uz");
   });
 
   // ─── Profile ───────────────────────────────────────────────────────────────
@@ -204,18 +279,25 @@ export function registerStartHandler(bot: Bot<BotContext>) {
         subscriptionPlansTable,
         eq(subscriptionsTable.planId, subscriptionPlansTable.id),
       )
-      .where(eq(subscriptionsTable.userId, user.id))
+      .where(
+        and(
+          eq(subscriptionsTable.userId, user.id),
+          eq(subscriptionsTable.status, "active"),
+          gt(subscriptionsTable.endDate, new Date()),
+        ),
+      )
+      .orderBy(desc(subscriptionsTable.endDate))
       .limit(1);
 
     const subStatus = activeSub
-      ? `✅ ${activeSub.plan.name} (до ${new Date(activeSub.sub.endDate).toLocaleDateString()})`
+      ? `✅ ${escapeHtml(activeSub.plan.name)} (до ${new Date(activeSub.sub.endDate).toLocaleDateString()})`
       : isUz
         ? "❌ Obuna yo'q"
         : "❌ Нет подписки";
 
     const text = isUz
-      ? `👤 <b>Profil</b>\n\nIsm: ${user.firstName ?? "—"}\nUsername: @${user.username ?? "—"}\nTil: O'zbek 🇺🇿\n\n💳 Obuna: ${subStatus}`
-      : `👤 <b>Профиль</b>\n\nИмя: ${user.firstName ?? "—"}\nUsername: @${user.username ?? "—"}\nЯзык: Русский 🇷🇺\n\n💳 Подписка: ${subStatus}`;
+      ? `👤 <b>Profil</b>\n\nIsm: ${escapeHtml(user.firstName ?? "—")}\nUsername: @${escapeHtml(user.username ?? "—")}\nTil: O'zbek 🇺🇿\n\n💳 Obuna: ${subStatus}`
+      : `👤 <b>Профиль</b>\n\nИмя: ${escapeHtml(user.firstName ?? "—")}\nUsername: @${escapeHtml(user.username ?? "—")}\nЯзык: Русский 🇷🇺\n\n💳 Подписка: ${subStatus}`;
 
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(text, {
@@ -238,27 +320,6 @@ export function registerStartHandler(bot: Bot<BotContext>) {
 
     await ctx.answerCallbackQuery();
 
-    const msg = ctx.callbackQuery.message;
-    const hasMedia =
-      msg &&
-      ("photo" in msg ||
-        "video" in msg ||
-        "audio" in msg ||
-        "document" in msg ||
-        "sticker" in msg ||
-        "animation" in msg);
-
-    if (hasMedia) {
-      await ctx.reply(text, {
-        parse_mode: "HTML",
-        reply_markup: mainMenuInline(isUz),
-      });
-      return;
-    }
-
-    await ctx.editMessageText(text, {
-      parse_mode: "HTML",
-      reply_markup: mainMenuInline(isUz),
-    });
+    await editOrReplyMenu(ctx, text, isUz);
   });
 }

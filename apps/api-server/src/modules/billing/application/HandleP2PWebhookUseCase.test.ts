@@ -1,0 +1,140 @@
+import { HandleP2PWebhookUseCase } from "./HandleP2PWebhookUseCase";
+import {
+  IPaymentRepository,
+  IInvoiceRepository,
+  Invoice,
+  Payment,
+} from "../domain";
+import { P2PService } from "../infrastructure/P2PService";
+
+describe("HandleP2PWebhookUseCase", () => {
+  let useCase: HandleP2PWebhookUseCase;
+  let mockPaymentRepo: jest.Mocked<IPaymentRepository>;
+  let mockInvoiceRepo: jest.Mocked<IInvoiceRepository>;
+  let service: P2PService;
+
+  beforeEach(() => {
+    mockPaymentRepo = {
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      findByInvoiceId: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+    mockInvoiceRepo = {
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      findBySubscriptionId: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+    service = new P2PService("merchant-id", "secret-key");
+    useCase = new HandleP2PWebhookUseCase(
+      mockPaymentRepo,
+      mockInvoiceRepo,
+      service,
+    );
+  });
+
+  function generateValidSignature(
+    orderId: string,
+    transactionId: string,
+    amount: number,
+    status: string,
+    timestamp: string,
+  ): string {
+    const crypto = require("crypto");
+    const payload = `${orderId}|${transactionId}|${amount}|${status}|${timestamp}|secret-key`;
+    return crypto.createHash("sha256").update(payload).digest("hex");
+  }
+
+  it("should process successful payment and mark invoice paid", async () => {
+    const invoice = Invoice.create({
+      userId: "123e4567-e89b-12d3-a456-426614174000",
+      lineItems: [{ description: "Test", quantity: 1, unitAmountCents: 50000 }],
+    });
+    mockInvoiceRepo.findById.mockResolvedValue(invoice);
+    mockPaymentRepo.save.mockImplementation(async (p) => p);
+    mockInvoiceRepo.update.mockResolvedValue(invoice);
+
+    const timestamp = "2025-01-01T00:00:00Z";
+    const webhook = {
+      transactionId: "p2p-txn-123",
+      orderId: invoice.id,
+      amount: 500,
+      status: "paid" as const,
+      timestamp,
+      signature: generateValidSignature(
+        invoice.id,
+        "p2p-txn-123",
+        500,
+        "paid",
+        timestamp,
+      ),
+    };
+
+    const result = await useCase.execute(webhook);
+
+    expect(result.status).toBe("ok");
+    expect(mockPaymentRepo.save).toHaveBeenCalledTimes(1);
+    expect(mockInvoiceRepo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject invalid signature", async () => {
+    const webhook = {
+      transactionId: "p2p-txn-123",
+      orderId: "test-order",
+      amount: 500,
+      status: "paid" as const,
+      timestamp: "2025-01-01T00:00:00Z",
+      signature: "invalid-signature",
+    };
+
+    const result = await useCase.execute(webhook);
+
+    expect(result.status).toBe("error");
+    expect(result.message).toBe("Invalid signature");
+  });
+
+  it("should handle refund webhook and refund successful payment", async () => {
+    const invoice = Invoice.create({
+      userId: "123e4567-e89b-12d3-a456-426614174000",
+      lineItems: [{ description: "Test", quantity: 1, unitAmountCents: 50000 }],
+    });
+    const payment = Payment.create({
+      userId: invoice.userId,
+      invoiceId: invoice.id,
+      amountCents: 50000,
+      provider: "p2p",
+    });
+    payment.markSucceeded("p2p-txn-123");
+
+    mockInvoiceRepo.findById.mockResolvedValue(invoice);
+    mockPaymentRepo.findByInvoiceId.mockResolvedValue([payment]);
+    mockPaymentRepo.update.mockResolvedValue(payment);
+
+    const timestamp = "2025-01-01T00:00:00Z";
+    const webhook = {
+      transactionId: "p2p-txn-123",
+      orderId: invoice.id,
+      amount: 500,
+      status: "refunded" as const,
+      timestamp,
+      signature: generateValidSignature(
+        invoice.id,
+        "p2p-txn-123",
+        500,
+        "refunded",
+        timestamp,
+      ),
+    };
+
+    const result = await useCase.execute(webhook);
+
+    expect(result.status).toBe("ok");
+    expect(payment.status).toBe("refunded");
+    expect(mockPaymentRepo.update).toHaveBeenCalledTimes(1);
+  });
+});

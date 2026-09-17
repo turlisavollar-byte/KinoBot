@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit, Check, X } from "lucide-react";
+import { Plus, Edit, Trash, Check, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,6 +28,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/lib/i18n";
+import { apiFetch } from "@/lib/api-fetch";
+import { toast } from "sonner";
 
 export default function PlansList() {
   const { t } = useI18n();
@@ -115,6 +117,26 @@ export default function PlansList() {
     }
   };
 
+  const handleDelete = async (plan: any) => {
+    if (!window.confirm(t("genres.deleteConfirm") || "Are you sure?")) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/subscriptions/plans/${plan.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: getListSubscriptionPlansQueryKey(),
+      });
+      toast.success("Plan deleted");
+    } catch (error) {
+      toast.error((error as Error).message || "Could not delete plan");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -176,14 +198,22 @@ export default function PlansList() {
                   </li>
                 </ul>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="flex-1"
                   onClick={() => openEdit(plan)}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   {t("common.edit")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => void handleDelete(plan)}
+                  aria-label={t("common.delete")}
+                >
+                  <Trash className="w-4 h-4" />
                 </Button>
               </CardFooter>
             </Card>

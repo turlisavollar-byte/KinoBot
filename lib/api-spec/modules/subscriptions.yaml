@@ -238,9 +238,11 @@ components:
 
     CreateSubscriptionPlanBody:
       type: object
-      required: [name, price, currency, durationDays]
+      required: [name, tier, price, currency, durationDays]
       properties:
         name:
+          type: string
+        tier:
           type: string
         price:
           type: number
@@ -248,6 +250,13 @@ components:
           type: string
         durationDays:
           type: integer
+        maxDevices:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+        isActive:
+          type: boolean
         features:
           type: array
           items:

@@ -4,12 +4,12 @@
 # =============================================================================
 
 # Stage 1: Build stage
-FROM node:24-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@9.15.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -17,7 +17,7 @@ COPY lib/api-client-react/package.json ./lib/api-client-react/
 COPY apps/dashboard/package.json ./apps/dashboard/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --config.auto-install-peers=false
 
 # Copy source code
 COPY . .
@@ -42,12 +42,10 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/apps/dashboard/dist/public /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY apps/dashboard/nginx.conf /etc/nginx/nginx.conf
 
-# Create non-root user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S -u 1001 nginx && \
-    chown -R nginx:nginx /usr/share/nginx/html && \
+# Use the non-root nginx user provided by the official image.
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
     chown -R nginx:nginx /etc/nginx/conf.d

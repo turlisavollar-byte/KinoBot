@@ -1,6 +1,8 @@
 import { VideoCode } from "../value-objects/video-code.vo";
 import { VideoStatusValue } from "../value-objects/video-status.vo";
 
+export type VideoAccessPolicy = "free" | "subscription" | "channels";
+
 export interface VideoCodeProps {
   id: string;
   code: VideoCode;
@@ -12,6 +14,8 @@ export interface VideoCodeProps {
   fileSize: number | null;
   duration: number | null;
   status: VideoStatusValue;
+  accessPolicy: VideoAccessPolicy;
+  requiredChannelIds: string | null;
   viewsCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -61,6 +65,12 @@ export class VideoCodeEntity {
   get status(): VideoStatusValue {
     return this.props.status;
   }
+  get accessPolicy(): VideoAccessPolicy {
+    return this.props.accessPolicy;
+  }
+  get requiredChannelIds(): string | null {
+    return this.props.requiredChannelIds;
+  }
   get viewsCount(): number {
     return this.props.viewsCount;
   }
@@ -71,9 +81,18 @@ export class VideoCodeEntity {
     return this.props.updatedAt;
   }
 
-  updateDetails(title?: string, description?: string): void {
+  updateDetails(
+    title?: string,
+    description?: string,
+    accessPolicy?: VideoAccessPolicy,
+    requiredChannelIds?: string | null,
+  ): void {
     if (title !== undefined) this.props.title = title.trim();
     if (description !== undefined) this.props.description = description;
+    if (accessPolicy !== undefined) this.props.accessPolicy = accessPolicy;
+    if (requiredChannelIds !== undefined) {
+      this.props.requiredChannelIds = requiredChannelIds;
+    }
     this.props.updatedAt = new Date();
   }
 

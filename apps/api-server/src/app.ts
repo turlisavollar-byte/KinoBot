@@ -12,6 +12,9 @@ import {
 
 const app: Express = express();
 
+// Trust the single nginx reverse proxy in front of the API.
+app.set("trust proxy", 1);
+
 // Security middleware (must be first)
 app.use(helmetMiddleware);
 app.use(securityHeaders);

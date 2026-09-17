@@ -17,6 +17,7 @@ import { SendVerificationEmailUseCase } from "./application/use-cases/auth/send-
 import { VerifyEmailUseCase } from "./application/use-cases/auth/verify-email.use-case";
 import { RequestPasswordResetUseCase } from "./application/use-cases/auth/request-password-reset.use-case";
 import { ResetPasswordUseCase } from "./application/use-cases/auth/reset-password.use-case";
+import { ChangePasswordUseCase } from "./application/use-cases/auth/change-password.use-case";
 
 // Lazy initialization to prevent blocking during module import
 let userRepo: DrizzleUserRepository | null = null;
@@ -51,6 +52,11 @@ function initializeModule() {
     passwordService,
     sessionRepo,
   );
+  const changePasswordUC = new ChangePasswordUseCase(
+    userRepo,
+    passwordService,
+    sessionRepo,
+  );
 
   // ── Middleware ───────────────────────────────────────────────────
   authMiddlewareInstance = new AuthMiddleware(jwtService, userRepo);
@@ -66,6 +72,7 @@ function initializeModule() {
     verifyEmailUC,
     requestPasswordResetUC,
     resetPasswordUC,
+    changePasswordUC,
   );
 
   // ── Routes ───────────────────────────────────────────────────────

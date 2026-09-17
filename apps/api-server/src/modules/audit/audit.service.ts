@@ -281,9 +281,7 @@ export class AuditService {
       const lastItem = items.length > 0 ? items[items.length - 1] : undefined;
 
       return {
-        data: await Promise.all(
-          items.map((row) => this.mapRowToAuditLogWithTags(row)),
-        ),
+        data: await this.mapRowsToAuditLogsWithTags(items),
         meta: {
           limit,
           nextCursor: hasMore && lastItem ? lastItem.id : undefined,
@@ -814,6 +812,33 @@ export class AuditService {
       ...log,
       tags,
     };
+  }
+
+  private async mapRowsToAuditLogsWithTags(
+    rows: AuditLogRow[],
+  ): Promise<AuditLog[]> {
+    if (rows.length === 0) return [];
+
+    const logIds = rows.map((row) => row.id);
+    const tagRows = await db
+      .select({
+        logId: auditLogTagsTable.auditLogId,
+        tag: auditLogTagsTable.tag,
+      })
+      .from(auditLogTagsTable)
+      .where(inArray(auditLogTagsTable.auditLogId, logIds));
+
+    const tagsByLogId = new Map<string, string[]>();
+    for (const tagRow of tagRows) {
+      const tags = tagsByLogId.get(tagRow.logId) ?? [];
+      tags.push(tagRow.tag);
+      tagsByLogId.set(tagRow.logId, tags);
+    }
+
+    return rows.map((row) => ({
+      ...this.mapRowToAuditLog(row),
+      tags: tagsByLogId.get(row.id) ?? [],
+    }));
   }
 
   /**

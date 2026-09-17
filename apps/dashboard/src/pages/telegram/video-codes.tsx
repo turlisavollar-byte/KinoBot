@@ -130,6 +130,10 @@ export default function VideoCodes() {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDesc, setUploadDesc] = useState("");
   const [uploadChannel, setUploadChannel] = useState("");
+  const [uploadAccessPolicy, setUploadAccessPolicy] = useState<
+    "free" | "subscription" | "channels"
+  >("free");
+  const [uploadRequiredChannels, setUploadRequiredChannels] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -140,6 +144,10 @@ export default function VideoCodes() {
   const [importDesc, setImportDesc] = useState("");
   const [importChannel, setImportChannel] = useState("");
   const [importDuration, setImportDuration] = useState("");
+  const [importAccessPolicy, setImportAccessPolicy] = useState<
+    "free" | "subscription" | "channels"
+  >("free");
+  const [importRequiredChannels, setImportRequiredChannels] = useState("");
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<VideoCode | null>(null);
@@ -165,6 +173,10 @@ export default function VideoCodes() {
       toast.error(t("videoCodes.fileAndTitleRequired"));
       return;
     }
+    if (uploadAccessPolicy === "channels" && !uploadRequiredChannels.trim()) {
+      toast.error(t("videoCodes.channelAccessRequired"));
+      return;
+    }
 
     setUploading(true);
     try {
@@ -173,6 +185,10 @@ export default function VideoCodes() {
       form.append("title", uploadTitle.trim());
       if (uploadDesc.trim()) form.append("description", uploadDesc.trim());
       if (uploadChannel) form.append("channelId", uploadChannel);
+      form.append("accessPolicy", uploadAccessPolicy);
+      if (uploadRequiredChannels.trim()) {
+        form.append("requiredChannelIds", uploadRequiredChannels.trim());
+      }
 
       // Must NOT use apiFetch here — it forces Content-Type: application/json
       // which breaks multipart/form-data (multer never runs, JSON parser hits size limit).
@@ -198,6 +214,9 @@ export default function VideoCodes() {
       setSelectedFile(null);
       setUploadTitle("");
       setUploadDesc("");
+      setUploadChannel("");
+      setUploadAccessPolicy("free");
+      setUploadRequiredChannels("");
       invalidate();
     } catch (e) {
       toast.error((e as Error).message ?? t("videoCodes.uploadError"));
@@ -211,6 +230,10 @@ export default function VideoCodes() {
       toast.error(t("videoCodes.fileIdAndTitleRequired"));
       return;
     }
+    if (importAccessPolicy === "channels" && !importRequiredChannels.trim()) {
+      toast.error(t("videoCodes.channelAccessRequired"));
+      return;
+    }
     const durSec = importDuration ? parseInt(importDuration, 10) : undefined;
     importCode.mutate(
       {
@@ -220,6 +243,8 @@ export default function VideoCodes() {
           description: importDesc.trim() || undefined,
           channelId: importChannel || undefined,
           duration: durSec && !isNaN(durSec) ? durSec : undefined,
+          accessPolicy: importAccessPolicy,
+          requiredChannelIds: importRequiredChannels.trim() || undefined,
         } as any,
       },
       {
@@ -233,6 +258,8 @@ export default function VideoCodes() {
           setImportDesc("");
           setImportChannel("");
           setImportDuration("");
+          setImportAccessPolicy("free");
+          setImportRequiredChannels("");
           invalidate();
         },
         onError: (e: Error) => toast.error(e.message),
@@ -517,7 +544,7 @@ export default function VideoCodes() {
 
       {/* ── File ID Import Dialog ─────────────────────────────────────────────── */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Link2 className="h-4 w-4 text-primary" />{" "}
@@ -590,6 +617,43 @@ export default function VideoCodes() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <Label>{t("videoCodes.accessPolicy")}</Label>
+              <Select
+                value={importAccessPolicy}
+                onValueChange={(value) => setImportAccessPolicy(value as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("videoCodes.accessPolicy")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">
+                    {t("videoCodes.accessFree")}
+                  </SelectItem>
+                  <SelectItem value="subscription">
+                    {t("videoCodes.accessSubscription")}
+                  </SelectItem>
+                  <SelectItem value="channels">
+                    {t("videoCodes.accessChannels")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {importAccessPolicy === "channels" && (
+              <div className="space-y-1.5">
+                <Label>{t("videoCodes.requiredChannels")}</Label>
+                <Input
+                  value={importRequiredChannels}
+                  onChange={(e) => setImportRequiredChannels(e.target.value)}
+                  placeholder="@streamxuz, @channel2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("videoCodes.requiredChannelsHint")}
+                </p>
+              </div>
+            )}
+
             {/* Channel selector */}
             {channels && channels.length > 0 && (
               <div className="space-y-1.5">
@@ -644,7 +708,7 @@ export default function VideoCodes() {
 
       {/* Upload Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-4 w-4 text-primary" />{" "}
@@ -729,6 +793,43 @@ export default function VideoCodes() {
                 className="resize-none h-16"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <Label>{t("videoCodes.accessPolicy")}</Label>
+              <Select
+                value={uploadAccessPolicy}
+                onValueChange={(value) => setUploadAccessPolicy(value as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("videoCodes.accessPolicy")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">
+                    {t("videoCodes.accessFree")}
+                  </SelectItem>
+                  <SelectItem value="subscription">
+                    {t("videoCodes.accessSubscription")}
+                  </SelectItem>
+                  <SelectItem value="channels">
+                    {t("videoCodes.accessChannels")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {uploadAccessPolicy === "channels" && (
+              <div className="space-y-1.5">
+                <Label>{t("videoCodes.requiredChannels")}</Label>
+                <Input
+                  value={uploadRequiredChannels}
+                  onChange={(e) => setUploadRequiredChannels(e.target.value)}
+                  placeholder="@streamxuz, @channel2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("videoCodes.requiredChannelsHint")}
+                </p>
+              </div>
+            )}
 
             {/* Channel selector */}
             {channels && channels.length > 0 && (

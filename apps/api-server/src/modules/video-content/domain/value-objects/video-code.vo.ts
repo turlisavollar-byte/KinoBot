@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const CODE_PATTERN = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}$/;
 
@@ -15,7 +17,7 @@ export class VideoCode {
   static generate(): VideoCode {
     let value = "";
     for (let index = 0; index < 4; index += 1) {
-      value += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+      value += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
     }
     return new VideoCode(value);
   }

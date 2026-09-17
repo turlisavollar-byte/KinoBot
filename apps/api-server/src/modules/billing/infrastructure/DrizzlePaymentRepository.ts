@@ -1,7 +1,9 @@
 import { injectable } from "tsyringe";
-import { and, eq, desc, count } from "drizzle-orm";
+import { and, eq, desc, count, sql } from "drizzle-orm";
 import {
   db,
+  billingPlansTable,
+  billingSubscriptionsTable,
   billingInvoicesTable,
   billingOutboxTable,
   billingPaymentsTable,
@@ -156,9 +158,40 @@ export class DrizzlePaymentRepository implements IPaymentRepository {
           failureReason: paymentProps.failureReason,
           metadata: paymentProps.metadata as any,
         })
+        .onConflictDoNothing({
+          target: [
+            billingPaymentsTable.provider,
+            billingPaymentsTable.providerPaymentId,
+          ],
+        })
         .returning();
 
-      if (!paymentRow) throw new DatabaseError("Failed to create payment");
+      if (!paymentRow) {
+        if (!paymentProps.providerPaymentId) {
+          throw new DatabaseError(
+            "Payment insert conflict without provider payment ID",
+          );
+        }
+        const [existingPayment] = await tx
+          .select()
+          .from(billingPaymentsTable)
+          .where(
+            and(
+              eq(billingPaymentsTable.provider, paymentProps.provider),
+              eq(
+                billingPaymentsTable.providerPaymentId,
+                paymentProps.providerPaymentId,
+              ),
+            ),
+          )
+          .limit(1);
+        if (!existingPayment) {
+          throw new DatabaseError(
+            "Payment conflict did not resolve to an existing payment",
+          );
+        }
+        return this.mapRow(existingPayment);
+      }
 
       if (invoice.isPaid()) {
         const [invoiceRow] = await tx
@@ -172,7 +205,7 @@ export class DrizzlePaymentRepository implements IPaymentRepository {
           .returning({ id: billingInvoicesTable.id });
         if (!invoiceRow) throw new NotFoundError("Invoice", invoiceProps.id);
 
-        await this.activateLegacySubscription(tx, paymentProps);
+        await this.activateSubscription(tx, paymentProps, invoiceProps);
       }
 
       await tx.insert(billingOutboxTable).values({
@@ -201,11 +234,22 @@ export class DrizzlePaymentRepository implements IPaymentRepository {
     });
   }
 
-  private async activateLegacySubscription(
+  private async activateSubscription(
     tx: any,
     payment: PaymentProps,
+    invoice: ReturnType<Invoice["toProps"]>,
   ): Promise<void> {
-    const planId = payment.metadata.planId;
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`billing-subscription:${payment.userId}`}))`,
+    );
+
+    const billingPlanId = invoice.metadata.billingPlanId;
+    if (typeof billingPlanId === "string" && billingPlanId) {
+      await this.activateBillingSubscription(tx, payment, billingPlanId);
+      return;
+    }
+
+    const planId = invoice.metadata.planId ?? payment.metadata.planId;
     if (typeof planId !== "string" || !planId) return;
 
     const [plan] = await tx
@@ -264,6 +308,74 @@ export class DrizzlePaymentRepository implements IPaymentRepository {
     });
   }
 
+  private async activateBillingSubscription(
+    tx: any,
+    payment: PaymentProps,
+    planId: string,
+  ): Promise<void> {
+    const [plan] = await tx
+      .select()
+      .from(billingPlansTable)
+      .where(
+        and(
+          eq(billingPlansTable.id, planId),
+          eq(billingPlansTable.isActive, true),
+        ),
+      )
+      .limit(1);
+    if (!plan) return;
+
+    const now = new Date();
+    const [existing] = await tx
+      .select()
+      .from(billingSubscriptionsTable)
+      .where(
+        and(
+          eq(billingSubscriptionsTable.userId, payment.userId),
+          eq(billingSubscriptionsTable.status, "active"),
+        ),
+      )
+      .orderBy(desc(billingSubscriptionsTable.currentPeriodEnd))
+      .limit(1);
+
+    const start =
+      existing && existing.currentPeriodEnd > now
+        ? existing.currentPeriodEnd
+        : now;
+    const end = new Date(start);
+    if (plan.interval === "monthly") end.setMonth(end.getMonth() + 1);
+    else if (plan.interval === "yearly") end.setFullYear(end.getFullYear() + 1);
+    else end.setFullYear(end.getFullYear() + 100);
+
+    if (existing) {
+      await tx
+        .update(billingSubscriptionsTable)
+        .set({
+          planId: plan.id,
+          status: "active",
+          currentPeriodStart: existing.currentPeriodStart,
+          currentPeriodEnd: end,
+          cancelAtPeriodEnd: false,
+          canceledAt: null,
+          updatedAt: now,
+        })
+        .where(eq(billingSubscriptionsTable.id, existing.id));
+      return;
+    }
+
+    await tx.insert(billingSubscriptionsTable).values({
+      userId: payment.userId,
+      planId: plan.id,
+      status: "active",
+      currentPeriodStart: now,
+      currentPeriodEnd: end,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      trialEnd: null,
+      metadata: { source: "payment_settlement", provider: payment.provider },
+    });
+  }
+
   async update(payment: Payment): Promise<Payment> {
     const p = payment.toProps();
     const [row] = await db
@@ -302,6 +414,65 @@ export class DrizzlePaymentRepository implements IPaymentRepository {
         .returning();
 
       if (!row) throw new NotFoundError("Payment", props.id);
+
+      const [invoice] = await tx
+        .select()
+        .from(billingInvoicesTable)
+        .where(eq(billingInvoicesTable.id, props.invoiceId))
+        .limit(1);
+
+      if (invoice) {
+        const remainingSucceeded = await tx
+          .select({ id: billingPaymentsTable.id })
+          .from(billingPaymentsTable)
+          .where(
+            and(
+              eq(billingPaymentsTable.invoiceId, props.invoiceId),
+              eq(billingPaymentsTable.status, "succeeded"),
+            ),
+          );
+
+        if (remainingSucceeded.length === 0) {
+          await tx
+            .update(billingInvoicesTable)
+            .set({ status: "void", paidAt: null, updatedAt: new Date() })
+            .where(eq(billingInvoicesTable.id, props.invoiceId));
+
+          const metadata = (invoice.metadata ?? {}) as Record<string, unknown>;
+          const billingPlanId = metadata.billingPlanId;
+          if (typeof billingPlanId === "string" && billingPlanId) {
+            await tx
+              .update(billingSubscriptionsTable)
+              .set({
+                status: "canceled",
+                canceledAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(billingSubscriptionsTable.userId, props.userId),
+                  eq(billingSubscriptionsTable.planId, billingPlanId),
+                  eq(billingSubscriptionsTable.status, "active"),
+                ),
+              );
+          } else if (typeof metadata.planId === "string" && metadata.planId) {
+            await tx
+              .update(subscriptionsTable)
+              .set({
+                status: "cancelled",
+                cancelledAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(subscriptionsTable.userId, props.userId),
+                  eq(subscriptionsTable.planId, metadata.planId),
+                  eq(subscriptionsTable.status, "active"),
+                ),
+              );
+          }
+        }
+      }
 
       await tx.insert(billingOutboxTable).values({
         eventType: "PAYMENT_REFUNDED",

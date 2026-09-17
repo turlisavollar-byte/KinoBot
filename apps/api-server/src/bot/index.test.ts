@@ -34,7 +34,9 @@ vi.mock("@workspace/db", () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: async () => [{ botToken: "test-token", isActive: true }],
+          orderBy: () => ({
+            limit: async () => [{ botToken: "test-token", isActive: true }],
+          }),
         }),
       }),
     }),

@@ -112,7 +112,7 @@ export class UserController {
       const includeDeleted = req.query.includeDeleted === "true";
 
       const user = await this.getUser.execute(id, includeDeleted);
-      const [subscription] = await db
+      const subscriptions = await db
         .select({
           subscription: subscriptionsTable,
           plan: subscriptionPlansTable,
@@ -129,8 +129,8 @@ export class UserController {
             gt(subscriptionsTable.endDate, new Date()),
           ),
         )
-        .orderBy(desc(subscriptionsTable.endDate))
-        .limit(1);
+        .orderBy(desc(subscriptionsTable.endDate));
+      const [subscription] = subscriptions;
       const [watchStats] = await db
         .select({
           watchCount: sql<number>`count(*)`,
@@ -157,6 +157,10 @@ export class UserController {
           activeSubscription: subscription
             ? { ...subscription.subscription, planName: subscription.plan.name }
             : null,
+          subscriptions: subscriptions.map(({ subscription, plan }) => ({
+            ...subscription,
+            planName: plan.name,
+          })),
           watchCount: Number(watchStats?.watchCount ?? 0),
           totalWatchMinutes: Number(watchStats?.totalWatchMinutes ?? 0),
         },
@@ -306,6 +310,48 @@ export class UserController {
         data: { ...subscription, planName: plan.name },
         timestamp: new Date().toISOString(),
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // DELETE /users/:id/subscription
+  async cancelSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+      const [subscription] = await db
+        .select({ id: subscriptionsTable.id })
+        .from(subscriptionsTable)
+        .where(
+          and(
+            eq(subscriptionsTable.userId, id),
+            eq(subscriptionsTable.status, "active"),
+            gt(subscriptionsTable.endDate, new Date()),
+          ),
+        )
+        .orderBy(desc(subscriptionsTable.endDate))
+        .limit(1);
+
+      if (!subscription) {
+        res.status(404).json({
+          success: false,
+          error: { message: "Active subscription not found" },
+        });
+        return;
+      }
+
+      await db
+        .update(subscriptionsTable)
+        .set({ status: "canceled", cancelledAt: new Date(), autoRenew: false })
+        .where(eq(subscriptionsTable.id, subscription.id));
+
+      res.sendStatus(204);
     } catch (error) {
       next(error);
     }

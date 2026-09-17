@@ -2081,11 +2081,18 @@ export const ListSubscriptionPlansResponse = zod.object({
 /**
  * @summary Create a new subscription plan
  */
+
+
+
 export const CreateSubscriptionPlanBody = zod.object({
   "name": zod.string(),
+  "tier": zod.string(),
   "price": zod.number(),
   "currency": zod.string(),
   "durationDays": zod.number().int(),
+  "maxDevices": zod.number().int().min(1).optional(),
+  "description": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
   "features": zod.array(zod.string()).optional()
 })
 
@@ -2339,7 +2346,16 @@ export const ListUsersResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 })),
   "meta": zod.object({
   "total": zod.number().int().describe('Total number of users'),
@@ -2410,7 +2426,16 @@ export const GetUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2534,7 +2559,16 @@ export const UpdateUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2650,7 +2684,16 @@ export const GetMeResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2752,7 +2795,16 @@ export const BlockUserResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2855,7 +2907,16 @@ export const GrantUserSubscriptionResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
@@ -2964,7 +3025,16 @@ export const SearchUsersResponse = zod.object({
   "startDate": zod.date().optional().describe('Subscription start date'),
   "endDate": zod.date().optional().describe('Subscription end date'),
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string().optional().describe('Subscription ID'),
+  "planId": zod.string().optional().describe('Subscription plan ID'),
+  "planName": zod.string().optional().describe('Subscription plan name'),
+  "status": zod.string().optional().describe('Subscription status'),
+  "startDate": zod.date().optional().describe('Subscription start date'),
+  "endDate": zod.date().optional().describe('Subscription end date'),
+  "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
+})).optional().describe('All active legacy subscriptions for the user')
 })),
   "meta": zod.object({
   "total": zod.number().int().describe('Total number of users'),
@@ -3077,6 +3147,16 @@ export const GetUserActivityResponse = zod.object({
 
 
 /**
+ * @summary Cancel a user's active legacy subscription
+ */
+export const CancelUserSubscriptionParams = zod.object({
+  "id": zod.string()
+})
+
+export const CancelUserSubscriptionResponse = zod.void()
+
+
+/**
  * @summary List video codes
  */
 export const ListVideoCodesQueryParams = zod.object({
@@ -3094,6 +3174,8 @@ export const ListVideoCodesResponseItem = zod.object({
   "fileSize": zod.number().int().optional(),
   "duration": zod.number().int().optional(),
   "viewsCount": zod.number().int().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().nullish(),
   "expiresAt": zod.date().optional(),
   "createdAt": zod.date().optional()
 })
@@ -3107,7 +3189,9 @@ export const UploadVideoCodeBody = zod.object({
   "video": zod.instanceof(Blob),
   "title": zod.string(),
   "description": zod.string().optional(),
-  "channelId": zod.string().optional()
+  "channelId": zod.string().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().optional()
 })
 
 export const UploadVideoCodeResponse = zod.object({
@@ -3121,6 +3205,8 @@ export const UploadVideoCodeResponse = zod.object({
   "fileSize": zod.number().int().optional(),
   "duration": zod.number().int().optional(),
   "viewsCount": zod.number().int().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().nullish(),
   "expiresAt": zod.date().optional(),
   "createdAt": zod.date().optional()
 })
@@ -3136,6 +3222,8 @@ export const ImportVideoCodeBody = zod.object({
   "description": zod.string().optional(),
   "channelId": zod.string().optional(),
   "duration": zod.number().int().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().nullish(),
   "expiresAt": zod.date().optional()
 })
 
@@ -3150,6 +3238,8 @@ export const ImportVideoCodeResponse = zod.object({
   "fileSize": zod.number().int().optional(),
   "duration": zod.number().int().optional(),
   "viewsCount": zod.number().int().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().nullish(),
   "expiresAt": zod.date().optional(),
   "createdAt": zod.date().optional()
 })
@@ -3180,6 +3270,8 @@ export const UpdateVideoCodeResponse = zod.object({
   "fileSize": zod.number().int().optional(),
   "duration": zod.number().int().optional(),
   "viewsCount": zod.number().int().optional(),
+  "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
+  "requiredChannelIds": zod.string().nullish(),
   "expiresAt": zod.date().optional(),
   "createdAt": zod.date().optional()
 })

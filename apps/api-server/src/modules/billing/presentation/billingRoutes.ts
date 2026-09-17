@@ -20,6 +20,7 @@ import {
   CreateNBUPaymentSchema,
   CreateUzcardPaymentSchema,
   CreateOctoPaymentSchema,
+  CreateP2PPaymentSchema,
 } from "../application";
 
 export function createBillingRouter(controller: BillingController): Router {
@@ -49,6 +50,9 @@ export function createBillingRouter(controller: BillingController): Router {
   );
   router.post("/octo/webhook", (req, res, next) =>
     controller.octoWebhook(req, res, next),
+  );
+  router.post("/p2p/webhook", (req, res, next) =>
+    controller.p2pWebhook(req, res, next),
   );
 
   // Apply authentication to all billing routes
@@ -201,6 +205,13 @@ export function createBillingRouter(controller: BillingController): Router {
     "/octo/pay",
     validate({ body: CreateOctoPaymentSchema }),
     (req, res, next) => controller.createOctoPayment(req, res, next),
+  );
+
+  // ===== P2P =====
+  router.post(
+    "/p2p/pay",
+    validate({ body: CreateP2PPaymentSchema }),
+    (req, res, next) => controller.createP2PPayment(req, res, next),
   );
 
   return router;

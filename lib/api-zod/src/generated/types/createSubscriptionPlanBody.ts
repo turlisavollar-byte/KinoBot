@@ -8,8 +8,13 @@
 
 export interface CreateSubscriptionPlanBody {
   name: string;
+  tier: string;
   price: number;
   currency: string;
   durationDays: number;
+  /** @minimum 1 */
+  maxDevices?: number;
+  description?: string;
+  isActive?: boolean;
   features?: string[];
 }

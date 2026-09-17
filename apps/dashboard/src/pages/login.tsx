@@ -35,7 +35,7 @@ export default function Login() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     if (isLogin) {
       login.mutate(
         { data: { email, password } },
@@ -52,13 +52,23 @@ export default function Login() {
             const responseError = error as {
               data?: { error?: { message?: string } };
             };
-            setError(
-              responseError.data?.error?.message ?? t("login.invalid"),
-            );
+            setError(responseError.data?.error?.message ?? t("login.invalid"));
           },
         },
       );
     } else {
+      const passwordErrors = [
+        password.length < 8 && "Password must be at least 8 characters",
+        !/[A-Z]/.test(password) && "one uppercase letter",
+        !/[a-z]/.test(password) && "one lowercase letter",
+        !/[0-9]/.test(password) && "one number",
+        !/[!@#$%^&*]/.test(password) && "one special character (!@#$%^&*)",
+      ].filter(Boolean);
+      if (passwordErrors.length > 0) {
+        setError(`Password must contain ${passwordErrors.join(", ")}.`);
+        return;
+      }
+
       register.mutate(
         { data: { email, password, name } },
         {
@@ -126,6 +136,12 @@ export default function Login() {
                 required
                 className="bg-muted/50"
               />
+              {!isLogin && (
+                <p className="text-xs text-muted-foreground">
+                  Use 8+ characters with uppercase, lowercase, number, and
+                  special character.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -151,12 +167,14 @@ export default function Login() {
               size="lg"
               disabled={login.isPending || register.isPending}
             >
-              {(login.isPending || register.isPending) 
-                ? t("login.authenticating") 
-                : (isLogin ? t("login.signIn") : t("login.register"))}
+              {login.isPending || register.isPending
+                ? t("login.authenticating")
+                : isLogin
+                  ? t("login.signIn")
+                  : t("login.register")}
             </Button>
           </form>
-          
+
           <div className="mt-4 text-center">
             <button
               type="button"

@@ -15,6 +15,7 @@ import { requireAuth, requirePermission } from "@/shared/middleware";
 import { Permission } from "@/shared/constants/permissions";
 import { startBot, stopBot, isBotRunning } from "@/bot/index";
 import { getRecentFileIds } from "@/bot/handlers/storage";
+import { serializeRequiredChannelIds } from "@/bot/required-channels";
 
 const router: IRouter = Router();
 
@@ -75,7 +76,25 @@ router.patch(
     let config;
 
     // Auto-enable bot if token is provided and isActive is not explicitly set
-    const updateData = { ...body.data };
+    let updateData;
+    try {
+      updateData = {
+        ...body.data,
+        requiredChannelId: body.data.requiredChannelId
+          ? serializeRequiredChannelIds(body.data.requiredChannelId)
+          : body.data.requiredChannelId,
+      };
+    } catch (error) {
+      res
+        .status(400)
+        .json({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Invalid required channel configuration",
+        });
+      return;
+    }
     if (body.data.botToken && body.data.isActive === undefined) {
       updateData.isActive = true;
     }
@@ -93,12 +112,15 @@ router.patch(
         .returning();
     }
 
-    // Restart bot if config changed (async, non-blocking)
+    // Apply token and active-state changes to the running polling session.
     if (
       updateData.isActive !== undefined ||
       updateData.botToken !== undefined
     ) {
-      startBot().catch(() => {});
+      await stopBot();
+      if (config.isActive && config.botToken) {
+        await startBot();
+      }
     }
 
     res.json({

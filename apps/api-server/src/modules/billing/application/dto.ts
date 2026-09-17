@@ -35,6 +35,20 @@ export type UpdateSubscriptionPlanDTO = z.infer<
   typeof UpdateSubscriptionPlanSchema
 >;
 
+export const CreateSubscriptionPlanSchema = z.object({
+  name: z.string().min(1),
+  tier: z.string().min(1),
+  price: z.number().min(0),
+  currency: z.string().min(3).max(3),
+  durationDays: z.number().int().min(1),
+  maxDevices: z.number().int().min(1).optional().default(1),
+  description: z.string().optional(),
+  isActive: z.boolean().optional().default(true),
+});
+export type CreateSubscriptionPlanDTO = z.infer<
+  typeof CreateSubscriptionPlanSchema
+>;
+
 export const PlanIdSchema = z.object({
   id: z.string().uuid("Invalid plan ID"),
 });
@@ -127,6 +141,7 @@ export const CreatePaymentSchema = z.object({
       "nbu",
       "uzcard",
       "octo",
+      "p2p",
     ])
     .optional()
     .default("manual"),
@@ -204,3 +219,10 @@ export const CreateOctoPaymentSchema = z.object({
   returnUrl: z.string().url().optional(),
 });
 export type CreateOctoPaymentDTO = z.infer<typeof CreateOctoPaymentSchema>;
+
+// ==================== P2P ====================
+export const CreateP2PPaymentSchema = z.object({
+  invoiceId: z.string().uuid("Invalid invoice ID"),
+  returnUrl: z.string().url().optional(),
+});
+export type CreateP2PPaymentDTO = z.infer<typeof CreateP2PPaymentSchema>;

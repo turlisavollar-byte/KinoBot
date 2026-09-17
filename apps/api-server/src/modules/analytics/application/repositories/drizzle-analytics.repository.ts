@@ -736,17 +736,26 @@ export class DrizzleAnalyticsRepository implements IAnalyticsRepository {
   }
 
   private async getTotalMovies(): Promise<number> {
-    const [result] = await db.select({ value: count() }).from(moviesTable);
+    const [result] = await db
+      .select({ value: count() })
+      .from(moviesTable)
+      .where(sql`${moviesTable.deletedAt} IS NULL`);
     return Number(result?.value || 0);
   }
 
   private async getTotalSeries(): Promise<number> {
-    const [result] = await db.select({ value: count() }).from(seriesTable);
+    const [result] = await db
+      .select({ value: count() })
+      .from(seriesTable)
+      .where(sql`${seriesTable.deletedAt} IS NULL`);
     return Number(result?.value || 0);
   }
 
   private async getTotalEpisodes(): Promise<number> {
-    const [result] = await db.select({ value: count() }).from(episodesTable);
+    const [result] = await db
+      .select({ value: count() })
+      .from(episodesTable)
+      .where(sql`${episodesTable.deletedAt} IS NULL`);
     return Number(result?.value || 0);
   }
 

@@ -32,7 +32,8 @@ log_error() {
 # Required environment variables
 declare -A required_vars=(
     ["DATABASE_URL"]="PostgreSQL database connection string"
-    ["JWT_SECRET"]="Secret key for JWT token signing"
+    ["JWT_ACCESS_SECRET"]="Secret key for access-token signing"
+    ["JWT_REFRESH_SECRET"]="Secret key for refresh-token signing"
     ["SESSION_SECRET"]="Secret key for session management"
     ["ADMIN_TELEGRAM_IDS"]="Comma-separated list of admin Telegram IDs"
 )
@@ -236,8 +237,8 @@ security_check() {
     local warnings=0
     
     # Check for default secrets
-    if grep -q "your_jwt_secret" .env; then
-        log_warning "JWT_SECRET appears to be using default value"
+    if grep -q "your_jwt_secret" .env || grep -q "replace_with_strong_random" .env; then
+        log_warning "JWT secrets appear to be using default values"
         warnings=$((warnings + 1))
     fi
     

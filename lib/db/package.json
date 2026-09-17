@@ -16,6 +16,11 @@
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "seed": "tsx src/seed.ts",
+    "audit:migrations": "node --env-file=../../.env ./scripts/audit-live-migrations.mjs",
+    "assert:migrations": "node --env-file=../../.env ./scripts/assert-migration-state.mjs",
+    "migrate:live": "node --env-file=../../.env ./scripts/migrate-live.mjs",
+    "plan:migrations": "node --env-file=../../.env ./scripts/migration-reconciliation-plan.mjs",
+    "stamp:baseline": "node --env-file=../../.env ./scripts/stamp-baseline.mjs",
     "seed:roles": "tsx ./scripts/seed-roles-permissions.ts",
     "migrate:rbac": "tsx ./scripts/migrate-rbac-enhancements.ts"
   },

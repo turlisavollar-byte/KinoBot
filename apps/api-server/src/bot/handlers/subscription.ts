@@ -1,12 +1,11 @@
 import { type Bot, InlineKeyboard } from "grammy";
-import { eq, and, gt } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { container } from "tsyringe";
 import {
   db,
   usersTable,
   subscriptionsTable,
   subscriptionPlansTable,
-  telegramConfigTable,
 } from "@workspace/db";
 import type { BotContext } from "@/bot/index";
 import {
@@ -15,34 +14,99 @@ import {
   CreateInvoiceUseCase,
   CreateNBUPaymentUseCase,
   CreateOctoPaymentUseCase,
+  CreateP2PPaymentUseCase,
   CreatePaymePaymentUseCase,
   CreatePaynetPaymentUseCase,
   CreateUzumPaymentUseCase,
   CreateUzcardPaymentUseCase,
 } from "@/modules/billing/application";
 import { billingConfig } from "@/modules/billing/infrastructure/billingConfig";
+import { resolveActiveSubscriptionSnapshot } from "@/modules/billing/infrastructure/subscriptionCompatibility";
+import { logger } from "@/lib/logger";
 
-const providerPaymentUseCases = {
-  anor: CreateAnorPaymentUseCase,
-  click: CreateClickPaymentUseCase,
-  nbu: CreateNBUPaymentUseCase,
-  octo: CreateOctoPaymentUseCase,
-  payme: CreatePaymePaymentUseCase,
-  paynet: CreatePaynetPaymentUseCase,
-  uzcard: CreateUzcardPaymentUseCase,
-  uzum: CreateUzumPaymentUseCase,
+type PaymentUseCase = {
+  execute(input: { invoiceId: string }): Promise<{ paymentUrl: string }>;
+};
+
+const providers = {
+  anor: {
+    label: "Anor",
+    resolve: () =>
+      container.resolve(CreateAnorPaymentUseCase) as PaymentUseCase,
+  },
+  click: {
+    label: "Click",
+    resolve: () =>
+      container.resolve(CreateClickPaymentUseCase) as PaymentUseCase,
+  },
+  nbu: {
+    label: "NBU",
+    resolve: () => container.resolve(CreateNBUPaymentUseCase) as PaymentUseCase,
+  },
+  octo: {
+    label: "Octo",
+    resolve: () =>
+      container.resolve(CreateOctoPaymentUseCase) as PaymentUseCase,
+  },
+  p2p: {
+    label: "P2P",
+    resolve: () => container.resolve(CreateP2PPaymentUseCase) as PaymentUseCase,
+  },
+  payme: {
+    label: "Payme",
+    resolve: () =>
+      container.resolve(CreatePaymePaymentUseCase) as PaymentUseCase,
+  },
+  paynet: {
+    label: "Paynet",
+    resolve: () =>
+      container.resolve(CreatePaynetPaymentUseCase) as PaymentUseCase,
+  },
+  uzcard: {
+    label: "Uzcard",
+    resolve: () =>
+      container.resolve(CreateUzcardPaymentUseCase) as PaymentUseCase,
+  },
+  uzum: {
+    label: "Uzum",
+    resolve: () =>
+      container.resolve(CreateUzumPaymentUseCase) as PaymentUseCase,
+  },
 } as const;
 
-const providerLabels = {
-  anor: "Anor",
-  click: "Click",
-  nbu: "NBU",
-  octo: "Octo",
-  payme: "Payme",
-  paynet: "Paynet",
-  uzcard: "Uzcard",
-  uzum: "Uzum",
-} as const;
+type ProviderKey = keyof typeof providers;
+
+function isProviderKey(value: string): value is ProviderKey {
+  return value in providers;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character,
+  );
+}
+
+function formatPrice(value: string): string {
+  const price = Number(value);
+  return Number.isFinite(price) ? price.toLocaleString() : "—";
+}
+
+function isValidPaymentUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Checks if user has an active subscription.
@@ -56,9 +120,6 @@ export async function checkUserSubscription(
       id: usersTable.id,
       isBlocked: usersTable.isBlocked,
       trialExpiresAt: usersTable.trialExpiresAt,
-      dailyCodeLimit: usersTable.dailyCodeLimit,
-      weeklyCodeLimit: usersTable.weeklyCodeLimit,
-      monthlyCodeLimit: usersTable.monthlyCodeLimit,
     })
     .from(usersTable)
     .where(eq(usersTable.telegramId, telegramId))
@@ -69,41 +130,7 @@ export async function checkUserSubscription(
 
   const now = new Date();
   if (user.trialExpiresAt && user.trialExpiresAt > now) return true;
-  if (
-    user.dailyCodeLimit !== null ||
-    user.weeklyCodeLimit !== null ||
-    user.monthlyCodeLimit !== null
-  ) {
-    return true;
-  }
-  const [config] = await db
-    .select({
-      daily: telegramConfigTable.defaultDailyCodeLimit,
-      weekly: telegramConfigTable.defaultWeeklyCodeLimit,
-      monthly: telegramConfigTable.defaultMonthlyCodeLimit,
-    })
-    .from(telegramConfigTable)
-    .limit(1);
-  if (
-    config?.daily != null ||
-    config?.weekly != null ||
-    config?.monthly != null
-  ) {
-    return true;
-  }
-  const [activeSub] = await db
-    .select()
-    .from(subscriptionsTable)
-    .where(
-      and(
-        eq(subscriptionsTable.userId, user.id),
-        eq(subscriptionsTable.status, "active"),
-        gt(subscriptionsTable.endDate, now),
-      ),
-    )
-    .limit(1);
-
-  return !!activeSub;
+  return Boolean(await resolveActiveSubscriptionSnapshot(user.id));
 }
 
 export function registerSubscriptionHandler(bot: Bot<BotContext>) {
@@ -138,6 +165,7 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
           gt(subscriptionsTable.endDate, now),
         ),
       )
+      .orderBy(desc(subscriptionsTable.endDate))
       .limit(1);
 
     const keyboard = new InlineKeyboard()
@@ -154,8 +182,8 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
         isUz ? "uz-UZ" : "ru-RU",
       );
       text = isUz
-        ? `✅ <b>Faol obuna</b>\n\nReja: <b>${activeSub.plan.name}</b>\nNarxi: ${parseFloat(activeSub.plan.price).toLocaleString()} ${activeSub.plan.currency}\nAmal qiladi: <b>${endDate}</b>`
-        : `✅ <b>Активная подписка</b>\n\nПлан: <b>${activeSub.plan.name}</b>\nЦена: ${parseFloat(activeSub.plan.price).toLocaleString()} ${activeSub.plan.currency}\nДействует до: <b>${endDate}</b>`;
+        ? `✅ <b>Faol obuna</b>\n\nReja: <b>${escapeHtml(activeSub.plan.name)}</b>\nNarxi: ${parseFloat(activeSub.plan.price).toLocaleString()} ${escapeHtml(activeSub.plan.currency)}\nAmal qiladi: <b>${escapeHtml(endDate)}</b>`
+        : `✅ <b>Активная подписка</b>\n\nПлан: <b>${escapeHtml(activeSub.plan.name)}</b>\nЦена: ${parseFloat(activeSub.plan.price).toLocaleString()} ${escapeHtml(activeSub.plan.currency)}\nДействует до: <b>${escapeHtml(endDate)}</b>`;
     } else {
       text = isUz
         ? `❌ <b>Obuna yo'q</b>\n\nHozirda faol obunangiz yo'q.\nObuna olib, barcha kino va seriallardan bahramand bo'ling!`
@@ -176,8 +204,13 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
     const plans = await db
       .select()
       .from(subscriptionPlansTable)
-      .where(eq(subscriptionPlansTable.isActive, true))
-      .orderBy(subscriptionPlansTable.price);
+      .where(
+        and(
+          eq(subscriptionPlansTable.isActive, true),
+          isNull(subscriptionPlansTable.deletedAt),
+        ),
+      )
+      .orderBy(sql`${subscriptionPlansTable.price}::numeric`);
 
     if (plans.length === 0) {
       await ctx.answerCallbackQuery();
@@ -197,7 +230,7 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
 
     const keyboard = new InlineKeyboard();
     for (const plan of plans) {
-      const price = parseFloat(plan.price).toLocaleString();
+      const price = formatPrice(plan.price);
       keyboard
         .text(
           `${plan.name} — ${price} ${plan.currency}/${plan.durationDays}${isUz ? " kun" : " дн."}`,
@@ -226,7 +259,13 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
     const [plan] = await db
       .select()
       .from(subscriptionPlansTable)
-      .where(eq(subscriptionPlansTable.id, planId))
+      .where(
+        and(
+          eq(subscriptionPlansTable.id, planId),
+          eq(subscriptionPlansTable.isActive, true),
+          isNull(subscriptionPlansTable.deletedAt),
+        ),
+      )
       .limit(1);
 
     if (!plan) {
@@ -234,24 +273,27 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
       return;
     }
 
-    const price = parseFloat(plan.price).toLocaleString();
-    const hasEnabledProvider = billingConfig.enabledProviders.some(
-      (provider) => provider in providerLabels,
+    const price = formatPrice(plan.price);
+    const hasEnabledProvider = billingConfig.enabledProviders.some((provider) =>
+      isProviderKey(provider),
     );
     const text = !hasEnabledProvider
       ? isUz
-        ? `💳 <b>${plan.name}</b>\n\nHozircha to'lov usullari sozlanmoqda. Iltimos, keyinroq urinib ko'ring.`
-        : `💳 <b>${plan.name}</b>\n\nПлатежные методы пока настраиваются. Пожалуйста, попробуйте позже.`
+        ? `💳 <b>${escapeHtml(plan.name)}</b>\n\nHozircha to'lov usullari sozlanmoqda. Iltimos, keyinroq urinib ko'ring.`
+        : `💳 <b>${escapeHtml(plan.name)}</b>\n\nПлатежные методы пока настраиваются. Пожалуйста, попробуйте позже.`
       : isUz
-        ? `💳 <b>${plan.name}</b>\n\nNarxi: <b>${price} ${plan.currency}</b>\nMuddati: ${plan.durationDays} kun\nQurilmalar: ${plan.maxDevices} ta\n\n${plan.description ?? ""}\n\nTo'lov tizimini tanlang:`
-        : `💳 <b>${plan.name}</b>\n\nЦена: <b>${price} ${plan.currency}</b>\nСрок: ${plan.durationDays} дней\nУстройств: ${plan.maxDevices}\n\n${plan.description ?? ""}\n\nВыберите платежную систему:`;
+        ? `💳 <b>${escapeHtml(plan.name)}</b>\n\nNarxi: <b>${price} ${escapeHtml(plan.currency)}</b>\nMuddati: ${plan.durationDays} kun\nQurilmalar: ${plan.maxDevices} ta\n\n${escapeHtml(plan.description ?? "")}\n\nTo'lov tizimini tanlang:`
+        : `💳 <b>${escapeHtml(plan.name)}</b>\n\nЦена: <b>${price} ${escapeHtml(plan.currency)}</b>\nСрок: ${plan.durationDays} дней\nУстройств: ${plan.maxDevices}\n\n${escapeHtml(plan.description ?? "")}\n\nВыберите платежную систему:`;
 
     const keyboard = new InlineKeyboard();
     for (const enabledProvider of billingConfig.enabledProviders) {
-      if (!(enabledProvider in providerLabels)) continue;
-      const provider = enabledProvider as keyof typeof providerLabels;
+      if (!isProviderKey(enabledProvider)) continue;
+      const provider = enabledProvider;
       keyboard
-        .text(`💳 ${providerLabels[provider]}`, `payment:${provider}:${planId}`)
+        .text(
+          `💳 ${providers[provider].label}`,
+          `payment:${provider}:${planId}`,
+        )
         .row();
     }
     keyboard.text(
@@ -267,29 +309,42 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
   });
 
   // Payment provider selection handler
-  bot.callbackQuery(/^payment:(.+):(.+)$/, async (ctx) => {
+  bot.callbackQuery(/^payment:([^:]+):([^:]+)$/, async (ctx) => {
     const provider = ctx.match[1];
     const planId = ctx.match[2];
     const isUz = ctx.session.language === "uz";
 
-    if (!billingConfig.enabledProviders.includes(provider as never)) {
-      await ctx.answerCallbackQuery({
-        text: isUz
-          ? "Bu to'lov usuli hozircha mavjud emas."
-          : "Этот способ оплаты сейчас недоступен.",
-        show_alert: true,
-      });
+    await ctx.answerCallbackQuery();
+
+    if (
+      !provider ||
+      !isProviderKey(provider) ||
+      !billingConfig.enabledProviders.includes(provider)
+    ) {
+      await ctx.editMessageText(
+        isUz
+          ? "❌ Bu to'lov usuli hozircha mavjud emas."
+          : "❌ Этот способ оплаты сейчас недоступен.",
+      );
       return;
     }
 
     const [plan] = await db
       .select()
       .from(subscriptionPlansTable)
-      .where(eq(subscriptionPlansTable.id, planId))
+      .where(
+        and(
+          eq(subscriptionPlansTable.id, planId),
+          eq(subscriptionPlansTable.isActive, true),
+          isNull(subscriptionPlansTable.deletedAt),
+        ),
+      )
       .limit(1);
 
     if (!plan) {
-      await ctx.answerCallbackQuery();
+      await ctx.editMessageText(
+        isUz ? "❌ Reja topilmadi." : "❌ План не найден.",
+      );
       return;
     }
 
@@ -300,7 +355,6 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
       .limit(1);
 
     if (!user) {
-      await ctx.answerCallbackQuery();
       await ctx.editMessageText(
         isUz
           ? "❌ Xatolik: Foydalanuvchi topilmadi."
@@ -318,10 +372,6 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
     // Create an invoice and provider checkout URL through the billing module.
     let paymentUrl: string | null = null;
     try {
-      if (!(provider in providerPaymentUseCases)) {
-        throw new Error(`Unsupported billing provider: ${provider}`);
-      }
-
       const price = Number(plan.price);
       if (!Number.isFinite(price) || price <= 0) {
         throw new Error("Billing plan has an invalid price");
@@ -344,50 +394,48 @@ export function registerSubscriptionHandler(bot: Bot<BotContext>) {
             provider,
           },
         },
-        `telegram:${user.id}:${plan.id}:${provider}`,
+        `telegram:${user.id}:${plan.id}:${provider}:${crypto.randomUUID()}`,
       );
 
-      const PaymentUseCase =
-        providerPaymentUseCases[
-          provider as keyof typeof providerPaymentUseCases
-        ];
-      const paymentUseCase = container.resolve(PaymentUseCase as any) as {
-        execute(input: { invoiceId: string }): Promise<{ paymentUrl: string }>;
-      };
+      const paymentUseCase = providers[provider].resolve();
       const result = await paymentUseCase.execute({
         invoiceId: invoice.id,
       });
+      if (!isValidPaymentUrl(result.paymentUrl)) {
+        throw new Error("Provider returned an invalid payment URL");
+      }
       paymentUrl = result.paymentUrl;
     } catch (error) {
-      console.error(`Payment creation error for ${provider}:`, error);
+      logger.error(
+        { err: error, provider, planId, userId: user.id },
+        "Payment creation failed",
+      );
     }
 
     if (paymentUrl) {
       const text = isUz
-        ? `✅ <b>To'lov yaratildi</b>\n\nProvayder: <b>${provider.toUpperCase()}</b>\nReja: <b>${plan.name}</b>\nNarxi: ${parseFloat(plan.price).toLocaleString()} ${plan.currency}\n\nQuyidagi tugma orqali to'lovni amalga oshiring:`
-        : `✅ <b>Платёж создан</b>\n\nПровайдер: <b>${provider.toUpperCase()}</b>\nПлан: <b>${plan.name}</b>\nЦена: ${parseFloat(plan.price).toLocaleString()} ${plan.currency}\n\nНажмите кнопку ниже для оплаты:`;
+        ? `✅ <b>To'lov yaratildi</b>\n\nProvayder: <b>${escapeHtml(provider.toUpperCase())}</b>\nReja: <b>${escapeHtml(plan.name)}</b>\nNarxi: ${formatPrice(plan.price)} ${escapeHtml(plan.currency)}\n\nQuyidagi tugma orqali to'lovni amalga oshiring:`
+        : `✅ <b>Платёж создан</b>\n\nПровайдер: <b>${escapeHtml(provider.toUpperCase())}</b>\nПлан: <b>${escapeHtml(plan.name)}</b>\nЦена: ${formatPrice(plan.price)} ${escapeHtml(plan.currency)}\n\nНажмите кнопку ниже для оплаты:`;
 
       const keyboard = new InlineKeyboard()
         .url(isUz ? "💳 To'lov qilish" : "💳 Оплатить", paymentUrl)
         .row()
         .text(isUz ? "🔙 Orqaga" : "🔙 Назад", `plan:select:${planId}`);
 
-      await ctx.answerCallbackQuery();
       await ctx.editMessageText(text, {
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
     } else {
       const text = isUz
-        ? `❌ <b>To'lov yaratilmadi</b>\n\nProvayder: <b>${provider.toUpperCase()}</b>\n\nIltimos, keyinroq urinib ko'ring yoki boshqa provayderni tanlang.`
-        : `❌ <b>Платёж не создан</b>\n\nПровайдер: <b>${provider.toUpperCase()}</b>\n\nПожалуйста, попробуйте позже или выберите другого провайдера.`;
+        ? `❌ <b>To'lov yaratilmadi</b>\n\nProvayder: <b>${escapeHtml(provider.toUpperCase())}</b>\n\nIltimos, keyinroq urinib ko'ring yoki boshqa provayderni tanlang.`
+        : `❌ <b>Платёж не создан</b>\n\nПровайдер: <b>${escapeHtml(provider.toUpperCase())}</b>\n\nПожалуйста, попробуйте позже или выберите другого провайдера.`;
 
       const keyboard = new InlineKeyboard().text(
         isUz ? "🔙 Orqaga" : "🔙 Назад",
         `plan:select:${planId}`,
       );
 
-      await ctx.answerCallbackQuery();
       await ctx.editMessageText(text, {
         parse_mode: "HTML",
         reply_markup: keyboard,

@@ -19,6 +19,7 @@ import { ISubscriptionRepository } from "./domain/ISubscriptionRepository";
 import { IInvoiceRepository } from "./domain/IInvoiceRepository";
 import { IPaymentRepository } from "./domain/IPaymentRepository";
 import { DrizzleBillingOutboxProcessor } from "./infrastructure/DrizzleBillingOutboxProcessor";
+import { SubscriptionLifecycleWorker } from "./infrastructure/SubscriptionLifecycleWorker";
 
 // ==================== Presentation ====================
 import { Router } from "express";
@@ -64,6 +65,8 @@ import { CreateUzcardPaymentUseCase } from "./application/CreateUzcardPaymentUse
 import { HandleUzcardWebhookUseCase } from "./application/HandleUzcardWebhookUseCase";
 import { CreateOctoPaymentUseCase } from "./application/CreateOctoPaymentUseCase";
 import { HandleOctoWebhookUseCase } from "./application/HandleOctoWebhookUseCase";
+import { CreateP2PPaymentUseCase } from "./application/CreateP2PPaymentUseCase";
+import { HandleP2PWebhookUseCase } from "./application/HandleP2PWebhookUseCase";
 
 // ==================== Payment Provider Services ====================
 import { ClickService } from "./infrastructure/ClickService";
@@ -74,6 +77,7 @@ import { AnorService } from "./infrastructure/AnorService";
 import { NBUService } from "./infrastructure/NBUService";
 import { UzcardService } from "./infrastructure/UzcardService";
 import { OctoService } from "./infrastructure/OctoService";
+import { P2PService } from "./infrastructure/P2PService";
 
 // ==================== Logger ====================
 import { Logger } from "@/shared/utils/logger";
@@ -82,6 +86,9 @@ const logger = Logger.getInstance("BillingModule");
 
 let initialized = false;
 let outboxTimer: NodeJS.Timeout | undefined;
+let subscriptionLifecycleTimer: NodeJS.Timeout | undefined;
+let outboxStarting = false;
+let subscriptionLifecycleStarting = false;
 
 // ==================== Register Dependencies ====================
 function registerDependencies() {
@@ -121,7 +128,9 @@ function registerDependencies() {
   container.registerSingleton(NBUService);
   container.registerSingleton(UzcardService);
   container.registerSingleton(OctoService);
+  container.registerSingleton(P2PService);
   container.registerSingleton(DrizzleBillingOutboxProcessor);
+  container.registerSingleton(SubscriptionLifecycleWorker);
 
   logger.info("Billing payment services registered");
 
@@ -168,6 +177,8 @@ function registerDependencies() {
   container.registerSingleton(HandleUzcardWebhookUseCase);
   container.registerSingleton(CreateOctoPaymentUseCase);
   container.registerSingleton(HandleOctoWebhookUseCase);
+  container.registerSingleton(CreateP2PPaymentUseCase);
+  container.registerSingleton(HandleP2PWebhookUseCase);
 
   logger.info("Billing use cases registered");
 
@@ -203,6 +214,7 @@ export function initBillingModule(router: any): void {
   router.use("/billing", billingRouter);
 
   startOutboxProcessor();
+  startSubscriptionLifecycleWorker();
 
   logger.info("Billing module initialized");
 }
@@ -218,33 +230,70 @@ export function initSubscriptionModule(router: any): void {
   router.use("/subscriptions", subscriptionRouter);
 
   startOutboxProcessor();
+  startSubscriptionLifecycleWorker();
 
   logger.info("Subscription module initialized");
 }
 
 // ==================== Outbox Processor ====================
 function startOutboxProcessor() {
-  if (!outboxTimer) {
-    // Start outbox processor in next tick to avoid blocking startup
-    process.nextTick(() => {
-      try {
-        const processor = container.resolve(DrizzleBillingOutboxProcessor);
-        outboxTimer = setInterval(() => {
-          void processor.processBatch().catch((error) => {
-            logger.error("Billing outbox processing failed", undefined, error);
-          });
-        }, 10_000);
-        outboxTimer.unref();
-        logger.info("Billing outbox processor started");
-      } catch (error) {
-        logger.error(
-          "Failed to start billing outbox processor",
-          undefined,
-          error,
-        );
-      }
-    });
+  if (outboxTimer || outboxStarting) {
+    return;
   }
+
+  outboxStarting = true;
+
+  // Start outbox processor in next tick to avoid blocking startup
+  process.nextTick(() => {
+    try {
+      const processor = container.resolve(DrizzleBillingOutboxProcessor);
+      outboxTimer = setInterval(() => {
+        void processor.processBatch().catch((error) => {
+          logger.error("Billing outbox processing failed", undefined, error);
+        });
+      }, 10_000);
+      outboxTimer.unref();
+      logger.info("Billing outbox processor started");
+    } catch (error) {
+      outboxStarting = false;
+      logger.error(
+        "Failed to start billing outbox processor",
+        undefined,
+        error,
+      );
+    }
+  });
+}
+
+function startSubscriptionLifecycleWorker() {
+  if (subscriptionLifecycleTimer || subscriptionLifecycleStarting) return;
+
+  subscriptionLifecycleStarting = true;
+
+  process.nextTick(() => {
+    try {
+      const worker = container.resolve(SubscriptionLifecycleWorker);
+      subscriptionLifecycleTimer = setInterval(() => {
+        void worker.processExpiredAndCompletedTrials().catch((error) => {
+          logger.error(
+            "Subscription lifecycle processing failed",
+            undefined,
+            error,
+          );
+        });
+      }, 60_000);
+      subscriptionLifecycleTimer.unref();
+      void worker.processExpiredAndCompletedTrials();
+      logger.info("Subscription lifecycle worker started");
+    } catch (error) {
+      subscriptionLifecycleStarting = false;
+      logger.error(
+        "Failed to start subscription lifecycle worker",
+        undefined,
+        error,
+      );
+    }
+  });
 }
 
 // ==================== Default Export ====================

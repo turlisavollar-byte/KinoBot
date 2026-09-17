@@ -58,7 +58,7 @@ test_env_file() {
         log_success ".env file exists"
         
         # Check for required variables
-        required_vars=("DATABASE_URL" "JWT_SECRET" "SESSION_SECRET")
+        required_vars=("DATABASE_URL" "JWT_ACCESS_SECRET" "JWT_REFRESH_SECRET" "SESSION_SECRET")
         missing_vars=()
         
         for var in "${required_vars[@]}"; do
@@ -152,12 +152,12 @@ test_node_version() {
         node_version=$(node --version)
         log_success "Node.js is installed: $node_version"
         
-        # Check if version is 24+
+        # Check the workspace-pinned Node.js major version.
         major_version=$(echo $node_version | cut -d'v' -f2 | cut -d'.' -f1)
-        if [ "$major_version" -ge 24 ]; then
-            log_success "Node.js version is compatible (24+)"
+        if [ "$major_version" -eq 22 ]; then
+            log_success "Node.js version is compatible (22 LTS)"
         else
-            log_warning "Node.js version may not be compatible (recommended: 24+)"
+            log_warning "Node.js version may not be compatible (required: 22.x)"
         fi
     else
         log_warning "Node.js is not installed (optional for Docker deployment)"

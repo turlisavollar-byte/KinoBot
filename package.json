@@ -2,8 +2,14 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0 <23.0.0",
+    "pnpm": "9.15.0"
+  },
   "scripts": {
     "dev": "node ./scripts/dev.mjs",
+    "route-matrix": "tsx --tsconfig ./apps/api-server/tsconfig.json --env-file=.env ./apps/api-server/full-route-matrix-check.ts",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./apps/**\" --filter \"./scripts\" --if-present run typecheck",

@@ -698,6 +698,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/{id}/subscription:
+    delete:
+      operationId: cancelUserSubscription
+      tags: [users, subscriptions]
+      summary: Cancel a user's active legacy subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Subscription canceled successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Active subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 # ==================== SCHEMAS ====================
 components:
   schemas:
@@ -853,6 +888,11 @@ components:
         activeSubscription:
           $ref: "#/components/schemas/UserSubscription"
           nullable: true
+        subscriptions:
+          type: array
+          description: All active legacy subscriptions for the user
+          items:
+            $ref: "#/components/schemas/UserSubscription"
 
     UserDetail:
       allOf:

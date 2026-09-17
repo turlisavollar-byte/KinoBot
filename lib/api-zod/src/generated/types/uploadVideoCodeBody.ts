@@ -5,10 +5,13 @@
  * Movie streaming platform API — enterprise modular monolith
  * OpenAPI spec version: 0.1.0
  */
+import type { UploadVideoCodeBodyAccessPolicy } from './uploadVideoCodeBodyAccessPolicy';
 
 export type UploadVideoCodeBody = {
   video: Blob | File;
   title: string;
   description?: string;
   channelId?: string;
+  accessPolicy?: UploadVideoCodeBodyAccessPolicy;
+  requiredChannelIds?: string;
 };

@@ -19,6 +19,13 @@ if (Number.isNaN(apiPort) || apiPort <= 0) {
   throw new Error(`Invalid API_PORT value: "${apiPortValue}"`);
 }
 
+const allowedHosts = (
+  process.env.VITE_ALLOWED_HOSTS ?? "localhost,127.0.0.1,0.0.0.0,::1"
+)
+  .split(",")
+  .map((host) => host.trim())
+  .filter(Boolean);
+
 export default defineConfig({
   base: basePath,
   plugins: [react(), tailwindcss()],
@@ -86,7 +93,7 @@ export default defineConfig({
     port: dashboardPort,
     strictPort: true,
     host: "0.0.0.0",
-    allowedHosts: true,
+    allowedHosts,
     proxy: {
       "/api": {
         target: `http://localhost:${apiPort}`,
@@ -118,6 +125,6 @@ export default defineConfig({
   preview: {
     port: dashboardPort,
     host: "0.0.0.0",
-    allowedHosts: true,
+    allowedHosts,
   },
 });

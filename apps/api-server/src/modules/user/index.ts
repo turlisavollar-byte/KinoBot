@@ -166,6 +166,12 @@ function createUserRouter() {
     controller.grantSubscription.bind(controller),
   );
 
+  router.delete(
+    "/:id/subscription",
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    controller.cancelSubscription.bind(controller),
+  );
+
   router.get(
     "/:id",
     requirePermission(Permission.READ_USERS),

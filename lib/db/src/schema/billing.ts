@@ -84,35 +84,45 @@ export const billingPlansTable = pgTable("billing_plans", {
     .$onUpdate(() => new Date()),
 });
 
-export const billingSubscriptionsTable = pgTable("billing_subscriptions", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => usersTable.id),
-  planId: text("plan_id")
-    .notNull()
-    .references(() => billingPlansTable.id),
-  status: text("status").notNull(), // 'active' | 'canceled' | 'past_due' | 'trialing' | 'expired'
-  currentPeriodStart: timestamp("current_period_start", {
-    withTimezone: true,
-  }).notNull(),
-  currentPeriodEnd: timestamp("current_period_end", {
-    withTimezone: true,
-  }).notNull(),
-  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-  canceledAt: timestamp("canceled_at", { withTimezone: true }),
-  trialEnd: timestamp("trial_end", { withTimezone: true }),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const billingSubscriptionsTable = pgTable(
+  "billing_subscriptions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => billingPlansTable.id),
+    status: text("status").notNull(), // 'active' | 'canceled' | 'past_due' | 'trialing' | 'expired'
+    currentPeriodStart: timestamp("current_period_start", {
+      withTimezone: true,
+    }).notNull(),
+    currentPeriodEnd: timestamp("current_period_end", {
+      withTimezone: true,
+    }).notNull(),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    trialEnd: timestamp("trial_end", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("billing_subscriptions_user_status_period_end_idx").on(
+      table.userId,
+      table.status,
+      table.currentPeriodEnd,
+    ),
+  ],
+);
 
 export const billingInvoicesTable = pgTable("billing_invoices", {
   id: text("id")
@@ -175,6 +185,8 @@ export const billingPaymentsTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => ({
+    userIdx: index("billing_payments_user_idx").on(table.userId),
+    invoiceIdx: index("billing_payments_invoice_idx").on(table.invoiceId),
     providerPaymentIdUnique: uniqueIndex(
       "billing_payments_provider_payment_id_unique",
     ).on(table.provider, table.providerPaymentId),

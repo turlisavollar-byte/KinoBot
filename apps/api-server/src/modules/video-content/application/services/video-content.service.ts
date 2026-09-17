@@ -4,12 +4,17 @@ import { CodeGeneratorService } from "../../domain/services/code-generator.servi
 import { VideoStatusValue } from "../../domain/value-objects/video-status.vo";
 import type { ITelegramVideoService } from "../interfaces/telegram-video.service.interface";
 import type { IStorageChannelService } from "../interfaces/channel.service.interface";
+import { serializeRequiredChannelIds } from "@/bot/required-channels";
+
+export type VideoAccessPolicy = "free" | "subscription" | "channels";
 
 export interface UploadVideoInput {
   file: Express.Multer.File;
   title: string;
   description?: string;
   channelId?: string;
+  accessPolicy?: VideoAccessPolicy;
+  requiredChannelIds?: string | null;
 }
 
 export interface ImportVideoInput {
@@ -19,6 +24,21 @@ export interface ImportVideoInput {
   channelId?: string;
   fileSize?: number;
   duration?: number;
+  accessPolicy?: VideoAccessPolicy;
+  requiredChannelIds?: string | null;
+}
+
+function normalizeAccessPolicy(value?: string | null): VideoAccessPolicy {
+  if (value === "subscription" || value === "channels") return value;
+  return "free";
+}
+
+function normalizeRequiredChannels(
+  accessPolicy: VideoAccessPolicy,
+  value?: string | null,
+): string | null {
+  if (accessPolicy !== "channels") return null;
+  return serializeRequiredChannelIds(value);
 }
 
 export class VideoContentService {
@@ -40,6 +60,16 @@ export class VideoContentService {
   async uploadVideo(input: UploadVideoInput): Promise<VideoCodeEntity> {
     const title = input.title.trim();
     if (!title) throw new Error("title is required");
+    const accessPolicy = normalizeAccessPolicy(input.accessPolicy);
+    const requiredChannelIds = normalizeRequiredChannels(
+      accessPolicy,
+      input.requiredChannelIds,
+    );
+    if (accessPolicy === "channels" && !requiredChannelIds) {
+      throw new Error(
+        "requiredChannelIds are required for channel-gated videos",
+      );
+    }
     const channel = input.channelId
       ? await this.channels.getById(input.channelId)
       : await this.channels.getDefault();
@@ -70,6 +100,8 @@ export class VideoContentService {
         fileSize: result.fileSize,
         duration: result.duration,
         status: VideoStatusValue.pending(),
+        accessPolicy,
+        requiredChannelIds,
         viewsCount: 0,
       }),
     );
@@ -80,6 +112,16 @@ export class VideoContentService {
     const telegramFileId = input.telegramFileId.trim();
     if (!title || !telegramFileId) {
       throw new Error("title va telegramFileId majburiy");
+    }
+    const accessPolicy = normalizeAccessPolicy(input.accessPolicy);
+    const requiredChannelIds = normalizeRequiredChannels(
+      accessPolicy,
+      input.requiredChannelIds,
+    );
+    if (accessPolicy === "channels" && !requiredChannelIds) {
+      throw new Error(
+        "requiredChannelIds are required for channel-gated videos",
+      );
     }
     const channel = input.channelId
       ? await this.channels.getById(input.channelId)
@@ -99,6 +141,8 @@ export class VideoContentService {
         fileSize: input.fileSize ?? null,
         duration: input.duration ?? null,
         status: VideoStatusValue.pending(),
+        accessPolicy,
+        requiredChannelIds,
         viewsCount: 0,
       }),
     );

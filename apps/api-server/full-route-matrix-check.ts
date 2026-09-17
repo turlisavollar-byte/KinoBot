@@ -18,12 +18,6 @@ process.on("unhandledRejection", (error) => {
 });
 
 async function main() {
-  const { default: app } = await import("./src/app.ts");
-  server = await new Promise<Server>((resolve, reject) => {
-    const instance = app.listen(port, () => resolve(instance));
-    instance.once("error", reject);
-  });
-
   try {
     const loginEmail = process.env.CHECK_LOGIN_EMAIL;
     const loginPassword = process.env.CHECK_LOGIN_PASSWORD;
@@ -32,6 +26,12 @@ async function main() {
         "Set CHECK_LOGIN_EMAIL and CHECK_LOGIN_PASSWORD before running the route matrix.",
       );
     }
+
+    const { default: app } = await import("./src/app.ts");
+    server = await new Promise<Server>((resolve, reject) => {
+      const instance = app.listen(port, () => resolve(instance));
+      instance.once("error", reject);
+    });
 
     const loginRes = await fetch(
       `http://localhost:${port}/api/identity/auth/login`,

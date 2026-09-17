@@ -15,6 +15,8 @@ function toResponse(video: VideoCodeEntity) {
     fileSize: video.fileSize,
     duration: video.duration,
     status: video.status.toString(),
+    accessPolicy: video.accessPolicy,
+    requiredChannelIds: video.requiredChannelIds,
     viewsCount: video.viewsCount,
     createdAt: video.createdAt,
     updatedAt: video.updatedAt,
@@ -47,6 +49,8 @@ export class VideoContentController {
           title: String(req.body.title ?? ""),
           description: req.body.description,
           channelId: req.body.channelId,
+          accessPolicy: req.body.accessPolicy,
+          requiredChannelIds: req.body.requiredChannelIds,
         });
         res.status(201).json(toResponse(result));
       } finally {

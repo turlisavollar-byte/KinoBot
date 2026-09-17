@@ -4,8 +4,8 @@ import {
   permissionsTable,
   rolePermissionsTable,
 } from "@workspace/db";
-import { ROLE_PERMISSIONS } from "../../../artifacts/api-server/src/shared/constants/role-permissions";
-import { Permission } from "../../../artifacts/api-server/src/shared/constants/permissions";
+import { eq } from "drizzle-orm";
+import { ROLE_PERMISSIONS } from "../../../apps/api-server/src/shared/constants/role-permissions";
 
 async function up() {
   // Insert roles
@@ -83,7 +83,7 @@ async function up() {
     const [roleRow] = await db
       .select()
       .from(rolesTable)
-      .where(rolesTable.name.eq(roleName))
+      .where(eq(rolesTable.name, roleName))
       .limit(1);
     if (!roleRow) continue;
 
@@ -91,7 +91,7 @@ async function up() {
       const [permRow] = await db
         .select()
         .from(permissionsTable)
-        .where(permissionsTable.name.eq(permName))
+        .where(eq(permissionsTable.name, permName))
         .limit(1);
       if (!permRow) continue;
 

@@ -8,6 +8,13 @@ import { VideoCodeEntity } from "../../domain/entities/video-code.entity";
 import { VideoCode } from "../../domain/value-objects/video-code.vo";
 import { VideoStatusValue } from "../../domain/value-objects/video-status.vo";
 
+function normalizeAccessPolicy(
+  value: string | null | undefined,
+): "free" | "subscription" | "channels" {
+  if (value === "subscription" || value === "channels") return value;
+  return "free";
+}
+
 export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
   async create(video: VideoCodeEntity): Promise<VideoCodeEntity> {
     const [saved] = await db
@@ -24,6 +31,8 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
         title: video.title,
         description: video.description,
         status: video.status.toString(),
+        accessPolicy: video.accessPolicy,
+        requiredChannelIds: video.requiredChannelIds,
         updatedAt: video.updatedAt,
       })
       .where(eq(videoCodesTable.id, video.id))
@@ -90,6 +99,8 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
       fileSize: video.fileSize,
       duration: video.duration,
       status: video.status.toString(),
+      accessPolicy: video.accessPolicy,
+      requiredChannelIds: video.requiredChannelIds,
       viewsCount: video.viewsCount,
       createdAt: video.createdAt,
       updatedAt: video.updatedAt,
@@ -110,6 +121,8 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
       fileSize: record.fileSize,
       duration: record.duration,
       status: VideoStatusValue.create(record.status),
+      accessPolicy: normalizeAccessPolicy(record.accessPolicy),
+      requiredChannelIds: record.requiredChannelIds ?? null,
       viewsCount: record.viewsCount,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

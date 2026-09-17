@@ -33,7 +33,9 @@ function enabledPaymentProviders(env: Env): ConfiguredPaymentProvider[] {
       supportedPaymentProviders.includes(provider as ConfiguredPaymentProvider),
     );
 
-  return [...new Set(configured)];
+  return [...new Set(configured)].filter(
+    (provider) => provider !== "p2p" || readBoolean(env, "P2P_ENABLED", false),
+  );
 }
 
 function positiveSeconds(env: Env): number {

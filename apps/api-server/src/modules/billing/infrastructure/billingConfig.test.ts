@@ -38,6 +38,7 @@ describe("billingConfig", () => {
   it("only enables explicitly listed payment providers", () => {
     const config = loadBillingConfig({
       BILLING_ENABLED_PROVIDERS: " p2p, payme, p2p, unsupported ",
+      P2P_ENABLED: "true",
     });
 
     expect(config.enabledProviders).toEqual(["p2p", "payme"]);

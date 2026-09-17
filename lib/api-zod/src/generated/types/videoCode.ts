@@ -5,6 +5,7 @@
  * Movie streaming platform API — enterprise modular monolith
  * OpenAPI spec version: 0.1.0
  */
+import type { VideoCodeAccessPolicy } from './videoCodeAccessPolicy';
 
 export interface VideoCode {
   id?: string;
@@ -17,6 +18,8 @@ export interface VideoCode {
   fileSize?: number;
   duration?: number;
   viewsCount?: number;
+  accessPolicy?: VideoCodeAccessPolicy;
+  requiredChannelIds?: string | null;
   expiresAt?: Date;
   createdAt?: Date;
 }

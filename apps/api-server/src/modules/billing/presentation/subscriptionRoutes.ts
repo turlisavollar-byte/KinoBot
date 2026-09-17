@@ -8,9 +8,9 @@ import {
   CancelSubscriptionSchema,
   ExtendSubscriptionSchema,
   ListSubscriptionsQuerySchema,
-  CreatePlanSchema,
   UpdatePlanSchema,
   UpdateSubscriptionPlanSchema,
+  CreateSubscriptionPlanSchema,
   PlanIdSchema,
 } from "../application";
 
@@ -31,8 +31,8 @@ export function createSubscriptionRouter(
   router.post(
     "/plans",
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
-    validate({ body: CreatePlanSchema }),
-    (req, res, next) => controller.createPlan(req, res, next),
+    validate({ body: CreateSubscriptionPlanSchema }),
+    (req, res, next) => controller.createSubscriptionPlan(req, res, next),
   );
   router.get(
     "/plans/:id",
@@ -45,6 +45,12 @@ export function createSubscriptionRouter(
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     validate({ params: PlanIdSchema, body: UpdateSubscriptionPlanSchema }),
     (req, res, next) => controller.updateSubscriptionPlan(req, res, next),
+  );
+  router.delete(
+    "/plans/:id",
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    validate({ params: PlanIdSchema }),
+    (req, res, next) => controller.deleteSubscriptionPlan(req, res, next),
   );
 
   // ===== Subscriptions =====

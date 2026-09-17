@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { lookup } from "node:dns/promises";
 import net from "node:net";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -10,6 +11,39 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env") });
 
 const environment = { ...process.env };
+
+async function validateDatabaseHost() {
+  const databaseUrl = environment.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error(
+      "DATABASE_URL is not configured. Set it in .env before starting development.",
+    );
+  }
+
+  let host;
+  try {
+    host = new URL(databaseUrl).hostname;
+  } catch {
+    throw new Error(
+      "DATABASE_URL is invalid. Use a PostgreSQL URL such as postgresql://user:password@host:5432/database.",
+    );
+  }
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await lookup(host);
+      return;
+    } catch {
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+  }
+
+  throw new Error(
+    `DATABASE_URL host "${host}" cannot be resolved. If this is a Supabase db.* host, use the IPv4 Session Pooler URL from Supabase Connect; otherwise update .env with a reachable database endpoint or start the local PostgreSQL service before running pnpm run dev.`,
+  );
+}
 
 async function isPortAvailable(port) {
   return new Promise((resolve) => {
@@ -95,6 +129,7 @@ async function cleanupStaleProjectProcesses() {
   }
 }
 
+await validateDatabaseHost();
 await cleanupStaleProjectProcesses();
 
 const preferredApiPort = environment.API_PORT ?? environment.PORT ?? "8080";

@@ -67,4 +67,6 @@ export interface User {
   /** How user was acquired */
   acquisitionSource?: string | null;
   activeSubscription?: UserSubscription | null;
+  /** All active legacy subscriptions for the user */
+  subscriptions?: UserSubscription[];
 }

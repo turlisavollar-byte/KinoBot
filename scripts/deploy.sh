@@ -56,6 +56,19 @@ check_prerequisites() {
     fi
     log_success ".env file found"
 
+    for tls_file in nginx/ssl/cert.pem nginx/ssl/key.pem; do
+        if [ ! -f "$tls_file" ]; then
+            log_error "Missing TLS file: $tls_file. Install a real production certificate before deploying."
+            exit 1
+        fi
+    done
+    log_success "TLS certificate files found"
+
+    if grep -Eq '^CORS_ORIGINS=.*(^|,)[[:space:]]*\*([[:space:]]*,|$)' .env; then
+        log_error "CORS_ORIGINS must contain explicit production origins; wildcard '*' is not allowed."
+        exit 1
+    fi
+
     # Check Docker is running
     if ! docker info &> /dev/null; then
         log_error "Docker is not running. Please start Docker first."
@@ -95,20 +108,6 @@ deploy_services() {
     docker compose -f "$COMPOSE_FILE" up -d
     
     log_success "Services deployed"
-}
-
-# Run database migrations
-run_migrations() {
-    log_info "Running database migrations..."
-    
-    # Wait for database to be ready
-    log_info "Waiting for database to be ready..."
-    sleep 10
-    
-    pnpm --filter @workspace/db run migrate
-    pnpm --filter @workspace/db run seed
-    
-    log_success "Database migrations completed"
 }
 
 # Health check
@@ -169,7 +168,6 @@ main() {
     load_env
     stop_services
     deploy_services
-    run_migrations
     health_check
     show_info
     

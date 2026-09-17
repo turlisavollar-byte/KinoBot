@@ -57,6 +57,20 @@ function Test-Prerequisites {
         exit 1
     }
     Write-DeploymentSuccess ".env file found"
+
+    foreach ($tlsFile in @("nginx/ssl/cert.pem", "nginx/ssl/key.pem")) {
+        if (-not (Test-Path $tlsFile)) {
+            Write-DeploymentError "Missing TLS file: $tlsFile. Install a real production certificate before deploying."
+            exit 1
+        }
+    }
+    Write-DeploymentSuccess "TLS certificate files found"
+
+    $corsOrigins = (Get-Content .env | Where-Object { $_ -match '^CORS_ORIGINS=' } | Select-Object -First 1)
+    if ($corsOrigins -match '(^|,|=)\s*\*\s*(,|$)') {
+        Write-DeploymentError "CORS_ORIGINS must contain explicit production origins; wildcard '*' is not allowed."
+        exit 1
+    }
     
     # Check Docker is running
     try {
@@ -114,19 +128,6 @@ function Start-DeploymentServices {
     Write-DeploymentSuccess "Services deployed"
 }
 
-# Run database migrations
-function Invoke-Migrations {
-    Write-DeploymentInfo "Running database migrations..."
-    
-    # Wait for database to be ready
-    Write-DeploymentInfo "Waiting for database to be ready..."
-    Start-Sleep -Seconds 10
-    
-    pnpm --filter @workspace/db run migrate
-    pnpm --filter @workspace/db run seed
-    Write-DeploymentSuccess "Database migrations and seed completed"
-}
-
 # Health check
 function Test-Health {
     Write-DeploymentInfo "Running health checks..."
@@ -137,7 +138,7 @@ function Test-Health {
     
     # Check API health
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8080/api/healthz" -UseBasicParsing -TimeoutSec 5
+        $response = Invoke-WebRequest -Uri "http://localhost:8080/api/health" -UseBasicParsing -TimeoutSec 5
         if ($response.StatusCode -eq 200) {
             Write-DeploymentSuccess "API server is healthy"
         }
@@ -174,7 +175,7 @@ function Show-DeploymentInfo {
     Write-Host "Access URLs:"
     Write-Host "   Dashboard: http://localhost:3000"
     Write-Host "   API: http://localhost:8080"
-    Write-Host "   API Health: http://localhost:8080/api/healthz"
+    Write-Host "   API Health: http://localhost:8080/api/health"
     Write-Host ""
     Write-Host "Admin access:"
     Write-Host "   Use the explicitly configured bootstrap account, if one was provided."
@@ -199,7 +200,6 @@ function Main {
     Import-Environment
     Stop-Services
     Start-DeploymentServices
-    Invoke-Migrations
     Test-Health
     Show-DeploymentInfo
     

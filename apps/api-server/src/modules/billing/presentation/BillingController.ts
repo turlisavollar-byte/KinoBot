@@ -37,9 +37,12 @@ import {
   HandleUzcardWebhookUseCase,
   CreateOctoPaymentUseCase,
   HandleOctoWebhookUseCase,
+  CreateP2PPaymentUseCase,
+  HandleP2PWebhookUseCase,
   CreatePlanSchema,
   UpdatePlanSchema,
   UpdateSubscriptionPlanSchema,
+  CreateSubscriptionPlanSchema,
   ListPlansQuerySchema,
   CreateSubscriptionSchema,
   CancelSubscriptionSchema,
@@ -57,6 +60,7 @@ import {
   CreateNBUPaymentSchema,
   CreateUzcardPaymentSchema,
   CreateOctoPaymentSchema,
+  CreateP2PPaymentSchema,
 } from "../application";
 import type { IBillingPlanRepository } from "../domain";
 import { createPagination, PaginatedResult } from "@/shared/types";
@@ -143,6 +147,10 @@ export class BillingController {
     private readonly createOctoPaymentUC: CreateOctoPaymentUseCase,
     @inject(HandleOctoWebhookUseCase)
     private readonly handleOctoWebhookUC: HandleOctoWebhookUseCase,
+    @inject(CreateP2PPaymentUseCase)
+    private readonly createP2PPaymentUC: CreateP2PPaymentUseCase,
+    @inject(HandleP2PWebhookUseCase)
+    private readonly handleP2PWebhookUC: HandleP2PWebhookUseCase,
   ) {}
 
   // ===== Plans =====
@@ -155,6 +163,32 @@ export class BillingController {
       const dto = CreatePlanSchema.parse(req.body);
       const plan = await this.createPlanUC.execute(dto);
       res.status(201).json({ success: true, data: this.planResponse(plan) });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async createSubscriptionPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const dto = CreateSubscriptionPlanSchema.parse(req.body);
+      const [plan] = await db
+        .insert(subscriptionPlansTable)
+        .values({
+          name: dto.name,
+          tier: dto.tier,
+          price: String(dto.price),
+          currency: dto.currency,
+          durationDays: dto.durationDays,
+          maxDevices: dto.maxDevices,
+          description: dto.description,
+          isActive: dto.isActive,
+        })
+        .returning();
+      res.status(201).json({ success: true, data: plan });
     } catch (err) {
       next(err);
     }
@@ -276,6 +310,44 @@ export class BillingController {
       }
 
       res.json({ success: true, data: plan });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async deleteSubscriptionPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = routeParam(req.params.id);
+      const [plan] = await db
+        .update(subscriptionPlansTable)
+        .set({
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(subscriptionPlansTable.id, id),
+            isNull(subscriptionPlansTable.deletedAt),
+          ),
+        )
+        .returning();
+
+      if (!plan) {
+        res.status(404).json({
+          success: false,
+          error: `Subscription plan with id ${id} not found`,
+        });
+        return;
+      }
+
+      res.status(204).json({
+        success: true,
+        message: "Subscription plan deleted",
+      });
     } catch (err) {
       next(err);
     }
@@ -785,6 +857,35 @@ export class BillingController {
   ): Promise<void> {
     try {
       const result = await this.handleOctoWebhookUC.execute(req.body);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ===== P2P =====
+  async createP2PPayment(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const dto = CreateP2PPaymentSchema.parse(req.body);
+      await this.assertInvoiceAccess(req, dto.invoiceId);
+      const result = await this.createP2PPaymentUC.execute(dto);
+      res.json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async p2pWebhook(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await this.handleP2PWebhookUC.execute(req.body);
       res.json(result);
     } catch (err) {
       next(err);

@@ -20,8 +20,11 @@ export class RegisterUseCase {
       throw new Error("Email, name, and password are required");
     }
 
-    if (!this.passwordService.validatePasswordStrength(dto.password).isValid) {
-      throw new Error("Password does not meet security requirements");
+    const passwordValidation = this.passwordService.validatePasswordStrength(
+      dto.password,
+    );
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(". "));
     }
 
     if (await this.userRepo.findByEmail(email)) {

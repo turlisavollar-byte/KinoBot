@@ -31,6 +31,7 @@ router.use(healthRouter);
 // This avoids global auth middleware in root routers from intercepting login/register requests.
 // Note: app.ts already mounts router at /api, so we use relative paths here
 router.use("/identity/auth", authRouter());
+router.use("/auth", authRouter());
 router.use(rbacModuleRouter());
 router.use("/notifications", notificationModuleRouter());
 

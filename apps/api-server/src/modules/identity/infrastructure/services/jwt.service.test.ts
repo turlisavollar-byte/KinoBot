@@ -46,12 +46,12 @@ describe("JwtService", () => {
     });
   });
 
-  it("should reject startup when JWT_SECRET is missing", () => {
+  it("should reject startup when JWT_ACCESS_SECRET is missing", () => {
     delete process.env.JWT_SECRET;
     (JwtService as any).instance = null;
 
     expect(() => JwtService.getInstance()).toThrow(
-      "JWT_SECRET environment variable is required",
+      "JWT_ACCESS_SECRET environment variable is required",
     );
 
     process.env.JWT_SECRET = "test-secret-key-for-testing";

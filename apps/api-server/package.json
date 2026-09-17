@@ -3,10 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0 <23.0.0",
+    "pnpm": "9.15.0"
+  },
   "scripts": {
     "dev": "pnpm run build && node --env-file=../../.env ./dist/index.mjs",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "start": "node --env-file=../../.env --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "monitor:legacy": "tsx --env-file=../../.env scripts/monitor-legacy-endpoints.ts",
     "test": "vitest"

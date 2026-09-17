@@ -16,6 +16,8 @@ function createVideo() {
     duration: null,
     status: VideoStatusValue.pending(),
     viewsCount: 0,
+    accessPolicy: "free",
+    requiredChannelIds: null,
   });
 }
 
@@ -31,5 +33,26 @@ describe("VideoCodeEntity", () => {
     expect(video.updatedAt.getTime()).toBeGreaterThanOrEqual(
       video.createdAt.getTime(),
     );
+  });
+
+  it("stores the access policy and required channels explicitly", () => {
+    const video = VideoCodeEntity.create({
+      id: "video-2",
+      code: VideoCode.create("ABCD"),
+      title: "Access gated title",
+      description: null,
+      telegramFileId: "file-2",
+      channelId: null,
+      messageId: null,
+      fileSize: null,
+      duration: null,
+      status: VideoStatusValue.pending(),
+      viewsCount: 0,
+      accessPolicy: "channels",
+      requiredChannelIds: "@cinemahub,-1001234567890",
+    });
+
+    expect(video.accessPolicy).toBe("channels");
+    expect(video.requiredChannelIds).toBe("@cinemahub,-1001234567890");
   });
 });

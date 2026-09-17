@@ -442,6 +442,15 @@ const messages = {
     "videoCodes.durationPlaceholder": "e.g. 7200 (2 hours)",
     "videoCodes.channel": "Channel (optional)",
     "videoCodes.channelPlaceholder": "First active channel will be used",
+    "videoCodes.accessPolicy": "Access policy",
+    "videoCodes.accessFree": "Free",
+    "videoCodes.accessSubscription": "Subscription required",
+    "videoCodes.accessChannels": "Required channels",
+    "videoCodes.requiredChannels": "Required channels",
+    "videoCodes.requiredChannelsHint":
+      "Enter @channelusername or a numeric -100... channel ID. For t.me/streamxuz, enter @streamxuz.",
+    "videoCodes.channelAccessRequired":
+      "Required channels are required when this access policy is selected",
     "videoCodes.cancel": "Cancel",
     "videoCodes.import": "Import",
     "videoCodes.checking": "Checking…",
@@ -1215,6 +1224,15 @@ const messages = {
     "videoCodes.durationPlaceholder": "например: 7200 (2 часа)",
     "videoCodes.channel": "Канал (опционально)",
     "videoCodes.channelPlaceholder": "Будет использован первый активный канал",
+    "videoCodes.accessPolicy": "Политика доступа",
+    "videoCodes.accessFree": "Бесплатно",
+    "videoCodes.accessSubscription": "Требуется подписка",
+    "videoCodes.accessChannels": "Требуются каналы",
+    "videoCodes.requiredChannels": "Обязательные каналы",
+    "videoCodes.requiredChannelsHint":
+      "Введите @username канала или числовой ID -100.... Для t.me/streamxuz укажите @streamxuz.",
+    "videoCodes.channelAccessRequired":
+      "Для этого режима доступа нужно указать обязательные каналы",
     "videoCodes.cancel": "Отмена",
     "videoCodes.import": "Импорт",
     "videoCodes.checking": "Проверка…",
@@ -1990,6 +2008,15 @@ const messages = {
     "videoCodes.durationPlaceholder": "Masalan: 7200 (2 soat)",
     "videoCodes.channel": "Kanal (ixtiyoriy)",
     "videoCodes.channelPlaceholder": "Birinchi faol kanal ishlatiladi",
+    "videoCodes.accessPolicy": "Kirish siyosati",
+    "videoCodes.accessFree": "Bepul",
+    "videoCodes.accessSubscription": "Obuna kerak",
+    "videoCodes.accessChannels": "Majburiy kanallar",
+    "videoCodes.requiredChannels": "Majburiy kanallar",
+    "videoCodes.requiredChannelsHint":
+      "@channelusername yoki -100... formatidagi raqamli kanal ID sini kiriting. t.me/streamxuz uchun @streamxuz yozing.",
+    "videoCodes.channelAccessRequired":
+      "Ushbu kirish rejimi uchun majburiy kanallar kiritilishi shart",
     "videoCodes.cancel": "Bekor qilish",
     "videoCodes.import": "Import qilish",
     "videoCodes.checking": "Tekshirilmoqda…",

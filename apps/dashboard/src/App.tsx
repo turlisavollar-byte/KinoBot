@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { I18nProvider } from "@/lib/i18n";
 import NotFound from "@/pages/not-found";
 import {
   getIdentityGetMeQueryKey,
@@ -13,6 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { clearTokens, getAccessToken } from "@/lib/auth-token";
+import { Button } from "@/components/ui/button";
 
 // ─── Pages ───────────────────────────────────────────────────────────────────
 import Login from "@/pages/login";
@@ -115,6 +115,16 @@ function ProtectedRoute({
             This account is a customer account and does not have dashboard
             permissions.
           </p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              clearTokens();
+              queryClient.clear();
+              window.location.reload();
+            }}
+          >
+            Sign out
+          </Button>
         </div>
       </div>
     );
@@ -181,18 +191,16 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <I18nProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider defaultTheme="dark" storageKey="streamops-theme">
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Router />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="streamops-theme">
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

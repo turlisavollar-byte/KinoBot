@@ -11,6 +11,7 @@ import {
   verifyEmailSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from "../../../application/dto/auth.dto";
 import { JwtService } from "../../../infrastructure/services/jwt.service";
 import { RegisterUseCase } from "../../../application/use-cases/auth/register.use-case";
@@ -18,6 +19,7 @@ import { SendVerificationEmailUseCase } from "../../../application/use-cases/aut
 import { VerifyEmailUseCase } from "../../../application/use-cases/auth/verify-email.use-case";
 import { RequestPasswordResetUseCase } from "../../../application/use-cases/auth/request-password-reset.use-case";
 import { ResetPasswordUseCase } from "../../../application/use-cases/auth/reset-password.use-case";
+import { ChangePasswordUseCase } from "../../../application/use-cases/auth/change-password.use-case";
 import { Logger } from "@/shared/utils/logger";
 
 export class AuthController {
@@ -31,6 +33,7 @@ export class AuthController {
     private readonly verifyEmailUC: VerifyEmailUseCase,
     private readonly requestPasswordResetUC: RequestPasswordResetUseCase,
     private readonly resetPasswordUC: ResetPasswordUseCase,
+    private readonly changePasswordUC: ChangePasswordUseCase,
   ) {}
 
   async login(req: Request, res: Response): Promise<void> {
@@ -377,6 +380,55 @@ export class AuthController {
           code: "PASSWORD_RESET_FAILED",
           message:
             error instanceof Error ? error.message : "Password reset failed",
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  }
+
+  async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Authentication required",
+            timestamp: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      const { currentPassword, newPassword } = changePasswordSchema.parse(
+        req.body,
+      );
+
+      const result = await this.changePasswordUC.execute(
+        userId,
+        currentPassword,
+        newPassword,
+      );
+
+      res.json({
+        success: result.success,
+        message: result.message,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Password change failed";
+      const status =
+        message === "Current password is incorrect" ||
+        message === "User not found"
+          ? 401
+          : 400;
+
+      res.status(status).json({
+        success: false,
+        error: {
+          code: "PASSWORD_CHANGE_FAILED",
+          message,
           timestamp: new Date().toISOString(),
         },
       });

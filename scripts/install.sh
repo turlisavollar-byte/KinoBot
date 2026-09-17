@@ -97,12 +97,14 @@ if [ ! -f .env ]; then
     cp .env.example .env
     
     # Generate random secrets
-    JWT_SECRET=$(openssl rand -hex 32)
+    JWT_ACCESS_SECRET=$(openssl rand -hex 32)
+    JWT_REFRESH_SECRET=$(openssl rand -hex 32)
     SESSION_SECRET=$(openssl rand -hex 32)
     DB_PASSWORD=$(openssl rand -hex 16)
     
     # Update .env with generated secrets
-    sed -i "s/your_jwt_secret/$JWT_SECRET/" .env
+    sed -i "s/replace_with_strong_random_access_secret_at_least_32_chars/$JWT_ACCESS_SECRET/" .env
+    sed -i "s/replace_with_strong_random_secret_at_least_32_chars_different_from_above/$JWT_REFRESH_SECRET/" .env
     sed -i "s/your_session_secret/$SESSION_SECRET/" .env
     sed -i "s/streamops_password/$DB_PASSWORD/" .env
     sed -i "s/your_payme_merchant_id/your_merchant_id_here/" .env

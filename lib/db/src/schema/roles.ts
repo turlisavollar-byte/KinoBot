@@ -4,6 +4,7 @@ import {
   integer,
   boolean,
   timestamp,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -43,14 +44,18 @@ export const permissionsTable = pgTable("permissions", {
     .$onUpdate(() => new Date()),
 });
 
-export const rolePermissionsTable = pgTable("role_permissions", {
-  roleId: text("role_id")
-    .notNull()
-    .references(() => rolesTable.id),
-  permissionId: text("permission_id")
-    .notNull()
-    .references(() => permissionsTable.id),
-});
+export const rolePermissionsTable = pgTable(
+  "role_permissions",
+  {
+    roleId: text("role_id")
+      .notNull()
+      .references(() => rolesTable.id),
+    permissionId: text("permission_id")
+      .notNull()
+      .references(() => permissionsTable.id),
+  },
+  (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
+);
 
 export const insertRoleSchema = createInsertSchema(rolesTable).omit({
   id: true,

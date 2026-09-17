@@ -20,7 +20,14 @@ export class CreateInvoiceUseCase {
     if (idempotencyKey && this.repository.findByIdempotencyKey) {
       const existing =
         await this.repository.findByIdempotencyKey(idempotencyKey);
-      if (existing) return existing;
+      if (existing) {
+        if (existing.userId !== dto.userId) {
+          throw new BusinessRuleError(
+            "Idempotency key belongs to another user",
+          );
+        }
+        return existing;
+      }
     }
 
     if (dto.subscriptionId) {

@@ -353,6 +353,19 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
       .insert(seasonsTable)
       .values({ ...data, seriesId })
       .returning();
+
+    await db
+      .update(seriesTable)
+      .set({
+        seasonsCount: sql`${seriesTable.seasonsCount} + 1`,
+      })
+      .where(
+        and(
+          eq(seriesTable.id, seriesId),
+          sql`${seriesTable.deletedAt} IS NULL`,
+        ),
+      );
+
     return season;
   }
 
@@ -368,12 +381,27 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
   }
 
   async deleteSeason(id: string): Promise<void> {
-    await db
+    const [season] = await db
       .update(seasonsTable)
       .set({ deletedAt: new Date() })
       .where(
         and(eq(seasonsTable.id, id), sql`${seasonsTable.deletedAt} IS NULL`),
-      );
+      )
+      .returning({ seriesId: seasonsTable.seriesId });
+
+    if (season) {
+      await db
+        .update(seriesTable)
+        .set({
+          seasonsCount: sql`GREATEST(${seriesTable.seasonsCount} - 1, 0)`,
+        })
+        .where(
+          and(
+            eq(seriesTable.id, season.seriesId),
+            sql`${seriesTable.deletedAt} IS NULL`,
+          ),
+        );
+    }
   }
 
   // ─── EPISODES ─────────────────────────────────────────────────────────────────
@@ -402,6 +430,19 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
       .insert(episodesTable)
       .values({ ...data, seasonId })
       .returning();
+
+    await db
+      .update(seasonsTable)
+      .set({
+        episodesCount: sql`${seasonsTable.episodesCount} + 1`,
+      })
+      .where(
+        and(
+          eq(seasonsTable.id, seasonId),
+          sql`${seasonsTable.deletedAt} IS NULL`,
+        ),
+      );
+
     return { ...ep, viewsCount: Number(ep.viewsCount) } as Episode;
   }
 
@@ -417,12 +458,27 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
   }
 
   async deleteEpisode(id: string): Promise<void> {
-    await db
+    const [episode] = await db
       .update(episodesTable)
       .set({ deletedAt: new Date() })
       .where(
         and(eq(episodesTable.id, id), sql`${episodesTable.deletedAt} IS NULL`),
-      );
+      )
+      .returning({ seasonId: episodesTable.seasonId });
+
+    if (episode) {
+      await db
+        .update(seasonsTable)
+        .set({
+          episodesCount: sql`GREATEST(${seasonsTable.episodesCount} - 1, 0)`,
+        })
+        .where(
+          and(
+            eq(seasonsTable.id, episode.seasonId),
+            sql`${seasonsTable.deletedAt} IS NULL`,
+          ),
+        );
+    }
   }
 
   async publishEpisode(id: string, published: boolean): Promise<Episode> {

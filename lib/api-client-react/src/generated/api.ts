@@ -9211,6 +9211,80 @@ export function useGetUserActivity<TData = Awaited<ReturnType<typeof getUserActi
 
 
 
+export const getCancelUserSubscriptionUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/subscription`
+}
+
+/**
+ * @summary Cancel a user's active legacy subscription
+ */
+export const cancelUserSubscription = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCancelUserSubscriptionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelUserSubscriptionMutationKey = () => ['cancelUserSubscription'] as const;
+
+export const getCancelUserSubscriptionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelUserSubscription>>, TError,CancelUserSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelUserSubscription>>, TError,CancelUserSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getCancelUserSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelUserSubscription>>, CancelUserSubscriptionMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelUserSubscription(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelUserSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof cancelUserSubscription>>>
+
+    export type CancelUserSubscriptionMutationError = ErrorType<ErrorResponse>
+    export type CancelUserSubscriptionMutationVariables = {id: string}
+
+    /**
+ * @summary Cancel a user's active legacy subscription
+ */
+export const useCancelUserSubscription = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelUserSubscription>>, TError,CancelUserSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelUserSubscription>>,
+        TError,
+        CancelUserSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCancelUserSubscriptionMutationOptions(options));
+    }
+
 export const getListVideoCodesUrl = (params?: ListVideoCodesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -9315,6 +9389,12 @@ if(uploadVideoCodeBody.description !== undefined) {
  }
 if(uploadVideoCodeBody.channelId !== undefined) {
  formData.append(`channelId`, uploadVideoCodeBody.channelId);
+ }
+if(uploadVideoCodeBody.accessPolicy !== undefined) {
+ formData.append(`accessPolicy`, uploadVideoCodeBody.accessPolicy);
+ }
+if(uploadVideoCodeBody.requiredChannelIds !== undefined) {
+ formData.append(`requiredChannelIds`, uploadVideoCodeBody.requiredChannelIds);
  }
 
   return customFetch<VideoCode>(getUploadVideoCodeUrl(),

@@ -4,8 +4,9 @@ import {
   getGetUserQueryKey,
   getListSubscriptionPlansQueryKey,
   getListSubscriptionsQueryKey,
+  getListUsersQueryKey,
   useBlockUser,
-  useCancelSubscription,
+  useCancelUserSubscription,
   useExtendSubscription,
   useGetUser,
   useGrantUserSubscription,
@@ -53,6 +54,7 @@ type UserDetailWithLimits = UserDetail & {
   weeklyCodeUsed?: number | null;
   monthlyCodeLimit?: number | null;
   monthlyCodeUsed?: number | null;
+  subscriptions?: Array<NonNullable<UserDetail["activeSubscription"]>>;
 };
 
 export default function UserDetail() {
@@ -67,7 +69,7 @@ export default function UserDetail() {
   const blockUser = useBlockUser();
   const updateUser = useUpdateUser();
   const grantSubscription = useGrantUserSubscription();
-  const cancelSubscription = useCancelSubscription();
+  const cancelSubscription = useCancelUserSubscription();
   const extendSubscription = useExtendSubscription();
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
@@ -113,6 +115,7 @@ export default function UserDetail() {
 
   const refreshUser = () => {
     queryClient.invalidateQueries({ queryKey: getGetUserQueryKey(userId) });
+    queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListSubscriptionsQueryKey() });
     queryClient.invalidateQueries({
       queryKey: getListSubscriptionPlansQueryKey(),
@@ -248,7 +251,7 @@ export default function UserDetail() {
     )
       return;
     cancelSubscription.mutate(
-      { id: user.activeSubscription.id },
+      { id: user.id },
       {
         onSuccess: () => {
           refreshUser();
@@ -422,12 +425,37 @@ export default function UserDetail() {
             {user.activeSubscription && (
               <Button
                 variant="secondary"
-                className="w-full mt-4"
+                className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words px-3 py-2 text-left leading-tight"
                 onClick={openGrant}
               >
                 <Gift className="w-4 h-4 mr-2" />
                 {t("users.grantAdditionalAccess")}
               </Button>
+            )}
+            {user.subscriptions && user.subscriptions.length > 0 && (
+              <div className="mt-5 space-y-3 border-t pt-4">
+                <div className="text-sm font-medium">
+                  All active subscriptions ({user.subscriptions.length})
+                </div>
+                {user.subscriptions.map((subscription) => (
+                  <div
+                    key={subscription.id}
+                    className="rounded-md border p-3 text-sm"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {subscription.planName || "Subscription"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        Until{" "}
+                        {subscription.endDate
+                          ? new Date(subscription.endDate).toLocaleDateString()
+                          : "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

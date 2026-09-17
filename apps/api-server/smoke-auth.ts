@@ -4,14 +4,22 @@ import app from "./src/app.ts";
 const port = 3456;
 const server = app.listen(port, async () => {
   try {
+    const loginEmail = process.env.CHECK_LOGIN_EMAIL;
+    const loginPassword = process.env.CHECK_LOGIN_PASSWORD;
+    if (!loginEmail || !loginPassword) {
+      throw new Error(
+        "Set CHECK_LOGIN_EMAIL and CHECK_LOGIN_PASSWORD before running smoke-auth.",
+      );
+    }
+
     const loginRes = await fetch(
       `http://localhost:${port}/api/identity/auth/login`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: "admin@stream.uz",
-          password: "admin123",
+          email: loginEmail,
+          password: loginPassword,
         }),
       },
     );

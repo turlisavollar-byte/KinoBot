@@ -52,9 +52,6 @@ export async function bootstrapSuperAdmin(): Promise<void> {
     throw new Error("Failed to resolve the superadmin role");
   }
 
-  const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
-  const passwordHash = await bcrypt.hash(password, saltRounds);
-
   const [existingUser] = await db
     .select({ id: adminUsersTable.id, role: adminUsersTable.role })
     .from(adminUsersTable)
@@ -62,22 +59,12 @@ export async function bootstrapSuperAdmin(): Promise<void> {
     .limit(1);
 
   if (existingUser) {
-    await db
-      .update(adminUsersTable)
-      .set({
-        name,
-        passwordHash,
-        role: "superadmin",
-        roleId: superAdminRole.id,
-        isActive: true,
-        isEmailVerified: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(adminUsersTable.email, email));
-
-    console.log(`Superadmin bootstrap account promoted: ${email}`);
+    console.log(`Superadmin bootstrap account already exists: ${email}`);
     return;
   }
+
+  const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
+  const passwordHash = await bcrypt.hash(password, saltRounds);
 
   await db.insert(adminUsersTable).values({
     email,

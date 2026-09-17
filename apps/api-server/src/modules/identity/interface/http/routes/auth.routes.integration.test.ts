@@ -55,12 +55,37 @@ describe("identity auth HTTP routes", () => {
           },
         }),
       } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        execute: async () => ({
+          success: true,
+          message: "Reset password successful",
+        }),
+      } as any,
+      {
+        execute: async () => ({
+          success: true,
+          message: "Password changed successfully",
+        }),
+      } as any,
     );
     const app = express();
     app.use(express.json());
     app.use(
       createAuthRoutes(controller, {
-        requireAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
+        requireAuth: (req: any, _res: unknown, next: () => void) => {
+          req.user = {
+            id: "u1",
+            email: "person@example.com",
+            name: "Person",
+            role: "user",
+            permissions: [],
+            status: "active",
+          };
+          next();
+        },
       } as any),
     );
     const server = app.listen(0);
@@ -70,7 +95,7 @@ describe("identity auth HTTP routes", () => {
     return `http://127.0.0.1:${port}`;
   }
 
-  it("serves login, registration, and refresh through the HTTP contract", async () => {
+  it("serves login, registration, refresh, and password change through the HTTP contract", async () => {
     const baseUrl = await createTestServer();
     const request = (path: string, body: Record<string, unknown>) =>
       fetch(`${baseUrl}${path}`, {
@@ -102,6 +127,16 @@ describe("identity auth HTTP routes", () => {
     expect(await refresh.json()).toMatchObject({
       accessToken: "a2",
       refreshToken: "r2",
+    });
+
+    const changePassword = await request("/change-password", {
+      currentPassword: "OldPassword1!",
+      newPassword: "NewPassword2@",
+    });
+    expect(changePassword.status).toBe(200);
+    expect(await changePassword.json()).toMatchObject({
+      success: true,
+      message: "Password changed successfully",
     });
   });
 });

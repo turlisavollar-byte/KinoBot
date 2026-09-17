@@ -73,6 +73,26 @@ describe("CreateInvoiceUseCase", () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it("rejects idempotency-key reuse by another user", async () => {
+    const existing = Invoice.create({
+      userId,
+      lineItems: [{ description: "Plan", quantity: 1, unitAmountCents: 1500 }],
+    });
+    repository.findByIdempotencyKey.mockResolvedValue(existing);
+
+    await expect(
+      useCase.execute(
+        {
+          userId: "123e4567-e89b-12d3-a456-426614174001",
+          lineItems: [
+            { description: "Plan", quantity: 1, unitAmountCents: 1500 },
+          ],
+        },
+        "invoice-request-1",
+      ),
+    ).rejects.toThrow(BusinessRuleError);
+  });
+
   it("rejects an invoice linked to another user's subscription", async () => {
     const subscription = Subscription.create({
       userId: "123e4567-e89b-12d3-a456-426614174001",

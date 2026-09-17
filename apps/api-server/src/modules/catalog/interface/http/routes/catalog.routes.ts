@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getAnalyticsCacheService } from "@/modules/analytics";
 import { and, count, eq, ilike, inArray, sql } from "drizzle-orm";
 import {
   db,
@@ -215,6 +216,7 @@ router.delete(
           sql`${seriesTable.deletedAt} IS NULL`,
         ),
       );
+    await getAnalyticsCacheService().invalidate("analytics:v2:overview");
     res.sendStatus(204);
   },
 );

@@ -36,7 +36,7 @@ export default function Settings() {
     }
     setPwLoading(true);
     try {
-      await apiFetch("/api/auth/change-password", {
+      await apiFetch("/api/identity/auth/change-password", {
         method: "POST",
         body: JSON.stringify({
           currentPassword: pwForm.current,

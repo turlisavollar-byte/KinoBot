@@ -3,9 +3,43 @@
 // Production security hardening layer
 // =============================================================================
 
-import { type Request, type Response, type NextFunction } from 'express';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { type Request, type Response, type NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+
+export function getClientIp(req: Request): string {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim().length > 0) {
+    const first = forwardedFor.split(",")[0]?.trim();
+    if (first) return first;
+  }
+
+  if (Array.isArray(forwardedFor) && forwardedFor.length > 0) {
+    const first = forwardedFor[0]?.trim();
+    if (first) return first;
+  }
+
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+export function getAllowedHosts(): string[] {
+  const envValue = process.env.ALLOWED_HOSTS?.trim();
+  const baseHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
+
+  if (!envValue) {
+    return baseHosts;
+  }
+
+  return Array.from(
+    new Set(
+      envValue
+        .split(",")
+        .map((host) => host.trim())
+        .filter(Boolean)
+        .concat(baseHosts),
+    ),
+  );
+}
 
 // Helmet configuration for security headers
 export const helmetMiddleware = helmet({
@@ -14,7 +48,7 @@ export const helmetMiddleware = helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
@@ -28,23 +62,24 @@ export const helmetMiddleware = helmet({
     preload: true,
   },
   noSniff: true,
-  referrerPolicy: { policy: 'no-referrer-when-downgrade' },
+  referrerPolicy: { policy: "no-referrer-when-downgrade" },
   xssFilter: true,
 });
 
 // Rate limiting configuration
 export const rateLimitMiddleware = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes default
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000'), // 1000 requests per window
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"), // 15 minutes default
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "1000"), // 1000 requests per window
   message: {
-    error: 'Too many requests from this IP, please try again later.',
+    error: "Too many requests from this IP, please try again later.",
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
   skip: (req: Request) => {
     // Only skip rate limiting for health checks
     // SECURITY: Never skip rate limiting based on environment
-    return req.path === '/healthz' || req.path === '/health';
+    return req.path === "/healthz" || req.path === "/health";
   },
 });
 
@@ -53,126 +88,155 @@ export const authRateLimitMiddleware = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 login attempts per 15 minutes
   message: {
-    error: 'Too many login attempts, please try again later.',
+    error: "Too many login attempts, please try again later.",
   },
   skipFailedRequests: false,
+  keyGenerator: (req) => getClientIp(req),
   skip: (req: Request) => {
     // SECURITY: Never skip auth rate limiting based on environment
     // Only skip for health checks
-    return req.path === '/healthz' || req.path === '/health';
+    return req.path === "/healthz" || req.path === "/health";
   },
 });
 
 // Request size limit middleware
-export const requestSizeLimit = (req: Request, res: Response, next: NextFunction): void => {
-  const maxSize = parseInt(process.env.MAX_FILE_SIZE || '52428800'); // 50MB default
-  
+export const requestSizeLimit = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const maxSize = parseInt(process.env.MAX_FILE_SIZE || "52428800"); // 50MB default
+
   // Check Content-Length header
-  const contentLength = req.headers['content-length'];
+  const contentLength = req.headers["content-length"];
   if (contentLength && parseInt(contentLength) > maxSize) {
     res.status(413).json({
-      error: 'Request entity too large',
+      error: "Request entity too large",
       maxSize: `${maxSize / 1024 / 1024}MB`,
     });
     return;
   }
-  
+
   next();
 };
 
 // CORS configuration
 export const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [];
-    const isDev = process.env.NODE_ENV !== 'production';
-    
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) => {
+    const allowedOrigins = process.env.CORS_ORIGINS?.split(",") || [];
+    const isDev = process.env.NODE_ENV !== "production";
+
     // SECURITY: Reject wildcard configuration in production
-    if (!isDev && allowedOrigins.includes('*')) {
+    if (!isDev && allowedOrigins.includes("*")) {
       console.error(
-        'SECURITY ERROR: CORS_ORIGINS contains wildcard "*". This is not allowed in production. Please specify exact origins.'
+        'SECURITY ERROR: CORS_ORIGINS contains wildcard "*". This is not allowed in production. Please specify exact origins.',
       );
-      return callback(new Error('Wildcard CORS origin not allowed in production'), false);
+      return callback(
+        new Error("Wildcard CORS origin not allowed in production"),
+        false,
+      );
     }
-    
+
     // In development, allow localhost and common dev ports
     if (isDev) {
       if (!origin) {
         // Allow requests with no origin (like curl, mobile apps)
         return callback(null, true);
       }
-      
+
       // Allow localhost on any port
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') ||
-          origin.startsWith('http://192.168.') || origin.startsWith('http://172.')) {
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:") ||
+        origin.startsWith("http://192.168.") ||
+        origin.startsWith("http://172.")
+      ) {
         return callback(null, true);
       }
-      
+
       // Allow explicitly configured origins
-      if (allowedOrigins.includes('*') || allowedOrigins.indexOf(origin) !== -1) {
+      if (
+        allowedOrigins.includes("*") ||
+        allowedOrigins.indexOf(origin) !== -1
+      ) {
         return callback(null, true);
       }
-      
+
       console.warn(`CORS blocked origin in development: ${origin}`);
-      return callback(new Error('Not allowed by CORS'));
+      return callback(new Error("Not allowed by CORS"));
     }
-    
+
     // In production, require explicit origin configuration
     if (allowedOrigins.length === 0) {
       console.error(
-        'SECURITY ERROR: CORS_ORIGINS is not configured for production. Please set allowed origins in environment variables.'
+        "SECURITY ERROR: CORS_ORIGINS is not configured for production. Please set allowed origins in environment variables.",
       );
-      return callback(new Error('CORS origins not configured'), false);
+      return callback(new Error("CORS origins not configured"), false);
     }
-    
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["X-Total-Count", "X-Page-Count"],
 };
 
 // Security headers middleware
-export const securityHeaders = (req: Request, res: Response, next: NextFunction): void => {
+export const securityHeaders = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
   // Additional custom security headers
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader(
+    "Permissions-Policy",
+    "geolocation=(), microphone=(), camera=()",
+  );
+
   // Remove X-Powered-By header
-  res.removeHeader('X-Powered-By');
-  
+  res.removeHeader("X-Powered-By");
+
   next();
 };
 
 // IP whitelist middleware (optional)
-export const ipWhitelistMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  const allowedIPs = process.env.ALLOWED_IPS?.split(',') || [];
-  
+export const ipWhitelistMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const allowedIPs = process.env.ALLOWED_IPS?.split(",") || [];
+
   if (allowedIPs.length === 0) {
     return next(); // No IP restriction configured
   }
-  
-  const clientIP = req.ip || req.socket.remoteAddress || '';
-  
+
+  const clientIP = req.ip || req.socket.remoteAddress || "";
+
   if (allowedIPs.includes(clientIP)) {
     next();
   } else {
     res.status(403).json({
-      error: 'Access denied from this IP address',
+      error: "Access denied from this IP address",
     });
   }
 };

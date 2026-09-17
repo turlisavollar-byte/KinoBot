@@ -19,7 +19,8 @@ export class JwtService {
   private static warningShown = false;
 
   private constructor() {
-    const accessSecret = process.env.JWT_SECRET;
+    const accessSecret =
+      process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET;
     const configuredRefreshSecret = process.env.JWT_REFRESH_SECRET;
     const refreshSecret = configuredRefreshSecret || accessSecret;
     const isProduction = process.env.NODE_ENV === "production";
@@ -30,13 +31,13 @@ export class JwtService {
 
     if (!accessSecret) {
       throw new Error(
-        "JWT_SECRET environment variable is required. Please set a strong, cryptographically secure secret (minimum 32 characters).",
+        "JWT_ACCESS_SECRET environment variable is required. Please set a strong, cryptographically secure secret (minimum 32 characters).",
       );
     }
 
     if (isProduction && accessSecret.length < 32) {
       throw new Error(
-        "JWT_SECRET must be at least 32 characters long for security. Please use a stronger secret.",
+        "JWT_ACCESS_SECRET must be at least 32 characters long for security. Please use a stronger secret.",
       );
     }
 
@@ -48,7 +49,7 @@ export class JwtService {
         (isLocalEnvironment && accessSecret.length < 32))
     ) {
       console.warn(
-        "SECURITY WARNING: JWT_SECRET is using a short or default value. For production, use a strong random secret with at least 32 characters.",
+        "SECURITY WARNING: JWT_ACCESS_SECRET is using a short or default value. For production, use a strong random secret with at least 32 characters.",
       );
       JwtService.warningShown = true;
     }
@@ -64,7 +65,7 @@ export class JwtService {
       (!configuredRefreshSecret || configuredRefreshSecret === accessSecret)
     ) {
       throw new Error(
-        "JWT_REFRESH_SECRET must be configured and different from JWT_SECRET in production.",
+        "JWT_REFRESH_SECRET must be configured and different from JWT_ACCESS_SECRET in production.",
       );
     }
 

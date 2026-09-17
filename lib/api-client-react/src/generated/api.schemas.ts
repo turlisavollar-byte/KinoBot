@@ -896,9 +896,14 @@ export interface SubscriptionPlan {
 
 export interface CreateSubscriptionPlanBody {
   name: string;
+  tier: string;
   price: number;
   currency: string;
   durationDays: number;
+  /** @minimum 1 */
+  maxDevices?: number;
+  description?: string;
+  isActive?: boolean;
   features?: string[];
 }
 
@@ -1074,6 +1079,8 @@ export interface User {
   /** How user was acquired */
   acquisitionSource?: string | null;
   activeSubscription?: UserSubscription | null;
+  /** All active legacy subscriptions for the user */
+  subscriptions?: UserSubscription[];
 }
 
 /**
@@ -1397,6 +1404,15 @@ export interface ErrorResponse {
   error: ErrorResponseError;
 }
 
+export type VideoCodeAccessPolicy = typeof VideoCodeAccessPolicy[keyof typeof VideoCodeAccessPolicy];
+
+
+export const VideoCodeAccessPolicy = {
+  free: 'free',
+  subscription: 'subscription',
+  channels: 'channels',
+} as const;
+
 export interface VideoCode {
   id?: string;
   code?: string;
@@ -1408,6 +1424,8 @@ export interface VideoCode {
   fileSize?: number;
   duration?: number;
   viewsCount?: number;
+  accessPolicy?: VideoCodeAccessPolicy;
+  requiredChannelIds?: string | null;
   expiresAt?: string;
   createdAt?: string;
 }
@@ -1419,6 +1437,15 @@ export interface VideoCodePage {
   limit?: number;
 }
 
+export type ImportVideoCodeBodyAccessPolicy = typeof ImportVideoCodeBodyAccessPolicy[keyof typeof ImportVideoCodeBodyAccessPolicy];
+
+
+export const ImportVideoCodeBodyAccessPolicy = {
+  free: 'free',
+  subscription: 'subscription',
+  channels: 'channels',
+} as const;
+
 export interface ImportVideoCodeBody {
   telegramFileId?: string;
   code?: string;
@@ -1426,6 +1453,8 @@ export interface ImportVideoCodeBody {
   description?: string;
   channelId?: string;
   duration?: number;
+  accessPolicy?: ImportVideoCodeBodyAccessPolicy;
+  requiredChannelIds?: string | null;
   expiresAt?: string;
 }
 
@@ -2201,10 +2230,21 @@ export const ListVideoCodesStatus = {
   expired: 'expired',
 } as const;
 
+export type UploadVideoCodeBodyAccessPolicy = typeof UploadVideoCodeBodyAccessPolicy[keyof typeof UploadVideoCodeBodyAccessPolicy];
+
+
+export const UploadVideoCodeBodyAccessPolicy = {
+  free: 'free',
+  subscription: 'subscription',
+  channels: 'channels',
+} as const;
+
 export type UploadVideoCodeBody = {
   video: Blob | File;
   title: string;
   description?: string;
   channelId?: string;
+  accessPolicy?: UploadVideoCodeBodyAccessPolicy;
+  requiredChannelIds?: string;
 };
 
