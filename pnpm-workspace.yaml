@@ -31,6 +31,7 @@ minimumReleaseAgeExclude: [ '@orval/angular@8.24.0', '@orval/axios@8.24.0', '@or
 
 packages:
   - apps/*
+  - apps/web/packages/*
   - lib/*
   - lib/integrations/*
   - scripts
