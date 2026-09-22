@@ -134,6 +134,7 @@ await cleanupStaleProjectProcesses();
 
 const preferredApiPort = environment.API_PORT ?? environment.PORT ?? "8080";
 const preferredDashboardPort = environment.DASHBOARD_PORT ?? "3000";
+const preferredWebPort = environment.WEB_PORT ?? "3001";
 const apiPort = await findAvailablePort(preferredApiPort);
 if (`${apiPort}` !== `${preferredApiPort}`) {
   console.warn(
@@ -149,6 +150,14 @@ if (`${dashboardPort}` !== `${preferredDashboardPort}`) {
   );
 }
 environment.DASHBOARD_PORT = String(dashboardPort);
+
+const webPort = await findAvailablePort(preferredWebPort);
+if (`${webPort}` !== `${preferredWebPort}`) {
+  console.warn(
+    `Web port ${preferredWebPort} is busy, using ${webPort} instead.`,
+  );
+}
+environment.WEB_PORT = String(webPort);
 
 const build = spawnSync(
   process.execPath,
@@ -188,6 +197,19 @@ const services = [
     env: {
       ...environment,
       PORT: environment.DASHBOARD_PORT ?? "3000",
+      API_PORT: environment.API_PORT ?? "8080",
+      DASHBOARD_PORT: environment.DASHBOARD_PORT ?? "3000",
+    },
+  },
+  {
+    name: "web",
+    command: resolve(root, "apps/web/node_modules/.bin/next.cmd"),
+    args: ["dev", "-p", String(webPort)],
+    cwd: resolve(root, "apps/web"),
+    env: {
+      ...environment,
+      PORT: String(webPort),
+      WEB_PORT: String(webPort),
       API_PORT: environment.API_PORT ?? "8080",
       DASHBOARD_PORT: environment.DASHBOARD_PORT ?? "3000",
     },
@@ -253,6 +275,25 @@ if (dashboardService) {
     console.error(
       `${dashboardService.name} exited with ${signal ?? `code ${code}`}`,
     );
+    shutdown(code ?? 1);
+  });
+}
+
+const webService = services.find((s) => s.name === "web");
+if (webService) {
+  const webChild = spawn(webService.command, webService.args, {
+    cwd: webService.cwd,
+    env: { ...process.env, ...webService.env },
+    stdio: "inherit",
+    shell: process.platform === "win32" && webService.command.endsWith(".cmd"),
+  });
+  children.push(webChild);
+  webChild.on("spawn", () => {
+    console.log(`${webService.name} started (pid ${webChild.pid})`);
+  });
+  webChild.on("exit", (code, signal) => {
+    if (shuttingDown) return;
+    console.error(`${webService.name} exited with ${signal ?? `code ${code}`}`);
     shutdown(code ?? 1);
   });
 }

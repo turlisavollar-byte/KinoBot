@@ -72,3 +72,9 @@ lib/api-spec/openapi.yaml.backup
 
 # Old Git history backup
 .git-history-backup/
+
+# Release artifacts
+*.zip
+
+# Release artifacts
+*.zip
