@@ -1,4 +1,6 @@
 import {
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getListSeriesQueryKey,
   useCreateSeries,
 } from "@workspace/api-client-react";
@@ -52,6 +54,12 @@ export default function NewSeries() {
         onSuccess: (data) => {
           queryClient.invalidateQueries({
             queryKey: getListSeriesQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetAnalyticsOverviewQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetTopContentQueryKey(),
           });
           toast.success(t("series.createSuccess"));
           setLocation(`/catalog/series/${data.id}`);

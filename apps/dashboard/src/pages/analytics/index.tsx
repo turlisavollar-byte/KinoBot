@@ -4,6 +4,7 @@ import {
   useGetTopContent,
   useGetSubscriptionTrend,
   useListVideoCodes,
+  useGetTelegramStatus,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -49,8 +50,6 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-const BOT_USERNAME = "FavoriteKinoBot";
-
 const SOURCE_LABELS: Record<string, string> = {
   organic: "Organik (to'g'ridan-to'g'ri)",
   instagram: "Instagram",
@@ -61,12 +60,17 @@ function InstagramDeeplinkCard() {
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const { data: videoCodes = [] } = useListVideoCodes({ status: "active" });
+  const { data: telegramStatus } = useGetTelegramStatus();
+  const botUsername = telegramStatus?.botUsername?.replace(/^@/, "");
 
-  const link = code.trim()
-    ? `https://t.me/${BOT_USERNAME}?start=ig_${code.trim().toUpperCase()}`
-    : `https://t.me/${BOT_USERNAME}?start=ig`;
+  const link = botUsername
+    ? code.trim()
+      ? `https://t.me/${botUsername}?start=ig_${code.trim().toUpperCase()}`
+      : `https://t.me/${botUsername}?start=ig`
+    : "";
 
   const handleCopy = () => {
+    if (!link) return;
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -115,7 +119,12 @@ function InstagramDeeplinkCard() {
           />
         </div>
         <div className="flex gap-2">
-          <Input value={link} readOnly className="font-mono text-xs" />
+          <Input
+            value={link}
+            readOnly
+            placeholder="Telegram bot username is not configured"
+            className="font-mono text-xs"
+          />
           <Button
             variant="outline"
             size="icon"

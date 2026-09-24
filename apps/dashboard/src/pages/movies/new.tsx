@@ -1,4 +1,6 @@
 import {
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getListMoviesQueryKey,
   useCreateMovie,
 } from "@workspace/api-client-react";
@@ -53,6 +55,12 @@ export default function NewMovie() {
         onSuccess: (data) => {
           queryClient.invalidateQueries({
             queryKey: getListMoviesQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetAnalyticsOverviewQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetTopContentQueryKey(),
           });
           toast.success(t("movies.createSuccess"));
           setLocation(`/catalog/movies/${data.id}`);

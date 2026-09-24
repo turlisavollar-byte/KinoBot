@@ -3,6 +3,8 @@ import {
   useGetMovie,
   useUpdateMovie,
   useDeleteMovie,
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getGetMovieQueryKey,
   getListMoviesQueryKey,
 } from "@workspace/api-client-react";
@@ -129,6 +131,12 @@ export default function MovieDetail() {
           onSuccess: () => {
             queryClient.invalidateQueries({
               queryKey: getListMoviesQueryKey(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: getGetAnalyticsOverviewQueryKey(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: getGetTopContentQueryKey(),
             });
             setLocation("/catalog/movies");
           },

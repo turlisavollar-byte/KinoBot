@@ -3,6 +3,8 @@ import {
   useGetSeries,
   useUpdateSeries,
   useDeleteSeries,
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getGetSeriesQueryKey,
   getListSeriesQueryKey,
   useListSeasons,
@@ -187,6 +189,12 @@ export default function SeriesDetail() {
           onSuccess: () => {
             queryClient.invalidateQueries({
               queryKey: getListSeriesQueryKey(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: getGetAnalyticsOverviewQueryKey(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: getGetTopContentQueryKey(),
             });
             setLocation("/catalog/series");
           },
