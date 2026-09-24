@@ -1,5 +1,9 @@
-import { useCreateMovie } from "@workspace/api-client-react";
+import {
+  getListMoviesQueryKey,
+  useCreateMovie,
+} from "@workspace/api-client-react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +33,7 @@ const formSchema = z.object({
 export default function NewMovie() {
   const { t } = useI18n();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const createMovie = useCreateMovie();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,6 +51,9 @@ export default function NewMovie() {
       { data: values },
       {
         onSuccess: (data) => {
+          queryClient.invalidateQueries({
+            queryKey: getListMoviesQueryKey(),
+          });
           toast.success(t("movies.createSuccess"));
           setLocation(`/catalog/movies/${data.id}`);
         },
