@@ -286,10 +286,32 @@ router.post(
       });
       return;
     }
-    const [season] = await db
-      .insert(seasonsTable)
-      .values({ ...body.data, seriesId: params.data.id })
-      .returning();
+    const [series] = await db
+      .select({ id: seriesTable.id })
+      .from(seriesTable)
+      .where(
+        and(
+          eq(seriesTable.id, params.data.id),
+          sql`${seriesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    if (!series) {
+      res.status(404).json({ error: "Series not found" });
+      return;
+    }
+
+    const [season] = await db.transaction(async (tx) => {
+      const [createdSeason] = await tx
+        .insert(seasonsTable)
+        .values({ ...body.data, seriesId: params.data.id })
+        .returning();
+      await tx
+        .update(seriesTable)
+        .set({ seasonsCount: sql`${seriesTable.seasonsCount} + 1` })
+        .where(eq(seriesTable.id, params.data.id));
+      return [createdSeason];
+    });
     res.status(201).json(season);
   },
 );
@@ -334,10 +356,49 @@ router.post(
       });
       return;
     }
-    const [episode] = await db
-      .insert(episodesTable)
-      .values({ ...body.data, seasonId: params.data.seasonId })
-      .returning();
+    const [season] = await db
+      .select({ id: seasonsTable.id })
+      .from(seasonsTable)
+      .where(
+        and(
+          eq(seasonsTable.id, params.data.seasonId),
+          eq(seasonsTable.seriesId, params.data.seriesId),
+          sql`${seasonsTable.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    if (!season) {
+      res.status(404).json({ error: "Season not found for this series" });
+      return;
+    }
+
+    const [existingEpisode] = await db
+      .select({ id: episodesTable.id })
+      .from(episodesTable)
+      .where(
+        and(
+          eq(episodesTable.seasonId, params.data.seasonId),
+          eq(episodesTable.episodeNumber, body.data.episodeNumber),
+          sql`${episodesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    if (existingEpisode) {
+      res.status(409).json({ error: "Episode number already exists" });
+      return;
+    }
+
+    const [episode] = await db.transaction(async (tx) => {
+      const [createdEpisode] = await tx
+        .insert(episodesTable)
+        .values({ ...body.data, seasonId: params.data.seasonId })
+        .returning();
+      await tx
+        .update(seasonsTable)
+        .set({ episodesCount: sql`${seasonsTable.episodesCount} + 1` })
+        .where(eq(seasonsTable.id, params.data.seasonId));
+      return [createdEpisode];
+    });
     res
       .status(201)
       .json({ ...episode, viewsCount: Number(episode.viewsCount) });
@@ -383,7 +444,7 @@ router.delete(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    await db
+    const [episode] = await db
       .update(episodesTable)
       .set({ deletedAt: new Date() })
       .where(
@@ -391,7 +452,16 @@ router.delete(
           eq(episodesTable.id, params.data.id),
           sql`${episodesTable.deletedAt} IS NULL`,
         ),
-      );
+      )
+      .returning({ seasonId: episodesTable.seasonId });
+    if (episode) {
+      await db
+        .update(seasonsTable)
+        .set({
+          episodesCount: sql`GREATEST(${seasonsTable.episodesCount} - 1, 0)`,
+        })
+        .where(eq(seasonsTable.id, episode.seasonId));
+    }
     res.sendStatus(204);
   },
 );

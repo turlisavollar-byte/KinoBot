@@ -236,9 +236,26 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
       byId[r.seriesId].push(r.genre);
     }
 
+    const seasonRows = ids.length
+      ? await db
+          .select({ seriesId: seasonsTable.seriesId, count: count() })
+          .from(seasonsTable)
+          .where(
+            and(
+              inArray(seasonsTable.seriesId, ids),
+              sql`${seasonsTable.deletedAt} IS NULL`,
+            ),
+          )
+          .groupBy(seasonsTable.seriesId)
+      : [];
+    const seasonsBySeriesId = Object.fromEntries(
+      seasonRows.map((row) => [row.seriesId, Number(row.count)]),
+    );
+
     return {
       data: items.map((s) => ({
         ...s,
+        seasonsCount: seasonsBySeriesId[s.id] ?? 0,
         viewsCount: Number(s.viewsCount),
         ratingAvg: s.ratingAvg,
         genres: byId[s.id] ?? [],
