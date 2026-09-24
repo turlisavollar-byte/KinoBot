@@ -185,9 +185,7 @@ export default function TelegramConfig() {
       if (res.running) {
         toast.success(t("telegram.config.botStarted"));
       } else {
-        toast.error(
-          t("telegram.config.botStartError"),
-        );
+        toast.error(t("telegram.config.botStartError"));
       }
       queryClient.invalidateQueries({
         queryKey: getGetTelegramStatusQueryKey(),
@@ -255,7 +253,9 @@ export default function TelegramConfig() {
       if (result.message) {
         toast.info(result.message);
       } else {
-        toast.success(t("telegram.foundAdminChannels", { count: result.totalChannels }));
+        toast.success(
+          t("telegram.foundAdminChannels", { count: result.totalChannels }),
+        );
       }
     } catch (e) {
       toast.error((e as Error).message ?? t("telegram.failedDetectChannels"));
@@ -387,7 +387,8 @@ export default function TelegramConfig() {
         <Alert className="border-amber-500/30 bg-amber-950/20">
           <AlertCircle className="h-4 w-4 text-amber-400" />
           <AlertDescription className="text-amber-200 text-sm">
-            <strong>{t("telegram.setupRequired")}</strong> {t("telegram.setupRequiredText")}
+            <strong>{t("telegram.setupRequired")}</strong>{" "}
+            {t("telegram.setupRequiredText")}
           </AlertDescription>
         </Alert>
       )}
@@ -397,7 +398,8 @@ export default function TelegramConfig() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-primary" /> {t("telegram.botConfiguration")}
+              <KeyRound className="h-4 w-4 text-primary" />{" "}
+              {t("telegram.botConfiguration")}
             </CardTitle>
             <CardDescription>
               {t("telegram.botConfigDescription")}
@@ -421,7 +423,8 @@ export default function TelegramConfig() {
                 />
                 {tokenIsConfigured && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-emerald-400">
-                    <CheckCircle className="h-3 w-3" /> {t("telegram.configured")}
+                    <CheckCircle className="h-3 w-3" />{" "}
+                    {t("telegram.configured")}
                   </div>
                 )}
               </div>
@@ -487,7 +490,9 @@ export default function TelegramConfig() {
                 disabled={updateConfig.isPending}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {updateConfig.isPending ? t("telegram.saving") : t("telegram.saveSettings")}
+                {updateConfig.isPending
+                  ? t("telegram.saving")
+                  : t("telegram.saveSettings")}
               </Button>
             </div>
 
@@ -534,7 +539,9 @@ export default function TelegramConfig() {
 
             {/* Bot controls */}
             <div>
-              <p className="text-sm font-medium mb-3">{t("telegram.botControls")}</p>
+              <p className="text-sm font-medium mb-3">
+                {t("telegram.botControls")}
+              </p>
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
@@ -547,7 +554,9 @@ export default function TelegramConfig() {
                   ) : (
                     <Play className="h-4 w-4 mr-2" />
                   )}
-                  {botStarting ? t("telegram.starting") : t("telegram.startBot")}
+                  {botStarting
+                    ? t("telegram.starting")
+                    : t("telegram.startBot")}
                 </Button>
                 <Button
                   variant="outline"
@@ -564,12 +573,14 @@ export default function TelegramConfig() {
                 </Button>
                 {!tokenIsConfigured && (
                   <p className="text-xs text-amber-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> {t("telegram.saveTokenFirst")}
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {t("telegram.saveTokenFirst")}
                   </p>
                 )}
                 {tokenIsConfigured && !isActive && (
                   <p className="text-xs text-amber-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> {t("telegram.enableSwitchFirst")}
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {t("telegram.enableSwitchFirst")}
                   </p>
                 )}
               </div>
@@ -581,7 +592,8 @@ export default function TelegramConfig() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" /> {t("telegram.botStatus")}
+              <Activity className="h-4 w-4 text-primary" />{" "}
+              {t("telegram.botStatus")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -600,7 +612,8 @@ export default function TelegramConfig() {
                 </>
               ) : (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-zinc-500" /> {t("telegram.offline")}
+                  <span className="h-2 w-2 rounded-full bg-zinc-500" />{" "}
+                  {t("telegram.offline")}
                 </>
               )}
             </div>
@@ -638,7 +651,8 @@ export default function TelegramConfig() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Database className="h-4 w-4 text-primary" /> {t("telegram.storageChannels")}
+            <Database className="h-4 w-4 text-primary" />{" "}
+            {t("telegram.storageChannels")}
           </CardTitle>
           <CardDescription>
             {t("telegram.storageChannelsDescription")}
@@ -665,7 +679,8 @@ export default function TelegramConfig() {
                   </>
                 ) : (
                   <>
-                    <Zap className="h-3 w-3 mr-1.5" /> {t("telegram.detectAdminChannels")}
+                    <Zap className="h-3 w-3 mr-1.5" />{" "}
+                    {t("telegram.detectAdminChannels")}
                   </>
                 )}
               </Button>
@@ -675,9 +690,7 @@ export default function TelegramConfig() {
                 <span className="shrink-0 h-5 w-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-bold mt-0.5">
                   1
                 </span>
-                <span>
-                  {t("telegram.autoConnectStep1")}
-                </span>
+                <span>{t("telegram.autoConnectStep1")}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="shrink-0 h-5 w-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-bold mt-0.5">
@@ -687,16 +700,14 @@ export default function TelegramConfig() {
                   {t("telegram.autoConnectStep2")}{" "}
                   <button
                     className="font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                    disabled={!status?.botUsername}
                     onClick={() => {
-                      navigator.clipboard.writeText(
-                        status?.botUsername
-                          ? `@${status.botUsername}`
-                          : "@FavoriteKinoBot",
-                      );
+                      if (!status?.botUsername) return;
+                      navigator.clipboard.writeText(`@${status.botUsername}`);
                       toast.success(t("telegram.copied"));
                     }}
                   >
-                    @{status?.botUsername ?? "FavoriteKinoBot"}
+                    {status?.botUsername ? `@${status.botUsername}` : "—"}
                   </button>{" "}
                   {t("telegram.autoConnectStep2End")}
                 </span>
@@ -740,7 +751,8 @@ export default function TelegramConfig() {
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="h-3 w-3 mr-1.5" /> {t("telegram.check")}
+                      <CheckCircle className="h-3 w-3 mr-1.5" />{" "}
+                      {t("telegram.check")}
                     </>
                   )}
                 </Button>
@@ -752,8 +764,8 @@ export default function TelegramConfig() {
           {adminChannels.length > 0 && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
-                <CheckCircle className="h-4 w-4" /> {t("telegram.detectedAdminChannels")} (
-                {adminChannels.length})
+                <CheckCircle className="h-4 w-4" />{" "}
+                {t("telegram.detectedAdminChannels")} ({adminChannels.length})
               </div>
               <div className="space-y-2">
                 {adminChannels.map((channel) => (
@@ -822,7 +834,12 @@ export default function TelegramConfig() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  {[t("telegram.titleHeader"), t("telegram.channelIdHeader"), t("telegram.filesHeader"), t("telegram.statusHeader")].map((h) => (
+                  {[
+                    t("telegram.titleHeader"),
+                    t("telegram.channelIdHeader"),
+                    t("telegram.filesHeader"),
+                    t("telegram.statusHeader"),
+                  ].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wide"
@@ -859,7 +876,9 @@ export default function TelegramConfig() {
                             {t("telegram.active")}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary">{t("telegram.inactive")}</Badge>
+                          <Badge variant="secondary">
+                            {t("telegram.inactive")}
+                          </Badge>
                         )}
                       </td>
                     </tr>

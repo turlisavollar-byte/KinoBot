@@ -4,6 +4,7 @@ import {
   useUpdateSeries,
   useDeleteSeries,
   getGetSeriesQueryKey,
+  getListSeriesQueryKey,
   useListSeasons,
   getListSeasonsQueryKey,
   useCreateSeason,
@@ -184,6 +185,9 @@ export default function SeriesDetail() {
         { id: params.id },
         {
           onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getListSeriesQueryKey(),
+            });
             setLocation("/catalog/series");
           },
         },

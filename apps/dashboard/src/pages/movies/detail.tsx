@@ -4,6 +4,7 @@ import {
   useUpdateMovie,
   useDeleteMovie,
   getGetMovieQueryKey,
+  getListMoviesQueryKey,
 } from "@workspace/api-client-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -126,6 +127,9 @@ export default function MovieDetail() {
         { id: params.id },
         {
           onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getListMoviesQueryKey(),
+            });
             setLocation("/catalog/movies");
           },
         },
