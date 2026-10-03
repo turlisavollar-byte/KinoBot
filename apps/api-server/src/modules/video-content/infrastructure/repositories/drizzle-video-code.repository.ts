@@ -1,5 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { db, videoCodesTable } from "@workspace/db";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { db, moviesTable, videoCodesTable } from "@workspace/db";
 import type {
   IVideoCodeRepository,
   VideoCodeFilter,
@@ -30,6 +30,7 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
       .set({
         title: video.title,
         description: video.description,
+        movieId: video.movieId,
         status: video.status.toString(),
         accessPolicy: video.accessPolicy,
         requiredChannelIds: video.requiredChannelIds,
@@ -59,15 +60,33 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
   }
 
   async findAll(filter?: VideoCodeFilter): Promise<VideoCodeEntity[]> {
-    const where = filter?.status
-      ? eq(videoCodesTable.status, filter.status)
-      : undefined;
+    const conditions = [];
+    if (filter?.status) conditions.push(eq(videoCodesTable.status, filter.status));
+    if (filter?.movieId) conditions.push(eq(videoCodesTable.movieId, filter.movieId));
     const records = await db
       .select()
       .from(videoCodesTable)
-      .where(where)
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(videoCodesTable.createdAt));
     return records.map((record) => this.toDomain(record));
+  }
+
+  async findByMovieId(movieId: string): Promise<VideoCodeEntity[]> {
+    return this.findAll({ movieId });
+  }
+
+  async movieExists(movieId: string): Promise<boolean> {
+    const [movie] = await db
+      .select({ id: moviesTable.id })
+      .from(moviesTable)
+      .where(
+        and(
+          eq(moviesTable.id, movieId),
+          sql`${moviesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    return movie !== undefined;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -93,6 +112,7 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
       code: video.code.toString(),
       title: video.title,
       description: video.description,
+      movieId: video.movieId,
       telegramFileId: video.telegramFileId,
       channelId: video.channelId,
       messageId: video.messageId,
@@ -115,6 +135,7 @@ export class DrizzleVideoCodeRepository implements IVideoCodeRepository {
       code: VideoCode.create(record.code),
       title: record.title,
       description: record.description,
+      movieId: record.movieId,
       telegramFileId: record.telegramFileId,
       channelId: record.channelId,
       messageId: record.messageId,

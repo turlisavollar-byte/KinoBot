@@ -11,6 +11,7 @@ export type UploadVideoCodeBody = {
   video: Blob | File;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   accessPolicy?: UploadVideoCodeBodyAccessPolicy;
   requiredChannelIds?: string;

@@ -12,6 +12,7 @@ export interface UploadVideoInput {
   file: Express.Multer.File;
   title: string;
   description?: string;
+  movieId?: string | null;
   channelId?: string;
   accessPolicy?: VideoAccessPolicy;
   requiredChannelIds?: string | null;
@@ -20,6 +21,7 @@ export interface UploadVideoInput {
 export interface ImportVideoInput {
   title: string;
   description?: string;
+  movieId?: string | null;
   telegramFileId: string;
   channelId?: string;
   fileSize?: number;
@@ -70,6 +72,7 @@ export class VideoContentService {
         "requiredChannelIds are required for channel-gated videos",
       );
     }
+    const movieId = await this.resolveMovieId(input.movieId);
     const channel = input.channelId
       ? await this.channels.getById(input.channelId)
       : await this.channels.getDefault();
@@ -94,6 +97,7 @@ export class VideoContentService {
         code,
         title,
         description: input.description?.trim() || null,
+        movieId,
         telegramFileId: result.fileId,
         channelId: channel.channelId,
         messageId: result.messageId,
@@ -123,6 +127,7 @@ export class VideoContentService {
         "requiredChannelIds are required for channel-gated videos",
       );
     }
+    const movieId = await this.resolveMovieId(input.movieId);
     const channel = input.channelId
       ? await this.channels.getById(input.channelId)
       : await this.channels.getDefault();
@@ -135,6 +140,7 @@ export class VideoContentService {
         code,
         title,
         description: input.description?.trim() || null,
+        movieId,
         telegramFileId,
         channelId: channel?.channelId ?? null,
         messageId: null,
@@ -150,7 +156,12 @@ export class VideoContentService {
 
   async updateVideo(
     id: string,
-    input: { title?: string; description?: string; status?: string },
+    input: {
+      title?: string;
+      description?: string;
+      status?: string;
+      movieId?: string | null;
+    },
   ): Promise<VideoCodeEntity> {
     const video = await this.repository.findById(id);
     if (!video) throw new Error("Video code not found");
@@ -163,6 +174,9 @@ export class VideoContentService {
     if (input.status !== undefined) {
       video.updateStatus(VideoStatusValue.create(input.status));
     }
+    if (input.movieId !== undefined) {
+      video.updateMovieId(await this.resolveMovieId(input.movieId));
+    }
     const updated = await this.repository.update(video);
     if (!updated) throw new Error("Video code not found");
     return updated;
@@ -172,5 +186,20 @@ export class VideoContentService {
     if (!(await this.repository.delete(id))) {
       throw new Error("Video code not found");
     }
+  }
+
+  async getMovieVideoCodes(movieId: string): Promise<VideoCodeEntity[]> {
+    if (!(await this.repository.movieExists(movieId))) {
+      throw new Error("Movie not found");
+    }
+    return this.repository.findByMovieId(movieId);
+  }
+
+  private async resolveMovieId(movieId?: string | null): Promise<string | null> {
+    if (movieId == null) return null;
+    if (!(await this.repository.movieExists(movieId))) {
+      throw new Error("Movie not found");
+    }
+    return movieId;
   }
 }

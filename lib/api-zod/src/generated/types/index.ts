@@ -7,11 +7,16 @@
  */
 
 export * from './actor';
+export * from './actorDetail';
+export * from './actorDetailMoviesItem';
+export * from './actorDetailMoviesItemVideoCodesItem';
+export * from './actorDetailStats';
 export * from './adminAccount';
 export * from './adminAccountListResponse';
 export * from './adminAccountListResponseMeta';
 export * from './adminAccountRole';
 export * from './adminAccountStatus';
+export * from './attachActorToMovieBody';
 export * from './authResult';
 export * from './billingInvoice';
 export * from './billingInvoiceLineItemsItem';
@@ -181,6 +186,7 @@ export * from './markInvoicePaid200';
 export * from './markNotificationRead200';
 export * from './movie';
 export * from './moviePage';
+export * from './movieVideoCode';
 export * from './notification';
 export * from './notificationData';
 export * from './notificationTemplate';
@@ -225,6 +231,7 @@ export * from './topContent';
 export * from './topContentItemsItem';
 export * from './topContentPeriod';
 export * from './updateActorBody';
+export * from './updateActorMovieRoleBody';
 export * from './updateAdminUserBody';
 export * from './updateAdminUserBodyRole';
 export * from './updateBillingPlan200';

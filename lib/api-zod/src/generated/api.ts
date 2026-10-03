@@ -47,6 +47,39 @@ export const CreateActorResponse = zod.object({
 
 
 /**
+ * @summary Get actor profile and filmography
+ */
+export const GetActorParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetActorResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "photoUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "birthDate": zod.date().nullish(),
+  "birthPlace": zod.string().nullish(),
+  "movies": zod.array(zod.object({
+  "movieId": zod.string(),
+  "title": zod.string(),
+  "releaseYear": zod.number().int().nullish(),
+  "posterUrl": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "videoCodes": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "status": zod.string()
+}))
+})),
+  "stats": zod.object({
+  "moviesCount": zod.number().int(),
+  "totalViews": zod.number().int()
+})
+})
+
+
+/**
  * @summary Update actor
  */
 export const UpdateActorParams = zod.object({
@@ -75,6 +108,55 @@ export const DeleteActorParams = zod.object({
 })
 
 export const DeleteActorResponse = zod.void()
+
+
+/**
+ * @summary Add a movie to an actor filmography
+ */
+export const AttachActorToMovieParams = zod.object({
+  "id": zod.string()
+})
+
+export const attachActorToMovieBodyRoleMax = 255;
+
+
+
+export const AttachActorToMovieBody = zod.object({
+  "movieId": zod.string(),
+  "role": zod.string().max(attachActorToMovieBodyRoleMax).nullish()
+})
+
+export const AttachActorToMovieResponse = zod.void()
+
+
+/**
+ * @summary Update an actor role in a movie
+ */
+export const UpdateActorMovieRoleParams = zod.object({
+  "id": zod.string(),
+  "movieId": zod.string()
+})
+
+export const updateActorMovieRoleBodyRoleMax = 255;
+
+
+
+export const UpdateActorMovieRoleBody = zod.object({
+  "role": zod.string().max(updateActorMovieRoleBodyRoleMax).nullish()
+})
+
+export const UpdateActorMovieRoleResponse = zod.void()
+
+
+/**
+ * @summary Remove a movie from an actor filmography
+ */
+export const DetachActorFromMovieParams = zod.object({
+  "id": zod.string(),
+  "movieId": zod.string()
+})
+
+export const DetachActorFromMovieResponse = zod.void()
 
 
 /**
@@ -1291,6 +1373,23 @@ export const PublishMovieResponse = zod.object({
   "viewsCount": zod.number().int().optional(),
   "createdAt": zod.date().optional()
 })
+
+
+/**
+ * @summary List video codes linked to a movie
+ */
+export const GetMovieVideoCodesParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetMovieVideoCodesResponseItem = zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "title": zod.string().optional(),
+  "status": zod.string(),
+  "viewsCount": zod.number().int().optional()
+})
+export const GetMovieVideoCodesResponse = zod.array(GetMovieVideoCodesResponseItem)
 
 
 /**
@@ -3178,6 +3277,7 @@ export const ListVideoCodesResponseItem = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3199,6 +3299,7 @@ export const UploadVideoCodeBody = zod.object({
   "video": zod.instanceof(Blob),
   "title": zod.string(),
   "description": zod.string().optional(),
+  "movieId": zod.string().optional(),
   "channelId": zod.string().optional(),
   "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
   "requiredChannelIds": zod.string().optional()
@@ -3209,6 +3310,7 @@ export const UploadVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3230,6 +3332,7 @@ export const ImportVideoCodeBody = zod.object({
   "code": zod.string().optional(),
   "title": zod.string(),
   "description": zod.string().optional(),
+  "movieId": zod.string().optional(),
   "channelId": zod.string().optional(),
   "duration": zod.number().int().optional(),
   "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
@@ -3242,6 +3345,7 @@ export const ImportVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3264,6 +3368,7 @@ export const UpdateVideoCodeParams = zod.object({
 
 export const UpdateVideoCodeBody = zod.object({
   "title": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "expiresAt": zod.date().optional()
@@ -3274,6 +3379,7 @@ export const UpdateVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),

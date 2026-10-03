@@ -9,6 +9,8 @@ import {
   seasonsTable,
   episodesTable,
   movieGenresTable,
+  movieActorsTable,
+  videoCodesTable,
   seriesGenresTable,
 } from "@workspace/db";
 import type { ICatalogRepository } from "../../domain/repositories/catalog.repository.interface";
@@ -21,6 +23,7 @@ import type {
   Actor,
 } from "@workspace/db";
 import { Logger } from "@/shared/utils/logger";
+import type { ActorDetail } from "../../catalog.types";
 
 @injectable()
 export class DrizzleCatalogRepository implements ICatalogRepository {
@@ -582,6 +585,132 @@ export class DrizzleCatalogRepository implements ICatalogRepository {
       .where(and(eq(actorsTable.id, id), sql`${actorsTable.deletedAt} IS NULL`))
       .limit(1);
     return actor || null;
+  }
+
+  async actorExists(id: string): Promise<boolean> {
+    return (await this.getActorById(id)) !== null;
+  }
+
+  async movieExists(id: string): Promise<boolean> {
+    return (await this.getMovieById(id)) !== null;
+  }
+
+  async getActorWithMovies(id: string): Promise<ActorDetail | null> {
+    const actor = await this.getActorById(id);
+    if (!actor) return null;
+
+    const rows = await db
+      .select({
+        movieId: moviesTable.id,
+        title: moviesTable.title,
+        releaseYear: moviesTable.releaseYear,
+        posterUrl: moviesTable.posterUrl,
+        viewsCount: moviesTable.viewsCount,
+        role: movieActorsTable.role,
+        videoCodeId: videoCodesTable.id,
+        videoCode: videoCodesTable.code,
+        videoCodeStatus: videoCodesTable.status,
+        videoCodeViewsCount: videoCodesTable.viewsCount,
+      })
+      .from(movieActorsTable)
+      .innerJoin(moviesTable, eq(movieActorsTable.movieId, moviesTable.id))
+      .leftJoin(videoCodesTable, eq(videoCodesTable.movieId, moviesTable.id))
+      .where(
+        and(
+          eq(movieActorsTable.actorId, id),
+          sql`${moviesTable.deletedAt} IS NULL`,
+        ),
+      )
+      .orderBy(moviesTable.releaseYear, moviesTable.title);
+
+    const movies = new Map<
+      string,
+      ActorDetail["movies"][number] & { viewsCount: number; codeIds: Set<string> }
+    >();
+    for (const row of rows) {
+      let movie = movies.get(row.movieId);
+      if (!movie) {
+        movie = {
+          movieId: row.movieId,
+          title: row.title,
+          releaseYear: row.releaseYear,
+          posterUrl: row.posterUrl,
+          role: row.role,
+          videoCodes: [],
+          viewsCount: row.viewsCount,
+          codeIds: new Set(),
+        };
+        movies.set(row.movieId, movie);
+      }
+      if (row.videoCodeId && row.videoCode && !movie.codeIds.has(row.videoCodeId)) {
+        movie.codeIds.add(row.videoCodeId);
+        movie.viewsCount += row.videoCodeViewsCount ?? 0;
+        movie.videoCodes.push({
+          id: row.videoCodeId,
+          code: row.videoCode,
+          status: row.videoCodeStatus ?? "pending",
+        });
+      }
+    }
+
+    const movieList = [...movies.values()];
+    return {
+      id: actor.id,
+      name: actor.name,
+      photoUrl: actor.photoUrl,
+      bio: actor.biography,
+      birthDate: actor.birthDate,
+      birthPlace: actor.birthPlace,
+      movies: movieList.map(({ viewsCount: _viewsCount, codeIds: _codeIds, ...movie }) => movie),
+      stats: {
+        moviesCount: movieList.length,
+        totalViews: movieList.reduce((total, movie) => total + movie.viewsCount, 0),
+      },
+    };
+  }
+
+  async attachActorToMovie(
+    actorId: string,
+    movieId: string,
+    role: string | null,
+  ): Promise<boolean> {
+    const inserted = await db
+      .insert(movieActorsTable)
+      .values({ actorId, movieId, role })
+      .onConflictDoNothing()
+      .returning({ actorId: movieActorsTable.actorId });
+    return inserted.length > 0;
+  }
+
+  async detachActorFromMovie(actorId: string, movieId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(movieActorsTable)
+      .where(
+        and(
+          eq(movieActorsTable.actorId, actorId),
+          eq(movieActorsTable.movieId, movieId),
+        ),
+      )
+      .returning({ actorId: movieActorsTable.actorId });
+    return deleted.length > 0;
+  }
+
+  async updateActorMovieRole(
+    actorId: string,
+    movieId: string,
+    role: string | null,
+  ): Promise<boolean> {
+    const updated = await db
+      .update(movieActorsTable)
+      .set({ role })
+      .where(
+        and(
+          eq(movieActorsTable.actorId, actorId),
+          eq(movieActorsTable.movieId, movieId),
+        ),
+      )
+      .returning({ actorId: movieActorsTable.actorId });
+    return updated.length > 0;
   }
 
   async createActor(data: Omit<Actor, "id" | "deletedAt">): Promise<Actor> {

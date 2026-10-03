@@ -6,11 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateVideoCodeBody {
-  title?: string;
-  /** @nullable */
-  movieId?: string | null;
-  status?: string;
-  channelId?: string;
-  expiresAt?: Date;
+export interface UpdateActorMovieRoleBody {
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  role?: string | null;
 }

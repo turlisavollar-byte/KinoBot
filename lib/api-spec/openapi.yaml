@@ -87,6 +87,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/Actor'
   /actors/{id}:
+    get:
+      operationId: getActor
+      tags:
+        - actors
+      summary: Get actor profile and filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Actor profile and movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActorDetail'
+        '404':
+          description: Actor not found
     patch:
       operationId: updateActor
       tags:
@@ -129,6 +151,86 @@ paths:
       responses:
         '204':
           description: Actor deleted
+  /actors/{id}/movies:
+    post:
+      operationId: attachActorToMovie
+      tags:
+        - actors
+      summary: Add a movie to an actor filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachActorToMovieBody'
+      responses:
+        '204':
+          description: Movie attached
+        '404':
+          description: Actor or movie not found
+        '409':
+          description: Movie already attached
+  /actors/{id}/movies/{movieId}:
+    patch:
+      operationId: updateActorMovieRole
+      tags:
+        - actors
+      summary: Update an actor role in a movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActorMovieRoleBody'
+      responses:
+        '204':
+          description: Role updated
+        '404':
+          description: Actor/movie relation not found
+    delete:
+      operationId: detachActorFromMovie
+      tags:
+        - actors
+      summary: Remove a movie from an actor filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Movie detached
+        '404':
+          description: Actor/movie relation not found
   /admin-users:
     get:
       operationId: listAdminUsers
@@ -1541,6 +1643,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Movie'
+  /movies/{id}/video-codes:
+    get:
+      operationId: getMovieVideoCodes
+      tags:
+        - catalog
+      summary: List video codes linked to a movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video codes linked to this movie
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovieVideoCode'
+        '404':
+          description: Movie not found
   /catalog/series:
     get:
       operationId: listSeries
@@ -3355,6 +3482,8 @@ paths:
                   type: string
                 description:
                   type: string
+                movieId:
+                  type: string
                 channelId:
                   type: string
                 accessPolicy:
@@ -3452,6 +3581,105 @@ components:
           type: string
         bio:
           type: string
+    ActorDetail:
+      type: object
+      required:
+        - id
+        - name
+        - movies
+        - stats
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        photoUrl:
+          type:
+            - string
+            - 'null'
+        bio:
+          type:
+            - string
+            - 'null'
+        birthDate:
+          type:
+            - string
+            - 'null'
+          format: date
+        birthPlace:
+          type:
+            - string
+            - 'null'
+        movies:
+          type: array
+          items:
+            type: object
+            required:
+              - movieId
+              - title
+              - videoCodes
+            properties:
+              movieId:
+                type: string
+              title:
+                type: string
+              releaseYear:
+                type:
+                  - integer
+                  - 'null'
+              posterUrl:
+                type:
+                  - string
+                  - 'null'
+              role:
+                type:
+                  - string
+                  - 'null'
+              videoCodes:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - code
+                    - status
+                  properties:
+                    id:
+                      type: string
+                    code:
+                      type: string
+                    status:
+                      type: string
+        stats:
+          type: object
+          required:
+            - moviesCount
+            - totalViews
+          properties:
+            moviesCount:
+              type: integer
+            totalViews:
+              type: integer
+    AttachActorToMovieBody:
+      type: object
+      required:
+        - movieId
+      properties:
+        movieId:
+          type: string
+        role:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+    UpdateActorMovieRoleBody:
+      type: object
+      properties:
+        role:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
     CreateActorBody:
       type: object
       required:
@@ -4170,6 +4398,23 @@ components:
           type: string
         returnUrl:
           type: string
+    MovieVideoCode:
+      type: object
+      required:
+        - id
+        - code
+        - status
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        viewsCount:
+          type: integer
     MoviePage:
       type: object
       properties:
@@ -5814,6 +6059,10 @@ components:
           type: string
         description:
           type: string
+        movieId:
+          type:
+            - string
+            - 'null'
         status:
           type: string
         channelId:
@@ -5854,6 +6103,8 @@ components:
           type: string
         description:
           type: string
+        movieId:
+          type: string
         channelId:
           type: string
         duration:
@@ -5875,6 +6126,10 @@ components:
       properties:
         title:
           type: string
+        movieId:
+          type:
+            - string
+            - 'null'
         status:
           type: string
         channelId:

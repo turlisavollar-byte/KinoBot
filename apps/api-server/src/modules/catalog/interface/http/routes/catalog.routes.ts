@@ -32,6 +32,13 @@ import {
   UpdateSeriesParams,
   ListActorsQueryParams,
   CreateActorBody,
+  GetActorParams,
+  AttachActorToMovieParams,
+  AttachActorToMovieBody,
+  UpdateActorMovieRoleParams,
+  UpdateActorMovieRoleBody,
+  DetachActorFromMovieParams,
+  GetMovieVideoCodesParams,
   DeleteActorParams,
   UpdateActorParams,
   UpdateActorBody,
@@ -53,8 +60,35 @@ import { ListSeriesUseCase } from "../../../domain/use-cases/list-series.use-cas
 import { ListGenresUseCase } from "../../../domain/use-cases/list-genres.use-case";
 import { ListActorsUseCase } from "../../../domain/use-cases/list-actors.use-case";
 import { toActorInsert, toActorResponse, toActorUpdate } from "../actor.mapper";
+import { GetActorDetailUseCase } from "../../../domain/use-cases/get-actor-detail.use-case";
+import { AttachActorToMovieUseCase } from "../../../domain/use-cases/attach-actor-to-movie.use-case";
+import { DetachActorFromMovieUseCase } from "../../../domain/use-cases/detach-actor-from-movie.use-case";
+import { UpdateActorMovieRoleUseCase } from "../../../domain/use-cases/update-actor-movie-role.use-case";
+import { ActorMovieRelationError } from "../../../domain/use-cases/actor-movie.errors";
+import { DrizzleVideoCodeRepository } from "@/modules/video-content/infrastructure/repositories/drizzle-video-code.repository";
+import { ListMovieVideoCodesUseCase } from "@/modules/video-content/domain/use-cases/list-movie-video-codes.use-case";
 
 const router = Router();
+const actorRepository = new DrizzleCatalogRepository();
+const getActorDetail = new GetActorDetailUseCase(actorRepository);
+const attachActorToMovie = new AttachActorToMovieUseCase(actorRepository);
+const detachActorFromMovie = new DetachActorFromMovieUseCase(actorRepository);
+const updateActorMovieRole = new UpdateActorMovieRoleUseCase(actorRepository);
+const listMovieVideoCodes = new ListMovieVideoCodesUseCase(
+  new DrizzleVideoCodeRepository(),
+);
+
+function handleActorMovieError(
+  error: unknown,
+  res: import("express").Response,
+  next: import("express").NextFunction,
+): void {
+  if (error instanceof ActorMovieRelationError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  next(error);
+}
 
 // All routes require authentication
 router.use(requireAuth);
@@ -577,6 +611,127 @@ router.delete(
 );
 
 // ─── ACTORS ──────────────────────────────────────────────────────────────────
+router.get(
+  "/actors/:id",
+  requirePermission(Permission.READ_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const params = GetActorParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    try {
+      const actor = await getActorDetail.execute(params.data.id);
+      if (!actor) {
+        res.status(404).json({ error: "Actor not found" });
+        return;
+      }
+      res.json(actor);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  "/actors/:id/movies",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const params = AttachActorToMovieParams.safeParse(req.params);
+    const body = AttachActorToMovieBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
+      return;
+    }
+    try {
+      await attachActorToMovie.execute(
+        params.data.id,
+        body.data.movieId,
+        body.data.role ?? null,
+      );
+      res.sendStatus(204);
+    } catch (error) {
+      handleActorMovieError(error, res, next);
+    }
+  },
+);
+
+router.patch(
+  "/actors/:id/movies/:movieId",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const params = UpdateActorMovieRoleParams.safeParse(req.params);
+    const body = UpdateActorMovieRoleBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        error: params.success ? body.error?.message : params.error.message,
+      });
+      return;
+    }
+    try {
+      await updateActorMovieRole.execute(
+        params.data.id,
+        params.data.movieId,
+        body.data.role ?? null,
+      );
+      res.sendStatus(204);
+    } catch (error) {
+      handleActorMovieError(error, res, next);
+    }
+  },
+);
+
+router.delete(
+  "/actors/:id/movies/:movieId",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const params = DetachActorFromMovieParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    try {
+      await detachActorFromMovie.execute(params.data.id, params.data.movieId);
+      res.sendStatus(204);
+    } catch (error) {
+      handleActorMovieError(error, res, next);
+    }
+  },
+);
+
+router.get(
+  "/movies/:id/video-codes",
+  requirePermission(Permission.READ_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const params = GetMovieVideoCodesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    try {
+      const codes = await listMovieVideoCodes.execute(params.data.id);
+      res.json(
+        codes.map((video) => ({
+          id: video.id,
+          code: video.code.toString(),
+          title: video.title,
+          status: video.status.toString(),
+          viewsCount: video.viewsCount,
+          movieId: video.movieId,
+        })),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "Movie not found") {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
 router.get(
   "/actors",
   requirePermission(Permission.READ_CONTENT),

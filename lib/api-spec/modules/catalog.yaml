@@ -140,6 +140,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Movie"
 
+  /movies/{id}/video-codes:
+    get:
+      operationId: getMovieVideoCodes
+      tags: [catalog]
+      summary: List video codes linked to a movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Video codes linked to this movie
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MovieVideoCode"
+        "404":
+          description: Movie not found
+
   /catalog/series:
     get:
       operationId: listSeries
@@ -442,6 +466,21 @@ paths:
 
 components:
   schemas:
+    MovieVideoCode:
+      type: object
+      required: [id, code, status]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        viewsCount:
+          type: integer
+
     MoviePage:
       type: object
       properties:

@@ -6,11 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateVideoCodeBody {
+export interface MovieVideoCode {
+  id: string;
+  code: string;
   title?: string;
-  /** @nullable */
-  movieId?: string | null;
-  status?: string;
-  channelId?: string;
-  expiresAt?: Date;
+  status: string;
+  viewsCount?: number;
 }

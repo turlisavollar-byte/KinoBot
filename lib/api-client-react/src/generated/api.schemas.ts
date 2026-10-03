@@ -12,6 +12,61 @@ export interface Actor {
   bio?: string;
 }
 
+export type ActorDetailMoviesItemVideoCodesItem = {
+  id: string;
+  code: string;
+  status: string;
+};
+
+export type ActorDetailMoviesItem = {
+  movieId: string;
+  title: string;
+  /** @nullable */
+  releaseYear?: number | null;
+  /** @nullable */
+  posterUrl?: string | null;
+  /** @nullable */
+  role?: string | null;
+  videoCodes: ActorDetailMoviesItemVideoCodesItem[];
+};
+
+export type ActorDetailStats = {
+  moviesCount: number;
+  totalViews: number;
+};
+
+export interface ActorDetail {
+  id: string;
+  name: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
+  movies: ActorDetailMoviesItem[];
+  stats: ActorDetailStats;
+}
+
+export interface AttachActorToMovieBody {
+  movieId: string;
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  role?: string | null;
+}
+
+export interface UpdateActorMovieRoleBody {
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  role?: string | null;
+}
+
 export interface CreateActorBody {
   name: string;
   photoUrl?: string;
@@ -442,6 +497,14 @@ export interface CreateUzcardPaymentBody {
 export interface CreateOctoPaymentBody {
   invoiceId: string;
   returnUrl?: string;
+}
+
+export interface MovieVideoCode {
+  id: string;
+  code: string;
+  title?: string;
+  status: string;
+  viewsCount?: number;
 }
 
 export interface Movie {
@@ -1418,6 +1481,8 @@ export interface VideoCode {
   code?: string;
   title?: string;
   description?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   telegramFileId?: string;
@@ -1451,6 +1516,7 @@ export interface ImportVideoCodeBody {
   code?: string;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   duration?: number;
   accessPolicy?: ImportVideoCodeBodyAccessPolicy;
@@ -1460,6 +1526,8 @@ export interface ImportVideoCodeBody {
 
 export interface UpdateVideoCodeBody {
   title?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   expiresAt?: string;
@@ -2243,6 +2311,7 @@ export type UploadVideoCodeBody = {
   video: Blob | File;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   accessPolicy?: UploadVideoCodeBodyAccessPolicy;
   requiredChannelIds?: string;

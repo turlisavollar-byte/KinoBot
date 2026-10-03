@@ -12,6 +12,8 @@ export interface VideoCode {
   code?: string;
   title?: string;
   description?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   telegramFileId?: string;

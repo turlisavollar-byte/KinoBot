@@ -35,17 +35,21 @@ export const genresTable = pgTable(
 );
 
 // ─── ACTORS ──────────────────────────────────────────────────────────────────
-export const actorsTable = pgTable("actors", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  photoUrl: text("photo_url"),
-  biography: text("biography"),
-  birthDate: date("birth_date"),
-  birthPlace: text("birth_place"),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+export const actorsTable = pgTable(
+  "actors",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    photoUrl: text("photo_url"),
+    biography: text("biography"),
+    birthDate: date("birth_date"),
+    birthPlace: text("birth_place"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [index("actors_deleted_at_idx").on(table.deletedAt)],
+);
 
 // ─── MOVIES ──────────────────────────────────────────────────────────────────
 export const moviesTable = pgTable(
@@ -109,10 +113,10 @@ export const movieActorsTable = pgTable(
   {
     movieId: text("movie_id")
       .notNull()
-      .references(() => moviesTable.id, { onDelete: "cascade" }),
+      .references(() => moviesTable.id, { onDelete: "no action" }),
     actorId: text("actor_id")
       .notNull()
-      .references(() => actorsTable.id, { onDelete: "cascade" }),
+      .references(() => actorsTable.id, { onDelete: "no action" }),
     role: text("role"),
   },
   (t) => [primaryKey({ columns: [t.movieId, t.actorId] })],
@@ -246,30 +250,37 @@ export const episodesTable = pgTable(
 );
 
 // ─── VIDEO CODES ─────────────────────────────────────────────────────────────
-export const videoCodesTable = pgTable("video_codes", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  code: text("code").notNull().unique(),
-  title: text("title").notNull(),
-  description: text("description"),
-  telegramFileId: text("telegram_file_id"),
-  channelId: text("channel_id"),
-  messageId: bigint("message_id", { mode: "number" }),
-  fileSize: bigint("file_size", { mode: "number" }),
-  duration: integer("duration"),
-  status: text("status").notNull().default("pending"),
-  accessPolicy: text("access_policy").notNull().default("free"),
-  requiredChannelIds: text("required_channel_ids"),
-  viewsCount: bigint("views_count", { mode: "number" }).notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const videoCodesTable = pgTable(
+  "video_codes",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    code: text("code").notNull().unique(),
+    title: text("title").notNull(),
+    description: text("description"),
+    movieId: text("movie_id").references(() => moviesTable.id, {
+      onDelete: "set null",
+    }),
+    telegramFileId: text("telegram_file_id"),
+    channelId: text("channel_id"),
+    messageId: bigint("message_id", { mode: "number" }),
+    fileSize: bigint("file_size", { mode: "number" }),
+    duration: integer("duration"),
+    status: text("status").notNull().default("pending"),
+    accessPolicy: text("access_policy").notNull().default("free"),
+    requiredChannelIds: text("required_channel_ids"),
+    viewsCount: bigint("views_count", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("video_codes_movie_id_idx").on(table.movieId)],
+);
 
 // ─── INSERT SCHEMAS ──────────────────────────────────────────────────────────
 export const insertGenreSchema = createInsertSchema(genresTable);
