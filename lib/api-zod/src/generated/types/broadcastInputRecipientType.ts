@@ -7,12 +7,13 @@
  */
 
 /**
- * Whether recipients are customer users or Telegram channels
+ * Selected Telegram users, all active Telegram users, or Telegram channels
  */
 export type BroadcastInputRecipientType = typeof BroadcastInputRecipientType[keyof typeof BroadcastInputRecipientType];
 
 
 export const BroadcastInputRecipientType = {
   users: 'users',
+  all_users: 'all_users',
   channels: 'channels',
 } as const;

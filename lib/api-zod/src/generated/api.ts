@@ -2126,7 +2126,7 @@ export const DeleteNotificationTemplateResponse = zod.void()
  */
 export const BroadcastNotificationBody = zod.object({
   "templateId": zod.string(),
-  "recipientType": zod.enum(['users', 'channels']).describe('Whether recipients are customer users or Telegram channels'),
+  "recipientType": zod.enum(['users', 'all_users', 'channels']).describe('Selected Telegram users, all active Telegram users, or Telegram channels'),
   "recipients": zod.array(zod.string()),
   "data": zod.object({
 

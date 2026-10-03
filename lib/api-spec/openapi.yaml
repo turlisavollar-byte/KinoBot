@@ -5118,8 +5118,11 @@ components:
           type: string
           enum:
             - users
+            - all_users
             - channels
-          description: Whether recipients are customer users or Telegram channels
+          description: >-
+            Selected Telegram users, all active Telegram users, or Telegram
+            channels
         recipients:
           type: array
           items:

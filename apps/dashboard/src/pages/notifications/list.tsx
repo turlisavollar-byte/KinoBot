@@ -73,9 +73,9 @@ export default function NotificationsList() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [recipients, setRecipients] = useState<string[]>([]);
-  const [recipientType, setRecipientType] = useState<"users" | "channels">(
-    "users",
-  );
+  const [recipientType, setRecipientType] = useState<
+    "users" | "all_users" | "channels"
+  >("users");
   const [selectedChannel, setSelectedChannel] = useState("");
 
   const resetForm = () => {
@@ -177,11 +177,15 @@ export default function NotificationsList() {
         onSuccess: (res) => {
           setBroadcastOpen(false);
           toast({
-            title: "Broadcast Scheduled",
+            title: t("notifications.broadcast.scheduled"),
             description:
               recipientType === "channels"
-                ? `Message ${res.data?.messageId || "created"} queued for ${recipients.length} channels.`
-                : `Message ${res.data?.messageId || "created"} queued for ${res.data?.recipientCount ?? recipients.length} users.`,
+                ? t("notifications.broadcast.queuedChannels", {
+                    count: res.data?.recipientCount ?? recipients.length,
+                  })
+                : t("notifications.broadcast.queuedUsers", {
+                    count: res.data?.recipientCount ?? 0,
+                  }),
           });
         },
       },
@@ -471,17 +475,19 @@ export default function NotificationsList() {
       <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Broadcast</DialogTitle>
+            <DialogTitle>{t("notifications.broadcast.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Select Template</Label>
+              <Label>{t("notifications.broadcast.template")}</Label>
               <Select
                 value={selectedTemplate}
                 onValueChange={setSelectedTemplate}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a template..." />
+                  <SelectValue
+                    placeholder={t("notifications.broadcast.chooseTemplate")}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {templates?.map((t) => (
@@ -493,33 +499,64 @@ export default function NotificationsList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Recipient type</Label>
+              <Label>{t("notifications.broadcast.recipientType")}</Label>
               <Select
                 value={recipientType}
                 onValueChange={(value) => {
-                  setRecipientType(value as "users" | "channels");
-                  setRecipients([]);
-                  setSelectedChannel("");
+                  if (
+                    value === "users" ||
+                    value === "all_users" ||
+                    value === "channels"
+                  ) {
+                    setRecipientType(value);
+                    setRecipients([]);
+                    setSelectedChannel("");
+                  }
                 }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="users">Telegram users</SelectItem>
-                  <SelectItem value="channels">Telegram channels</SelectItem>
+                  <SelectItem value="users">
+                    {t("notifications.broadcast.singleUser")}
+                  </SelectItem>
+                  <SelectItem value="all_users">
+                    {t("notifications.broadcast.allUsers")}
+                  </SelectItem>
+                  <SelectItem value="channels">
+                    {t("notifications.broadcast.channels")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>
-                {recipientType === "channels"
-                  ? "Recipients (Telegram channels)"
-                  : "Recipients (User IDs)"}
-              </Label>
-              {recipientType === "channels" &&
-                channels &&
-                channels.length > 0 && (
+            {recipientType === "users" && (
+              <div className="space-y-2">
+                <Label>{t("notifications.broadcast.telegramUserId")}</Label>
+                <Input
+                  value={recipients[0] ?? ""}
+                  inputMode="numeric"
+                  onChange={(event) => {
+                    const value = event.target.value.trim();
+                    setRecipients(value ? [value] : []);
+                  }}
+                  placeholder={t("notifications.broadcast.userIdPlaceholder")}
+                  aria-label={t("notifications.broadcast.telegramUserId")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("notifications.broadcast.singleUserHint")}
+                </p>
+              </div>
+            )}
+            {recipientType === "all_users" && (
+              <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                {t("notifications.broadcast.allUsersHint")}
+              </p>
+            )}
+            {recipientType === "channels" && (
+              <div className="space-y-2">
+                <Label>{t("notifications.broadcast.channelRecipients")}</Label>
+                {channels && channels.length > 0 && (
                   <Select
                     value={selectedChannel}
                     onValueChange={(value) => {
@@ -530,7 +567,11 @@ export default function NotificationsList() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose a registered channel" />
+                      <SelectValue
+                        placeholder={t(
+                          "notifications.broadcast.chooseRegisteredChannel",
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {channels
@@ -546,44 +587,44 @@ export default function NotificationsList() {
                     </SelectContent>
                   </Select>
                 )}
-              <Input
-                value={recipients.join(",")}
-                onChange={(e) =>
-                  setRecipients(
-                    e.target.value
+                <Input
+                  value={recipients.join(",")}
+                  onChange={(event) =>
+                    setRecipients(
+                      event.target.value
                       .split(",")
                       .map((value) => value.trim())
                       .filter(Boolean),
                   )
-                }
-                placeholder={
-                  recipientType === "channels"
-                    ? "-1001234567890,@channelname"
-                    : "user1,user2,user3"
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                {recipientType === "channels"
-                  ? "Choose registered channels or enter Telegram channel IDs separated by commas."
-                  : "Comma-separated user IDs. Leave empty for all users."}
-              </p>
-            </div>
+                  }
+                  placeholder={t(
+                    "notifications.broadcast.channelIdsPlaceholder",
+                  )}
+                  aria-label={t("notifications.broadcast.channelRecipients")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("notifications.broadcast.channelsHint")}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleBroadcast}
               disabled={
                 broadcast.isPending ||
                 !selectedTemplate ||
+                (recipientType === "users" &&
+                  (!recipients[0] || !/^[1-9]\d*$/.test(recipients[0]))) ||
                 (recipientType === "channels" && recipients.length === 0)
               }
               className="bg-primary text-primary-foreground"
             >
               <Send className="w-4 h-4 mr-2" />
-              Send Now
+              {t("notifications.broadcast.sendNow")}
             </Button>
           </div>
         </DialogContent>

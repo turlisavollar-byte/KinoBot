@@ -10,7 +10,7 @@ import type { BroadcastInputRecipientType } from './broadcastInputRecipientType'
 
 export interface BroadcastInput {
   templateId: string;
-  /** Whether recipients are customer users or Telegram channels */
+  /** Selected Telegram users, all active Telegram users, or Telegram channels */
   recipientType: BroadcastInputRecipientType;
   recipients: string[];
   data?: BroadcastInputData;
