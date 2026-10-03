@@ -3581,6 +3581,14 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
     ActorDetail:
       type: object
       required:
@@ -3605,7 +3613,6 @@ components:
           type:
             - string
             - 'null'
-          format: date
         birthPlace:
           type:
             - string
@@ -3691,6 +3698,14 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
     UpdateActorBody:
       type: object
       properties:
@@ -3700,6 +3715,14 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
     AdminAccount:
       type: object
       required:

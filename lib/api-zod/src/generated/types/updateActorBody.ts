@@ -10,4 +10,8 @@ export interface UpdateActorBody {
   name?: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }

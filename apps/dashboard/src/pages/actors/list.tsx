@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye } from "lucide-react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -189,6 +190,14 @@ export default function ActorsList() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Link
+                        href={`/catalog/actors/${actor.id}`}
+                        aria-label={t("actors.detail.view")}
+                        title={t("actors.detail.view")}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
                       <Button
                         size="sm"
                         variant="outline"

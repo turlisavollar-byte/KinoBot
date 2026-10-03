@@ -16,7 +16,7 @@ export interface ActorDetail {
   /** @nullable */
   bio?: string | null;
   /** @nullable */
-  birthDate?: Date | null;
+  birthDate?: string | null;
   /** @nullable */
   birthPlace?: string | null;
   movies: ActorDetailMoviesItem[];

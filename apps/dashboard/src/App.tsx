@@ -27,6 +27,7 @@ import NewSeries from "@/pages/series/new";
 import SeriesDetail from "@/pages/series/detail";
 import GenresList from "@/pages/genres/list";
 import ActorsList from "@/pages/actors/list";
+import ActorDetail from "@/pages/actors/detail";
 
 import UsersList from "@/pages/users/list";
 import AdminUsersList from "@/pages/users/admin-list";
@@ -155,6 +156,7 @@ function Router() {
       <Route path="/catalog/series/:id" component={P(SeriesDetail)} />
       <Route path="/catalog/genres" component={P(GenresList)} />
       <Route path="/catalog/actors" component={P(ActorsList)} />
+      <Route path="/catalog/actors/:id" component={P(ActorDetail)} />
 
       {/* Audience */}
       <Route path="/users" component={P(UsersList)} />

@@ -11,4 +11,8 @@ export interface Actor {
   name: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }

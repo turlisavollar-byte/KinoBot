@@ -10,6 +10,10 @@ export interface Actor {
   name: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }
 
 export type ActorDetailMoviesItemVideoCodesItem = {
@@ -71,12 +75,20 @@ export interface CreateActorBody {
   name: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }
 
 export interface UpdateActorBody {
   name?: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }
 
 export type AdminAccountRole = typeof AdminAccountRole[keyof typeof AdminAccountRole];

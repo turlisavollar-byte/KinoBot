@@ -9,6 +9,8 @@ describe("actor API/database mapping", () => {
       name: "Test Actor",
       photoUrl: "https://example.test/photo.jpg",
       biography: "Biography",
+      birthDate: null,
+      birthPlace: null,
     });
   });
 
@@ -34,6 +36,14 @@ describe("actor API/database mapping", () => {
       name: "Test Actor",
       photoUrl: "https://example.test/photo.jpg",
       bio: "Biography",
+      birthDate: null,
+      birthPlace: null,
     });
+  });
+
+  it("preserves birth details when updating the actor profile", () => {
+    expect(
+      toActorUpdate({ birthDate: "1954-04-07", birthPlace: "Hong Kong" }),
+    ).toEqual({ birthDate: "1954-04-07", birthPlace: "Hong Kong" });
   });
 });

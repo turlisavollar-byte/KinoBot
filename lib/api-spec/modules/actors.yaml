@@ -207,6 +207,10 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type: [string, "null"]
+        birthPlace:
+          type: [string, "null"]
 
     ActorDetail:
       type: object
@@ -222,7 +226,6 @@ components:
           type: [string, "null"]
         birthDate:
           type: [string, "null"]
-          format: date
         birthPlace:
           type: [string, "null"]
         movies:
@@ -289,6 +292,10 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type: [string, "null"]
+        birthPlace:
+          type: [string, "null"]
 
     UpdateActorBody:
       type: object
@@ -299,3 +306,7 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type: [string, "null"]
+        birthPlace:
+          type: [string, "null"]

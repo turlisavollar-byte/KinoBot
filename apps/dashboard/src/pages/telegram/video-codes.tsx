@@ -1,5 +1,6 @@
 import {
   useListVideoCodes,
+  useListMovies,
   useUpdateVideoCode,
   useDeleteVideoCode,
   useImportVideoCode,
@@ -125,6 +126,12 @@ export default function VideoCodes() {
   const queryClient = useQueryClient();
   const { data: codesPage, isLoading } = useListVideoCodes();
   const codes = codesPage || [];
+  const [movieSearch, setMovieSearch] = useState("");
+  const { data: moviesPage } = useListMovies({
+    search: movieSearch || undefined,
+    limit: 50,
+  });
+  const movieOptions = moviesPage?.data ?? [];
   const { data: channels } = useListTelegramChannels();
   const { data: telegramStatus } = useGetTelegramStatus();
   const updateCode = useUpdateVideoCode();
@@ -293,6 +300,25 @@ export default function VideoCodes() {
     );
   };
 
+  const handleMovieChange = (code: VideoCode, value: string) => {
+    if (!code.id) return;
+    const movieId = value === "unlinked" ? null : value;
+    updateCode.mutate(
+      { id: code.id, data: { movieId } },
+      {
+        onSuccess: async () => {
+          await invalidate();
+          await queryClient.invalidateQueries({ queryKey: ["/api/actors"] });
+          toast.success(t("videoCodes.movieLinked"));
+        },
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : t("videoCodes.movieLinkFailed"),
+          ),
+      },
+    );
+  };
+
   const handleDelete = (code: VideoCode) => setDeleteTarget(code);
 
   const confirmDelete = () => {
@@ -442,6 +468,14 @@ export default function VideoCodes() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 max-w-sm">
+            <Input
+              value={movieSearch}
+              onChange={(event) => setMovieSearch(event.target.value)}
+              placeholder={t("videoCodes.searchMovies")}
+              aria-label={t("videoCodes.searchMovies")}
+            />
+          </div>
           {!codes?.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <Film className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -449,13 +483,14 @@ export default function VideoCodes() {
               <p className="text-xs mt-1">{t("videoCodes.noVideosDesc")}</p>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full min-w-[920px] text-sm">
                 <thead className="bg-muted/40">
                   <tr>
                     {[
                       t("videoCodes.codeHeader"),
                       t("videoCodes.titleHeader"),
+                      t("videoCodes.movieColumn"),
                       t("videoCodes.sizeHeader"),
                       t("videoCodes.viewsHeader"),
                       t("videoCodes.statusHeader"),
@@ -486,6 +521,25 @@ export default function VideoCodes() {
                             {c.description}
                           </p>
                         )}
+                      </td>
+                      <td className="min-w-48 px-4 py-3">
+                        <Select
+                          value={c.movieId ?? "unlinked"}
+                          onValueChange={(value) => handleMovieChange(c, value)}
+                          disabled={updateCode.isPending}
+                        >
+                          <SelectTrigger className="h-8 min-w-44 text-xs">
+                            <SelectValue placeholder={t("videoCodes.unlinkedMovie")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unlinked">{t("videoCodes.unlinkedMovie")}</SelectItem>
+                            {movieOptions.map((movie) => movie.id ? (
+                              <SelectItem key={movie.id} value={movie.id}>
+                                {movie.title ?? movie.id}{movie.releaseYear ? ` (${movie.releaseYear})` : ""}
+                              </SelectItem>
+                            ) : null)}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {c.fileSize

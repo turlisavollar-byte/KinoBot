@@ -24,7 +24,9 @@ export const ListActorsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 export const ListActorsResponse = zod.array(ListActorsResponseItem)
 
@@ -35,14 +37,18 @@ export const ListActorsResponse = zod.array(ListActorsResponseItem)
 export const CreateActorBody = zod.object({
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 export const CreateActorResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 
@@ -58,7 +64,7 @@ export const GetActorResponse = zod.object({
   "name": zod.string(),
   "photoUrl": zod.string().nullish(),
   "bio": zod.string().nullish(),
-  "birthDate": zod.date().nullish(),
+  "birthDate": zod.string().nullish(),
   "birthPlace": zod.string().nullish(),
   "movies": zod.array(zod.object({
   "movieId": zod.string(),
@@ -89,14 +95,18 @@ export const UpdateActorParams = zod.object({
 export const UpdateActorBody = zod.object({
   "name": zod.string().optional(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 export const UpdateActorResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 

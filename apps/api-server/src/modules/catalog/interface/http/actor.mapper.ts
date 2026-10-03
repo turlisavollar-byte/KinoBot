@@ -11,6 +11,8 @@ export function toActorInsert(body: CreateActorInput) {
     name: body.name,
     photoUrl: body.photoUrl,
     biography: body.bio,
+    birthDate: body.birthDate ?? null,
+    birthPlace: body.birthPlace ?? null,
   };
 }
 
@@ -19,6 +21,8 @@ export function toActorUpdate(body: UpdateActorInput) {
     ...(body.name !== undefined && { name: body.name }),
     ...(body.photoUrl !== undefined && { photoUrl: body.photoUrl }),
     ...(body.bio !== undefined && { biography: body.bio }),
+    ...(body.birthDate !== undefined && { birthDate: body.birthDate }),
+    ...(body.birthPlace !== undefined && { birthPlace: body.birthPlace }),
   };
 }
 
@@ -28,5 +32,7 @@ export function toActorResponse(actor: ActorRecord) {
     name: actor.name,
     photoUrl: actor.photoUrl ?? undefined,
     bio: actor.biography ?? undefined,
+    birthDate: actor.birthDate ?? null,
+    birthPlace: actor.birthPlace ?? null,
   };
 }
