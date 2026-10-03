@@ -51,6 +51,23 @@ type TelegramConfigWithAccessPolicy = TelegramConfig & {
   defaultMonthlyCodeLimit?: number | null;
 };
 
+type AdminChannel = {
+  channelId: string;
+  title: string;
+  type: string;
+  isActive: boolean;
+  filesCount: number;
+  isBotAdmin: boolean;
+};
+
+type AdminChannelsResponse = {
+  botId: number;
+  botUsername: string;
+  adminChannels: AdminChannel[];
+  totalChannels: number;
+  message?: string;
+};
+
 export default function TelegramConfig() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -80,7 +97,7 @@ export default function TelegramConfig() {
   const [newChanId, setNewChanId] = useState("");
   const [newChanTitle, setNewChanTitle] = useState("");
   const [detectingChannels, setDetectingChannels] = useState(false);
-  const [adminChannels, setAdminChannels] = useState<any[]>([]);
+  const [adminChannels, setAdminChannels] = useState<AdminChannel[]>([]);
   const [checkChannelId, setCheckChannelId] = useState("");
   const [checkingChannel, setCheckingChannel] = useState(false);
 
@@ -240,13 +257,9 @@ export default function TelegramConfig() {
 
     setDetectingChannels(true);
     try {
-      const result = await apiFetch<{
-        botId: number;
-        botUsername: string;
-        adminChannels: any[];
-        totalChannels: number;
-        message?: string;
-      }>(`/api/telegram/admin-channels?t=${Date.now()}`); // Cache-busting
+      const result = await apiFetch<AdminChannelsResponse>(
+        `/api/telegram/admin-channels?t=${Date.now()}`,
+      );
 
       setAdminChannels(result.adminChannels);
 
@@ -258,13 +271,15 @@ export default function TelegramConfig() {
         );
       }
     } catch (e) {
-      toast.error((e as Error).message ?? t("telegram.failedDetectChannels"));
+      toast.error(
+        e instanceof Error ? e.message : t("telegram.failedDetectChannels"),
+      );
     } finally {
       setDetectingChannels(false);
     }
   };
 
-  const handleAddDetectedChannel = (channel: any) => {
+  const handleAddDetectedChannel = (channel: AdminChannel) => {
     createChannel.mutate(
       {
         data: {
@@ -327,7 +342,9 @@ export default function TelegramConfig() {
         toast.error(t("telegram.botNotAdmin"));
       }
     } catch (e) {
-      toast.error((e as Error).message ?? t("telegram.failedCheckChannel"));
+      toast.error(
+        e instanceof Error ? e.message : t("telegram.failedCheckChannel"),
+      );
     } finally {
       setCheckingChannel(false);
     }
@@ -707,7 +724,9 @@ export default function TelegramConfig() {
                       toast.success(t("telegram.copied"));
                     }}
                   >
-                    {status?.botUsername ? `@${status.botUsername}` : "—"}
+                    {status?.botUsername
+                      ? `@${status.botUsername.replace(/^@/, "")}`
+                      : t("telegram.botUsernameUnavailable")}
                   </button>{" "}
                   {t("telegram.autoConnectStep2End")}
                 </span>

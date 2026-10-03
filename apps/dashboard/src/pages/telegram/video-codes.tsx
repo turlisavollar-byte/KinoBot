@@ -5,6 +5,7 @@ import {
   useImportVideoCode,
   getListVideoCodesQueryKey,
   useListTelegramChannels,
+  useGetTelegramStatus,
 } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api-fetch";
 import { getToken } from "@/lib/auth-token";
@@ -66,6 +67,12 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import type { VideoCode } from "@workspace/api-client-react";
 
+type VideoCodeAccessPolicy = "free" | "subscription" | "channels";
+
+function isVideoCodeAccessPolicy(value: string): value is VideoCodeAccessPolicy {
+  return value === "free" || value === "subscription" || value === "channels";
+}
+
 const STATUS_CONFIG = {
   pending: {
     label: "Pending",
@@ -119,6 +126,7 @@ export default function VideoCodes() {
   const { data: codesPage, isLoading } = useListVideoCodes();
   const codes = codesPage || [];
   const { data: channels } = useListTelegramChannels();
+  const { data: telegramStatus } = useGetTelegramStatus();
   const updateCode = useUpdateVideoCode();
   const deleteCode = useDeleteVideoCode();
   const importCode = useImportVideoCode();
@@ -130,9 +138,8 @@ export default function VideoCodes() {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDesc, setUploadDesc] = useState("");
   const [uploadChannel, setUploadChannel] = useState("");
-  const [uploadAccessPolicy, setUploadAccessPolicy] = useState<
-    "free" | "subscription" | "channels"
-  >("free");
+  const [uploadAccessPolicy, setUploadAccessPolicy] =
+    useState<VideoCodeAccessPolicy>("free");
   const [uploadRequiredChannels, setUploadRequiredChannels] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,9 +151,8 @@ export default function VideoCodes() {
   const [importDesc, setImportDesc] = useState("");
   const [importChannel, setImportChannel] = useState("");
   const [importDuration, setImportDuration] = useState("");
-  const [importAccessPolicy, setImportAccessPolicy] = useState<
-    "free" | "subscription" | "channels"
-  >("free");
+  const [importAccessPolicy, setImportAccessPolicy] =
+    useState<VideoCodeAccessPolicy>("free");
   const [importRequiredChannels, setImportRequiredChannels] = useState("");
 
   // Delete confirm
@@ -245,7 +251,7 @@ export default function VideoCodes() {
           duration: durSec && !isNaN(durSec) ? durSec : undefined,
           accessPolicy: importAccessPolicy,
           requiredChannelIds: importRequiredChannels.trim() || undefined,
-        } as any,
+        },
       },
       {
         onSuccess: (res) => {
@@ -267,7 +273,10 @@ export default function VideoCodes() {
     );
   };
 
-  const handleStatusChange = (code: any, status: string) => {
+  const handleStatusChange = (
+    code: VideoCode,
+    status: "pending" | "active" | "inactive",
+  ) => {
     if (!code.id) return;
     updateCode.mutate(
       {
@@ -356,7 +365,7 @@ export default function VideoCodes() {
             label: t("videoCodes.totalViews"),
             count:
               codes?.reduce(
-                (s: number, c: any) => s + (c.viewsCount ?? 0),
+                (sum, code) => sum + (code.viewsCount ?? 0),
                 0,
               ) ?? 0,
             color: "text-blue-400",
@@ -385,7 +394,7 @@ export default function VideoCodes() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {pending.map((c: any) => (
+              {pending.map((c) => (
                 <div
                   key={c.id}
                   className="flex items-center gap-3 p-3 rounded-lg bg-amber-950/20 border border-amber-500/20"
@@ -462,13 +471,13 @@ export default function VideoCodes() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {codes.map((c: any) => (
+                  {codes.map((c) => (
                     <tr
                       key={c.id}
                       className="hover:bg-muted/20 transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <CodeBadge code={c.code} />
+                        <CodeBadge code={c.code ?? ""} />
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{c.title}</p>
@@ -494,7 +503,7 @@ export default function VideoCodes() {
                         {(c.viewsCount ?? 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={c.status} />
+                        <StatusBadge status={c.status ?? "pending"} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
@@ -565,7 +574,11 @@ export default function VideoCodes() {
               <ol className="space-y-0.5 text-blue-300/80 list-decimal list-inside">
                 <li>
                   {t("videoCodes.howToGetFileIdStep1")}{" "}
-                  <strong>FavoriteKinoBot</strong>
+                  <strong>
+                    {telegramStatus?.botUsername
+                      ? `@${telegramStatus.botUsername.replace(/^@/, "")}`
+                      : t("telegram.botUsernameUnavailable")}
+                  </strong>
                 </li>
                 <li>{t("videoCodes.howToGetFileIdStep2")}</li>
                 <li>{t("videoCodes.howToGetFileIdStep3")}</li>
@@ -621,7 +634,11 @@ export default function VideoCodes() {
               <Label>{t("videoCodes.accessPolicy")}</Label>
               <Select
                 value={importAccessPolicy}
-                onValueChange={(value) => setImportAccessPolicy(value as any)}
+                onValueChange={(value) => {
+                  if (isVideoCodeAccessPolicy(value)) {
+                    setImportAccessPolicy(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("videoCodes.accessPolicy")} />
@@ -798,7 +815,11 @@ export default function VideoCodes() {
               <Label>{t("videoCodes.accessPolicy")}</Label>
               <Select
                 value={uploadAccessPolicy}
-                onValueChange={(value) => setUploadAccessPolicy(value as any)}
+                onValueChange={(value) => {
+                  if (isVideoCodeAccessPolicy(value)) {
+                    setUploadAccessPolicy(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("videoCodes.accessPolicy")} />

@@ -213,7 +213,18 @@ export async function startBot(): Promise<void> {
             "channel_post",
           ],
           drop_pending_updates: true,
-          onStart: (info) => {
+          onStart: async (info) => {
+            try {
+              await db
+                .update(telegramConfigTable)
+                .set({ botUsername: info.username })
+                .where(eq(telegramConfigTable.id, config.id));
+            } catch (error) {
+              logger.error(
+                { err: errorSummary(error) },
+                "Failed to persist Telegram bot username",
+              );
+            }
             logger.info(
               { botUsername: info.username },
               "Telegram bot started (polling)",

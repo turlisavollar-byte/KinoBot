@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockStart = vi.fn();
 const mockStop = vi.fn();
+const mockUpdateSet = vi.fn();
+const mockUpdateWhere = vi.fn();
 
 vi.mock("grammy", () => {
   class MockBot {
@@ -11,9 +13,11 @@ vi.mock("grammy", () => {
 
     catch() {}
 
-    async start() {
+    async start(options: {
+      onStart?: (info: { username: string }) => void | Promise<void>;
+    }) {
       mockStart();
-      await Promise.resolve();
+      await options.onStart?.({ username: "KinoCustomerBot" });
       return undefined;
     }
 
@@ -35,13 +39,21 @@ vi.mock("@workspace/db", () => ({
       from: () => ({
         where: () => ({
           orderBy: () => ({
-            limit: async () => [{ botToken: "test-token", isActive: true }],
+            limit: async () => [
+              { id: "telegram-config-id", botToken: "test-token", isActive: true },
+            ],
           }),
         }),
       }),
     }),
+    update: () => ({
+      set: (values: unknown) => {
+        mockUpdateSet(values);
+        return { where: mockUpdateWhere };
+      },
+    }),
   },
-  telegramConfigTable: { isActive: "is_active" },
+  telegramConfigTable: { id: "id", isActive: "is_active" },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -68,8 +80,14 @@ describe("bot lifecycle", () => {
 
   it("does not start duplicate polling sessions when startBot is called concurrently", async () => {
     await Promise.all([startBot(), startBot()]);
+    await vi.waitFor(() =>
+      expect(mockUpdateSet).toHaveBeenCalledWith({
+        botUsername: "KinoCustomerBot",
+      }),
+    );
 
     expect(mockStart).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
     expect(isBotRunning()).toBe(true);
   });
 });

@@ -122,7 +122,7 @@ function InstagramDeeplinkCard() {
           <Input
             value={link}
             readOnly
-            placeholder="Telegram bot username is not configured"
+            placeholder={t("telegram.botUsernameUnavailable")}
             className="font-mono text-xs"
           />
           <Button
@@ -155,31 +155,13 @@ function formatDate(v: string, period: string) {
   return d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" });
 }
 
-function parseRating(r: any) {
-  if (r == null) return 0;
-  if (typeof r === "number") return r;
-  if (typeof r === "string") {
-    const n = Number(r);
-    return Number.isFinite(n) ? n : 0;
-  }
-  if (typeof r === "object") {
-    if (r.value != null) return Number(r.value) || 0;
-    if (r.avg != null) return Number(r.avg) || 0;
-    if (r.rating != null) return Number(r.rating) || 0;
-    return 0;
-  }
-  return 0;
-}
-
 export default function Analytics() {
   const { t } = useI18n();
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "1y">("30d");
 
   const { data: stats } = useGetAnalyticsOverview();
   const { data: revenueStats } = useGetRevenueTrend({ period });
-  const { data: trendStats } = useGetSubscriptionTrend({
-    period: period as any,
-  });
+  const { data: trendStats } = useGetSubscriptionTrend({ period });
   const { data: topContent } = useGetTopContent({ limit: 10, period });
 
   const statsData = stats?.data;
@@ -248,7 +230,14 @@ export default function Analytics() {
           </h1>
           <p className="text-muted-foreground">{t("analytics.subtitle")}</p>
         </div>
-        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+        <Select
+          value={period}
+          onValueChange={(value) => {
+            if (value === "7d" || value === "30d" || value === "90d" || value === "1y") {
+              setPeriod(value);
+            }
+          }}
+        >
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -472,7 +461,7 @@ export default function Analytics() {
                             : t("analytics.series")}
                       </Badge>
                       {(() => {
-                        const ratingNum = parseRating(item.rating ?? 0);
+                        const ratingNum = item.rating ?? 0;
                         return ratingNum > 0 ? (
                           <span className="flex items-center gap-0.5">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
