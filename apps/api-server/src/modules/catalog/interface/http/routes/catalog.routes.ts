@@ -32,6 +32,7 @@ import {
   UpdateSeriesParams,
   ListActorsQueryParams,
   CreateActorBody,
+  DeleteActorParams,
   UpdateActorParams,
   UpdateActorBody,
   CreateGenreBody,
@@ -51,6 +52,7 @@ import { DeleteMovieUseCase } from "../../../domain/use-cases/delete-movie.use-c
 import { ListSeriesUseCase } from "../../../domain/use-cases/list-series.use-case";
 import { ListGenresUseCase } from "../../../domain/use-cases/list-genres.use-case";
 import { ListActorsUseCase } from "../../../domain/use-cases/list-actors.use-case";
+import { toActorInsert, toActorResponse, toActorUpdate } from "../actor.mapper";
 
 const router = Router();
 
@@ -596,9 +598,9 @@ router.post(
     }
     const [actor] = await db
       .insert(actorsTable)
-      .values(parsed.data)
+      .values(toActorInsert(parsed.data))
       .returning();
-    res.status(201).json(actor);
+    res.status(201).json(toActorResponse(actor));
   },
 );
 router.patch(
@@ -615,7 +617,7 @@ router.patch(
     }
     const [actor] = await db
       .update(actorsTable)
-      .set(body.data)
+      .set(toActorUpdate(body.data))
       .where(
         and(
           eq(actorsTable.id, params.data.id),
@@ -627,7 +629,7 @@ router.patch(
       res.status(404).json({ error: "Actor not found" });
       return;
     }
-    res.json(actor);
+    res.json(toActorResponse(actor));
   },
 );
 
@@ -642,9 +644,9 @@ router.post(
     }
     const [actor] = await db
       .insert(actorsTable)
-      .values(parsed.data)
+      .values(toActorInsert(parsed.data))
       .returning();
-    res.status(201).json(actor);
+    res.status(201).json(toActorResponse(actor));
   },
 );
 
@@ -662,7 +664,7 @@ router.patch(
     }
     const [actor] = await db
       .update(actorsTable)
-      .set(body.data)
+      .set(toActorUpdate(body.data))
       .where(
         and(
           eq(actorsTable.id, params.data.id),
@@ -674,8 +676,48 @@ router.patch(
       res.status(404).json({ error: "Actor not found" });
       return;
     }
-    res.json(actor);
+    res.json(toActorResponse(actor));
   },
+);
+
+const deleteActorHandler = async (
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> => {
+  const params = DeleteActorParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [actor] = await db
+    .update(actorsTable)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        eq(actorsTable.id, params.data.id),
+        sql`${actorsTable.deletedAt} IS NULL`,
+      ),
+    )
+    .returning({ id: actorsTable.id });
+
+  if (!actor) {
+    res.status(404).json({ error: "Actor not found" });
+    return;
+  }
+
+  res.sendStatus(204);
+};
+
+router.delete(
+  "/actors/:id",
+  requirePermission(Permission.DELETE_CONTENT),
+  deleteActorHandler,
+);
+router.delete(
+  "/catalog/actors/:id",
+  requirePermission(Permission.DELETE_CONTENT),
+  deleteActorHandler,
 );
 
 router.post(

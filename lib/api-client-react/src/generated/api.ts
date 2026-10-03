@@ -456,6 +456,80 @@ export const useUpdateActor = <TError = ErrorType<unknown>,
       return useMutation(getUpdateActorMutationOptions(options));
     }
 
+export const getDeleteActorUrl = (id: string,) => {
+
+
+
+
+  return `/api/actors/${id}`
+}
+
+/**
+ * @summary Delete actor
+ */
+export const deleteActor = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteActorUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteActorMutationKey = () => ['deleteActor'] as const;
+
+export const getDeleteActorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext> => {
+
+const mutationKey = getDeleteActorMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteActor>>, DeleteActorMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteActor(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteActorMutationResult = NonNullable<Awaited<ReturnType<typeof deleteActor>>>
+
+    export type DeleteActorMutationError = ErrorType<unknown>
+    export type DeleteActorMutationVariables = {id: string}
+
+    /**
+ * @summary Delete actor
+ */
+export const useDeleteActor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteActor>>,
+        TError,
+        DeleteActorMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteActorMutationOptions(options));
+    }
+
 export const getListAdminUsersUrl = (params?: ListAdminUsersParams,) => {
   const normalizedParams = new URLSearchParams();
 

@@ -68,6 +68,16 @@ export const UpdateActorResponse = zod.object({
 
 
 /**
+ * @summary Delete actor
+ */
+export const DeleteActorParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteActorResponse = zod.void()
+
+
+/**
  * @summary List administrative users
  */
 export const ListAdminUsersQueryParams = zod.object({

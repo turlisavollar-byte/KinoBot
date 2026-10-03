@@ -3,7 +3,9 @@ import {
   useListActors,
   useCreateActor,
   useUpdateActor,
+  useDeleteActor,
   getListActorsQueryKey,
+  type Actor,
 } from "@workspace/api-client-react";
 import {
   Table,
@@ -15,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit } from "lucide-react";
+import { Search, Plus, Edit, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -27,22 +29,20 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 
 export default function ActorsList() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const { data: actors, isLoading } = useListActors({ search });
-  const actorsList = Array.isArray(actors)
-    ? actors
-    : Array.isArray((actors as any)?.data)
-      ? (actors as any).data
-      : [];
+  const actorsList = actors ?? [];
   const createActor = useCreateActor();
   const updateActor = useUpdateActor();
+  const deleteActor = useDeleteActor();
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [editingActor, setEditingActor] = useState<any>(null);
+  const [editingActor, setEditingActor] = useState<Actor | null>(null);
 
   const [name, setName] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
@@ -56,7 +56,7 @@ export default function ActorsList() {
     setIsOpen(true);
   };
 
-  const openEdit = (actor: any) => {
+  const openEdit = (actor: Actor) => {
     setEditingActor(actor);
     setName(actor.name);
     setPhotoUrl(actor.photoUrl || "");
@@ -94,6 +94,27 @@ export default function ActorsList() {
     }
   };
 
+  const handleDelete = (actor: Actor) => {
+    if (!window.confirm(t("actors.deleteConfirm"))) return;
+
+    deleteActor.mutate(
+      { id: actor.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getListActorsQueryKey(),
+          });
+          toast.success(t("actors.deleted"));
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof Error ? error.message : t("actors.deleteError"),
+          );
+        },
+      },
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -128,7 +149,7 @@ export default function ActorsList() {
               <TableHead className="w-[80px]">{t("actors.photo")}</TableHead>
               <TableHead>{t("actors.name")}</TableHead>
               <TableHead>{t("actors.bio")}</TableHead>
-              <TableHead className="text-right">{t("common.edit")}</TableHead>
+                  <TableHead className="text-right">{t("common.edit")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -145,7 +166,7 @@ export default function ActorsList() {
                 </TableCell>
               </TableRow>
             ) : (
-              actorsList.map((actor: any) => (
+              actorsList.map((actor) => (
                 <TableRow key={actor.id}>
                   <TableCell>
                     {actor.photoUrl ? (
@@ -164,17 +185,29 @@ export default function ActorsList() {
                   </TableCell>
                   <TableCell className="font-medium">{actor.name}</TableCell>
                   <TableCell className="max-w-md truncate text-muted-foreground">
-                    {actor.bio || t("actors.noActors")}
+                    {actor.bio || t("actors.noBiography")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openEdit(actor)}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      {t("common.edit")}
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEdit(actor)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        {t("common.edit")}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        aria-label={t("actors.delete")}
+                        title={t("actors.delete")}
+                        disabled={deleteActor.isPending}
+                        onClick={() => handleDelete(actor)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

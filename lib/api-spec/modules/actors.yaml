@@ -82,6 +82,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Actor"
 
+    delete:
+      operationId: deleteActor
+      tags: [actors]
+      summary: Delete actor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Actor deleted
+
 components:
   schemas:
     Actor:
