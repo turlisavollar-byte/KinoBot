@@ -13,6 +13,7 @@ import { registerStartHandler } from "@/bot/handlers/start";
 import { registerCatalogHandler } from "@/bot/handlers/catalog";
 import { registerSubscriptionHandler } from "@/bot/handlers/subscription";
 import { registerStorageHandler } from "@/bot/handlers/storage";
+import { registerActorHandler } from "@/bot/handlers/actor";
 
 export interface SessionData {
   step?: string;
@@ -141,6 +142,7 @@ export function buildBot(token: string): Bot<BotContext> {
   registerStorageHandler(bot);
   registerStartHandler(bot);
   registerCatalogHandler(bot);
+  registerActorHandler(bot);
   registerSubscriptionHandler(bot);
 
   bot.catch((err) => {

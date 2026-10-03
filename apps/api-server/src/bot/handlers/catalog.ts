@@ -3,6 +3,8 @@ import { eq, and, sql, ilike } from "drizzle-orm";
 import {
   db,
   moviesTable,
+  actorsTable,
+  movieActorsTable,
   seriesTable,
   seasonsTable,
   episodesTable,
@@ -78,6 +80,53 @@ function escapeHtml(value: string): string {
         "'": "&#39;",
       })[character] ?? character,
   );
+}
+
+interface MovieCastMember {
+  actorId: string;
+  name: string;
+  role: string | null;
+}
+
+async function getPublishedMovieCast(movieId: string): Promise<MovieCastMember[]> {
+  return db
+    .select({
+      actorId: actorsTable.id,
+      name: actorsTable.name,
+      role: movieActorsTable.role,
+    })
+    .from(movieActorsTable)
+    .innerJoin(actorsTable, eq(movieActorsTable.actorId, actorsTable.id))
+    .innerJoin(moviesTable, eq(movieActorsTable.movieId, moviesTable.id))
+    .where(
+      and(
+        eq(movieActorsTable.movieId, movieId),
+        eq(moviesTable.isPublished, true),
+        sql`${moviesTable.deletedAt} IS NULL`,
+        sql`${actorsTable.deletedAt} IS NULL`,
+      ),
+    )
+    .orderBy(actorsTable.name);
+}
+
+export function formatMovieCast(cast: MovieCastMember[], isUz: boolean): string {
+  if (cast.length === 0) return "";
+  const lines = cast.map(
+    (member) =>
+      `• ${escapeHtml(member.name)}${member.role ? ` — ${escapeHtml(member.role)}` : ""}`,
+  );
+  const heading = isUz ? "🎭 <b>Aktyorlar</b>" : "🎭 <b>Актёры</b>";
+  return `${heading}\n${lines.slice(0, 8).join("\n")}`.slice(0, 720);
+}
+
+function movieCastKeyboard(cast: MovieCastMember[], isUz: boolean): InlineKeyboard | undefined {
+  if (cast.length === 0) return undefined;
+  const keyboard = new InlineKeyboard();
+  for (const member of cast.slice(0, 6)) {
+    keyboard.text(`🎭 ${member.name.slice(0, 28)}`, `actor:view:${member.actorId}`).row();
+  }
+  keyboard.text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main");
+  return keyboard;
 }
 
 /**
@@ -267,21 +316,34 @@ async function sendVideoCode(
   entry: typeof videoCodesTable.$inferSelect,
 ) {
   const isUz = ctx.session.language === "uz";
+  const cast = entry.movieId
+    ? await getPublishedMovieCast(entry.movieId)
+    : [];
+  const castText = formatMovieCast(cast, isUz);
+  const keyboard = new InlineKeyboard().text(
+    isUz ? "✅ Ko'rib bo'ldim — o'chirish" : "✅ Просмотрено — удалить",
+    `vidcode:del:${entry.code}`,
+  );
+  if (cast.length > 0) {
+    keyboard.row();
+    for (const member of cast.slice(0, 6)) {
+      keyboard
+        .text(`🎭 ${member.name.slice(0, 28)}`, `actor:view:${member.actorId}`)
+        .row();
+    }
+  }
+  keyboard
+    .text(isUz ? "🎬 Boshqa kod" : "🎬 Другой код", "videocodes:enter")
+    .text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main");
   const msg = await ctx.replyWithVideo(entry.telegramFileId!, {
     caption:
       `🎬 <b>${escapeHtml(entry.title)}</b>\n\n` +
       `📋 ${isUz ? "Kod" : "Код"}: <code>${escapeHtml(entry.code)}</code>\n\n` +
+      (castText ? `${castText}\n\n` : "") +
       `<i>${isUz ? "Ko'rib bo'lgach quyidagi tugmani bosing" : "После просмотра нажмите кнопку ниже"}</i>`,
     parse_mode: "HTML",
     protect_content: true,
-    reply_markup: new InlineKeyboard()
-      .text(
-        isUz ? "✅ Ko'rib bo'ldim — o'chirish" : "✅ Просмотрено — удалить",
-        `vidcode:del:${entry.code}`,
-      )
-      .row()
-      .text(isUz ? "🎬 Boshqa kod" : "🎬 Другой код", "videocodes:enter")
-      .text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main"),
+    reply_markup: keyboard,
   });
 
   await db
@@ -591,10 +653,16 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
     }
 
     await ctx.answerCallbackQuery(isUz ? "Yuborilmoqda..." : "Отправляем...");
+    const cast = await getPublishedMovieCast(movieId);
+    const castText = formatMovieCast(cast, isUz);
+    const castKeyboard = movieCastKeyboard(cast, isUz);
     await ctx.replyWithVideo(movie.telegramFileId, {
-      caption: `🎬 <b>${escapeHtml(movie.title)}</b>${movie.releaseYear ? ` (${movie.releaseYear})` : ""}`,
+      caption:
+        `🎬 <b>${escapeHtml(movie.title)}</b>${movie.releaseYear ? ` (${movie.releaseYear})` : ""}` +
+        (castText ? `\n\n${castText}` : ""),
       parse_mode: "HTML",
       protect_content: true,
+      ...(castKeyboard && { reply_markup: castKeyboard }),
     });
 
     // Increment view count

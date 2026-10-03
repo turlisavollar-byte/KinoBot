@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   channelLink,
+  formatMovieCast,
   isDifferentUtcMonth,
   isDifferentUtcWeek,
   requiredChannelKeyboard,
 } from "./catalog";
+
+describe("movie cast captions", () => {
+  it("formats localized cast roles and escapes actor-provided HTML", () => {
+    expect(
+      formatMovieCast(
+        [{ actorId: "actor-id", name: "Actor <One>", role: "Lead & Hero" }],
+        true,
+      ),
+    ).toContain("Actor &lt;One&gt; — Lead &amp; Hero");
+  });
+
+  it("omits cast metadata when a movie has no actor relations", () => {
+    expect(formatMovieCast([], false)).toBe("");
+  });
+});
 
 describe("UTC code limit reset bucketing", () => {
   it("keeps the same ISO week in the same reset bucket", () => {

@@ -66,6 +66,7 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("@/bot/handlers/start", () => ({ registerStartHandler: vi.fn() }));
 vi.mock("@/bot/handlers/catalog", () => ({ registerCatalogHandler: vi.fn() }));
+vi.mock("@/bot/handlers/actor", () => ({ registerActorHandler: vi.fn() }));
 vi.mock("@/bot/handlers/subscription", () => ({
   registerSubscriptionHandler: vi.fn(),
 }));
