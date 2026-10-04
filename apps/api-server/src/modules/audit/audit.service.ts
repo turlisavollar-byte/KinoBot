@@ -85,12 +85,11 @@ function generateAuditId(): string {
  */
 export class AuditService {
   private readonly logger = new Logger("AuditService");
-  private readonly isProduction = process.env.NODE_ENV === "production";
 
   private shouldSkipAuditWrites(): boolean {
     return (
-      this.isProduction ||
       process.env.NODE_ENV === "test" ||
+      process.env.AUDIT_ENABLED === "false" ||
       process.env.DISABLE_AUDIT_LOGS === "true" ||
       process.env.AUDIT_LOGS_ENABLED === "false"
     );
