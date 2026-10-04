@@ -424,12 +424,12 @@ export default function NotificationsList() {
                 </div>
               ))}
             </div>
-            <div className="rounded-lg border border-sky-500/20 bg-sky-950/20 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-sky-300 mb-3">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/20 dark:bg-sky-950/20">
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-sky-800 dark:text-sky-300">
                 <Eye className="h-3.5 w-3.5" />{" "}
                 {t("notifications.telegramPreview")}
               </div>
-              <div className="rounded-md bg-slate-900/80 p-3 text-sm whitespace-pre-wrap">
+              <div className="whitespace-pre-wrap rounded-md bg-white p-3 text-sm text-slate-900 shadow-sm dark:bg-slate-900/80 dark:text-slate-100">
                 {content || t("notifications.previewPlaceholder")}
               </div>
               {buttons.some(
@@ -441,7 +441,7 @@ export default function NotificationsList() {
                     .map((button, index) => (
                       <div
                         key={index}
-                        className="rounded bg-sky-500/15 px-3 py-1.5 text-center text-xs text-sky-300"
+                        className="rounded bg-sky-100 px-3 py-1.5 text-center text-xs text-sky-800 dark:bg-sky-500/15 dark:text-sky-300"
                       >
                         {button.text}
                       </div>
