@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -532,7 +533,7 @@ export default function SeriesDetail() {
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-2">
-              <FormLabel htmlFor="season-number">{t("series.seasonNumberPrompt")}</FormLabel>
+              <Label htmlFor="season-number">{t("series.seasonNumberPrompt")}</Label>
               <Input
                 id="season-number"
                 type="number"
@@ -542,7 +543,7 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <FormLabel htmlFor="season-title">{t("series.seasonTitlePrompt")}</FormLabel>
+              <Label htmlFor="season-title">{t("series.seasonTitlePrompt")}</Label>
               <Input
                 id="season-title"
                 value={seasonTitle}
@@ -568,7 +569,7 @@ export default function SeriesDetail() {
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-2">
-              <FormLabel htmlFor="episode-number">{t("series.episodeNumberPrompt")}</FormLabel>
+              <Label htmlFor="episode-number">{t("series.episodeNumberPrompt")}</Label>
               <Input
                 id="episode-number"
                 type="number"
@@ -578,7 +579,7 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <FormLabel htmlFor="episode-title">{t("series.episodeTitlePrompt")}</FormLabel>
+              <Label htmlFor="episode-title">{t("series.episodeTitlePrompt")}</Label>
               <Input
                 id="episode-title"
                 value={episodeTitle}
@@ -586,7 +587,7 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <FormLabel htmlFor="episode-file-id">{t("series.telegramFileIdPrompt")}</FormLabel>
+              <Label htmlFor="episode-file-id">{t("series.telegramFileIdPrompt")}</Label>
               <Input
                 id="episode-file-id"
                 value={telegramFileId}
