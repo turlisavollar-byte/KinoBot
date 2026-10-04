@@ -254,7 +254,7 @@ export default function Dashboard() {
           title={t("dashboard.totalRevenue")}
           value={`$${(statsData?.totalRevenue ?? 0).toLocaleString()}`}
           icon={DollarSign}
-          iconColor="text-emerald-400"
+          iconColor="text-emerald-700 dark:text-emerald-400"
           subtitle={t("dashboard.allTime")}
           loading={statsLoading}
         />
@@ -262,7 +262,7 @@ export default function Dashboard() {
           title={t("dashboard.activeUsers")}
           value={(statsData?.activeUsers ?? 0).toLocaleString()}
           icon={Users}
-          iconColor="text-blue-400"
+          iconColor="text-blue-700 dark:text-blue-400"
           subtitle={`${(statsData?.totalUsers ?? 0).toLocaleString()} ${t("dashboard.total")}`}
           loading={statsLoading}
         />
@@ -278,7 +278,7 @@ export default function Dashboard() {
           title={t("dashboard.subscribers")}
           value={(statsData?.activeSubscriptions ?? 0).toLocaleString()}
           icon={CreditCard}
-          iconColor="text-amber-400"
+          iconColor="text-amber-700 dark:text-amber-400"
           subtitle={t("dashboard.activePlans")}
           loading={statsLoading}
         />
@@ -290,7 +290,7 @@ export default function Dashboard() {
           title={t("movies.title")}
           value={(statsData?.totalMovies ?? 0).toLocaleString()}
           icon={Film}
-          iconColor="text-rose-400"
+          iconColor="text-rose-700 dark:text-rose-400"
           subtitle={t("dashboard.inCatalog")}
           loading={statsLoading}
         />
@@ -298,7 +298,7 @@ export default function Dashboard() {
           title={t("series.title")}
           value={(statsData?.totalSeries ?? 0).toLocaleString()}
           icon={Tv}
-          iconColor="text-cyan-400"
+          iconColor="text-cyan-700 dark:text-cyan-400"
           subtitle={t("dashboard.tvShows")}
           loading={statsLoading}
         />
@@ -541,8 +541,8 @@ export default function Dashboard() {
                   className={cn(
                     "flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg",
                     healthOk
-                      ? "bg-emerald-950/40 text-emerald-300"
-                      : "bg-red-950/40 text-red-300",
+                      ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300",
                   )}
                 >
                   {healthOk ? (

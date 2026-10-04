@@ -126,7 +126,7 @@ export default function PaymentsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("payments.title")}
@@ -139,7 +139,7 @@ export default function PaymentsList() {
         </Button>
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-wrap items-center gap-4">
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-45">
             <SelectValue placeholder="Filter by status" />

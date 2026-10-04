@@ -129,6 +129,7 @@ function InstagramDeeplinkCard() {
             variant="outline"
             size="icon"
             onClick={handleCopy}
+            disabled={!link}
             className="shrink-0"
           >
             {copied ? (
@@ -223,7 +224,7 @@ export default function Analytics() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("analytics.title")}
@@ -238,7 +239,7 @@ export default function Analytics() {
             }
           }}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -251,7 +252,7 @@ export default function Analytics() {
       </div>
 
       {/* Overview cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {overviewCards.map((card) => (
           <Card key={card.label}>
             <CardHeader className="pb-2">

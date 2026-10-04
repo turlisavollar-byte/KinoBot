@@ -28,9 +28,9 @@ interface FeatureFlag {
 }
 
 const STATUS_COLORS = {
-  enabled:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  enabled:  "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400",
   disabled: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  rollout:  "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  rollout:  "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400",
 };
 
 export default function FeatureFlags() {
@@ -169,7 +169,7 @@ export default function FeatureFlags() {
               <Textarea placeholder={t("system.featureFlags.descriptionPlaceholder")} value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>{t("system.featureFlags.status")}</Label>
                 <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as typeof form.status }))}>

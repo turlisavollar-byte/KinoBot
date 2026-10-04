@@ -16,9 +16,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlaySquare } from "lucide-react";
+import { PlaySquare, Sun, Moon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useTheme } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
 
 export default function Login() {
   const { t } = useI18n();
@@ -31,6 +33,7 @@ export default function Login() {
   const register = useIdentityRegister();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { theme, setTheme } = useTheme();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,23 +97,38 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border/50 shadow-2xl">
-        <CardHeader className="space-y-3 text-center pb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-primary/10 p-3 rounded-2xl">
-              <PlaySquare className="w-10 h-10 text-primary" />
+    <main className="relative grid min-h-screen bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+      <section className="relative flex min-h-screen items-center justify-center px-5 py-16 sm:px-8 lg:px-12">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="absolute right-5 top-5 h-9 w-9 sm:right-8 sm:top-8"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
+          title={theme === "dark" ? t("theme.light") : t("theme.dark")}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+        <div className="w-full max-w-md">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <PlaySquare className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight">StreamOps</p>
+              <p className="text-xs text-muted-foreground">{t("app.adminPanel")}</p>
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight">
-            StreamOps
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {t("login.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="border-border/70 shadow-xl shadow-black/5">
+            <CardHeader className="space-y-2 pb-6">
+              <CardTitle className="text-2xl font-bold">
+                {isLogin ? t("login.signIn") : t("login.register")}
+              </CardTitle>
+              <CardDescription>{t("login.description")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="name">{t("login.name")}</Label>
@@ -121,7 +139,7 @@ export default function Login() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="bg-muted/50"
+                  className="bg-background"
                 />
               </div>
             )}
@@ -134,7 +152,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-muted/50"
+                className="bg-background"
               />
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
@@ -153,17 +171,17 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-muted/50"
+                className="bg-background"
               />
             </div>
             {error && (
-              <div className="text-destructive text-sm font-medium">
+              <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm font-medium text-destructive">
                 {error}
               </div>
             )}
             <Button
               type="submit"
-              className="w-full font-bold"
+              className="w-full font-semibold shadow-sm"
               size="lg"
               disabled={login.isPending || register.isPending}
             >
@@ -173,22 +191,49 @@ export default function Login() {
                   ? t("login.signIn")
                   : t("login.register")}
             </Button>
-          </form>
+              </form>
 
-          <div className="mt-4 text-center">
+              <div className="mt-6 border-t border-border pt-5 text-center">
             <button
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError("");
               }}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               {isLogin ? t("login.toggleToRegister") : t("login.toggleToLogin")}
             </button>
+              </div>
+            </CardContent>
+          </Card>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            {t("app.version")}
+          </p>
+        </div>
+      </section>
+      <aside className="relative hidden min-h-screen overflow-hidden bg-zinc-950 text-white lg:flex lg:flex-col lg:justify-between lg:px-12 lg:py-12">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(190,24,93,0.38),transparent_48%),linear-gradient(315deg,rgba(39,39,42,0.8),rgba(9,9,11,0.98))]" />
+        <div className="absolute inset-0 bg-size-[48px_48px] bg-[linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] opacity-20" />
+        <div className="relative flex items-center gap-3 text-sm font-medium text-white/75">
+          <span className="h-2 w-2 rounded-full bg-rose-400" />
+          StreamOps · Central Asia
+        </div>
+        <div className="relative max-w-xl py-16">
+          <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/15 bg-white/5 shadow-2xl backdrop-blur-sm">
+            <PlaySquare className="h-10 w-10 text-rose-300" />
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <p className="mb-4 text-xs font-semibold uppercase text-rose-300">{t("login.brandEyebrow")}</p>
+          <h1 className="text-5xl font-bold leading-[1.08]">{t("login.brandHeadline")}</h1>
+          <p className="mt-5 max-w-md text-base leading-7 text-white/65">
+            {t("login.description")}
+          </p>
+        </div>
+        <div className="relative flex items-center justify-between border-t border-white/15 pt-5 text-xs text-white/50">
+          <span>StreamOps</span>
+          <span>{t("app.version")}</span>
+        </div>
+      </aside>
+    </main>
   );
 }

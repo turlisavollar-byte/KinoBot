@@ -34,9 +34,9 @@ const SERVICE_META: Record<string, { icon: React.ElementType; label: string }> =
 };
 
 function statusColor(s: string) {
-  if (s === "ok" || s === "running") return "text-emerald-400";
-  if (s === "error" || s === "down") return "text-red-400";
-  return "text-amber-400";
+  if (s === "ok" || s === "running") return "text-emerald-700 dark:text-emerald-400";
+  if (s === "error" || s === "down") return "text-red-700 dark:text-red-400";
+  return "text-amber-700 dark:text-amber-400";
 }
 
 function statusLabel(s: string) {
@@ -86,15 +86,15 @@ export default function SystemHealth() {
       <div className={cn(
         "rounded-xl border p-4 mb-8 flex items-center gap-3",
         overallOk
-          ? "bg-emerald-950/30 border-emerald-800/40"
-          : "bg-red-950/30 border-red-800/40",
+          ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800/40"
+          : "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-800/40",
       )}>
         <div className={cn(
           "h-3 w-3 rounded-full animate-pulse",
           overallOk ? "bg-emerald-400" : "bg-red-400",
         )} />
         <div>
-          <p className={cn("font-semibold", overallOk ? "text-emerald-300" : "text-red-300")}>
+          <p className={cn("font-semibold", overallOk ? "text-emerald-800 dark:text-emerald-300" : "text-red-800 dark:text-red-300")}>
             {isLoading ? t("system.health.checking") : overallOk ? t("system.health.allOperational") : `System ${data?.status?.toUpperCase()}`}
           </p>
           {data && (
@@ -140,7 +140,7 @@ export default function SystemHealth() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: t("system.health.status"),    value: data.status.toUpperCase() },
                 { label: t("system.health.version"),   value: data.version },

@@ -315,7 +315,7 @@ export default function UserDetail() {
           <CardHeader>
             <CardTitle>{t("users.profileDetails")}</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-5">
+          <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
             <Info label={t("users.telegramId")} value={user.telegramId} mono />
             <Info
               label={t("users.status")}
@@ -425,7 +425,7 @@ export default function UserDetail() {
             {user.activeSubscription && (
               <Button
                 variant="secondary"
-                className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words px-3 py-2 text-left leading-tight"
+                className="mt-4 h-auto min-h-10 w-full whitespace-normal wrap-break-word px-3 py-2 text-left leading-tight"
                 onClick={openGrant}
               >
                 <Gift className="w-4 h-4 mr-2" />

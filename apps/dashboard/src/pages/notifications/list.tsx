@@ -194,14 +194,14 @@ export default function NotificationsList() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("notifications.title")}
           </h1>
           <p className="text-muted-foreground">{t("notifications.list")}</p>
         </div>
-        <div className="space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
             {t("notifications.add")}
@@ -218,11 +218,11 @@ export default function NotificationsList() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {isLoading ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground">
+          <div className="col-span-full text-center py-12 text-muted-foreground">
             {t("common.loading")}
           </div>
         ) : templates?.length === 0 ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground border rounded-md border-dashed">
+          <div className="col-span-full rounded-md border border-dashed py-12 text-center text-muted-foreground">
             {t("notifications.noNotifications")}
           </div>
         ) : (

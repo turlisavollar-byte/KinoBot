@@ -77,17 +77,17 @@ function isVideoCodeAccessPolicy(value: string): value is VideoCodeAccessPolicy 
 const STATUS_CONFIG = {
   pending: {
     label: "Pending",
-    color: "bg-amber-600/20 text-amber-400 border-amber-500/30",
+    color: "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-600/20 dark:text-amber-400 dark:border-amber-500/30",
     icon: Clock,
   },
   active: {
     label: "Active",
-    color: "bg-emerald-600/20 text-emerald-400 border-emerald-500/30",
+    color: "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-600/20 dark:text-emerald-400 dark:border-emerald-500/30",
     icon: CheckCircle,
   },
   inactive: {
     label: "Inactive",
-    color: "bg-zinc-700/30 text-zinc-400 border-zinc-600/30",
+    color: "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-600/30 dark:bg-zinc-700/30 dark:text-zinc-400",
     icon: EyeOff,
   },
 } as const;
@@ -375,17 +375,17 @@ export default function VideoCodes() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             label: t("videoCodes.pending"),
             count: pending.length,
-            color: "text-amber-400",
+            color: "text-amber-700 dark:text-amber-400",
           },
           {
             label: t("videoCodes.activeCodes"),
             count: active.length,
-            color: "text-emerald-400",
+            color: "text-emerald-700 dark:text-emerald-400",
           },
           {
             label: t("videoCodes.totalViews"),
@@ -394,7 +394,7 @@ export default function VideoCodes() {
                 (sum, code) => sum + (code.viewsCount ?? 0),
                 0,
               ) ?? 0,
-            color: "text-blue-400",
+            color: "text-blue-700 dark:text-blue-400",
           },
         ].map(({ label, count, color }) => (
           <Card key={label} className="border-border/60">
@@ -408,13 +408,13 @@ export default function VideoCodes() {
 
       {/* Pending approval */}
       {pending.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-950/10">
+        <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-950/10">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-amber-300">
+            <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
               <AlertCircle className="h-4 w-4" />{" "}
               {t("videoCodes.awaitingApproval")} ({pending.length})
             </CardTitle>
-            <CardDescription className="text-amber-400/70 text-xs">
+            <CardDescription className="text-amber-800/80 dark:text-amber-400/70 text-xs">
               {t("videoCodes.awaitingApprovalDesc")}
             </CardDescription>
           </CardHeader>
@@ -423,7 +423,7 @@ export default function VideoCodes() {
               {pending.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-950/20 border border-amber-500/20"
+                  className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-100/60 p-3 dark:border-amber-500/20 dark:bg-amber-950/20"
                 >
                   <CodeBadge code={c.code || ""} />
                   <div className="flex-1 min-w-0">
@@ -447,7 +447,7 @@ export default function VideoCodes() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                      className="h-7 text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                       onClick={() => handleDelete(c)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -484,7 +484,7 @@ export default function VideoCodes() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full min-w-[920px] text-sm">
+              <table className="w-full min-w-230 text-sm">
                 <thead className="bg-muted/40">
                   <tr>
                     {[
@@ -565,7 +565,7 @@ export default function VideoCodes() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-emerald-400 hover:bg-emerald-950/30"
+                              className="h-7 w-7 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                               title={t("videoCodes.activateTooltip")}
                               onClick={() => handleStatusChange(c, "active")}
                               disabled={updateCode.isPending}
@@ -588,7 +588,7 @@ export default function VideoCodes() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-red-400 hover:bg-red-950/30"
+                            className="h-7 w-7 text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             title={t("videoCodes.deleteTooltip")}
                             onClick={() => handleDelete(c)}
                           >
@@ -619,13 +619,13 @@ export default function VideoCodes() {
           </DialogHeader>
 
           {/* How to get file_id hint */}
-          <div className="flex gap-2.5 rounded-lg bg-blue-950/30 border border-blue-500/20 p-3 text-xs text-blue-300">
+          <div className="flex gap-2.5 rounded-lg border border-blue-300 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/30 dark:text-blue-300">
             <Info className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium mb-0.5">
                 {t("videoCodes.howToGetFileId")}
               </p>
-              <ol className="space-y-0.5 text-blue-300/80 list-decimal list-inside">
+              <ol className="list-inside list-decimal space-y-0.5 text-blue-800/80 dark:text-blue-300/80">
                 <li>
                   {t("videoCodes.howToGetFileIdStep1")}{" "}
                   <strong>
@@ -796,7 +796,7 @@ export default function VideoCodes() {
                 dragOver
                   ? "border-primary bg-primary/5"
                   : "border-border/60 hover:border-primary/50",
-                selectedFile && "border-emerald-500/50 bg-emerald-950/10",
+                selectedFile && "border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/10",
               )}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => {
@@ -813,8 +813,8 @@ export default function VideoCodes() {
             >
               {selectedFile ? (
                 <>
-                  <Film className="h-8 w-8 mx-auto mb-2 text-emerald-400" />
-                  <p className="font-medium text-sm text-emerald-300">
+                  <Film className="mx-auto mb-2 h-8 w-8 text-emerald-700 dark:text-emerald-400" />
+                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
                     {selectedFile.name}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">

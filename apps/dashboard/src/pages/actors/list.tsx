@@ -118,7 +118,7 @@ export default function ActorsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("actors.title")}
@@ -147,7 +147,7 @@ export default function ActorsList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">{t("actors.photo")}</TableHead>
+              <TableHead className="w-20">{t("actors.photo")}</TableHead>
               <TableHead>{t("actors.name")}</TableHead>
               <TableHead>{t("actors.bio")}</TableHead>
                   <TableHead className="text-right">{t("common.edit")}</TableHead>

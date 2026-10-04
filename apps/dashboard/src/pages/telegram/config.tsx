@@ -363,7 +363,7 @@ export default function TelegramConfig() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
             {t("telegram.title")}
@@ -372,7 +372,7 @@ export default function TelegramConfig() {
             {t("telegram.description")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -401,11 +401,10 @@ export default function TelegramConfig() {
 
       {/* Setup guide alert when not configured */}
       {!tokenIsConfigured && (
-        <Alert className="border-amber-500/30 bg-amber-950/20">
-          <AlertCircle className="h-4 w-4 text-amber-400" />
-          <AlertDescription className="text-amber-200 text-sm">
-            <strong>{t("telegram.setupRequired")}</strong>{" "}
-            {t("telegram.setupRequiredText")}
+        <Alert className="border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/20">
+          <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <AlertDescription className="text-sm text-amber-900 dark:text-amber-200">
+            <strong>{t("telegram.setupRequired")}</strong> {t("telegram.setupRequiredText")}
           </AlertDescription>
         </Alert>
       )}
@@ -439,9 +438,8 @@ export default function TelegramConfig() {
                   className="pr-32"
                 />
                 {tokenIsConfigured && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-emerald-400">
-                    <CheckCircle className="h-3 w-3" />{" "}
-                    {t("telegram.configured")}
+                  <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle className="h-3 w-3" /> {t("telegram.configured")}
                   </div>
                 )}
               </div>
@@ -486,7 +484,7 @@ export default function TelegramConfig() {
               className={cn(
                 "flex items-center justify-between p-4 border rounded-lg transition-colors",
                 isActive
-                  ? "border-emerald-500/30 bg-emerald-950/20"
+                  ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-950/20"
                   : "border-border",
               )}
             >
@@ -564,7 +562,7 @@ export default function TelegramConfig() {
                   variant="outline"
                   onClick={handleStartBot}
                   disabled={botStarting || isOnline || !tokenIsConfigured}
-                  className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/30 disabled:opacity-40"
+                  className="border-emerald-300 text-emerald-800 hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-500/40 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                 >
                   {botStarting ? (
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -579,7 +577,7 @@ export default function TelegramConfig() {
                   variant="outline"
                   onClick={handleStopBot}
                   disabled={botStopping || !isOnline}
-                  className="border-red-500/40 text-red-400 hover:bg-red-950/30 disabled:opacity-40"
+                  className="border-red-300 text-red-800 hover:bg-red-50 disabled:opacity-40 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-950/30"
                 >
                   {botStopping ? (
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -589,15 +587,13 @@ export default function TelegramConfig() {
                   {botStopping ? t("telegram.stopping") : t("telegram.stopBot")}
                 </Button>
                 {!tokenIsConfigured && (
-                  <p className="text-xs text-amber-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{" "}
-                    {t("telegram.saveTokenFirst")}
+                  <p className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="h-3 w-3" /> {t("telegram.saveTokenFirst")}
                   </p>
                 )}
                 {tokenIsConfigured && !isActive && (
-                  <p className="text-xs text-amber-400 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{" "}
-                    {t("telegram.enableSwitchFirst")}
+                  <p className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="h-3 w-3" /> {t("telegram.enableSwitchFirst")}
                   </p>
                 )}
               </div>
@@ -618,7 +614,7 @@ export default function TelegramConfig() {
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium",
                 isOnline
-                  ? "bg-emerald-950/40 text-emerald-300"
+                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                   : "bg-zinc-800/60 text-zinc-400",
               )}
             >
@@ -781,10 +777,10 @@ export default function TelegramConfig() {
 
           {/* Detected channels */}
           {adminChannels.length > 0 && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
-                <CheckCircle className="h-4 w-4" />{" "}
-                {t("telegram.detectedAdminChannels")} ({adminChannels.length})
+            <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
+                <CheckCircle className="h-4 w-4" /> {t("telegram.detectedAdminChannels")} (
+                {adminChannels.length})
               </div>
               <div className="space-y-2">
                 {adminChannels.map((channel) => (
@@ -849,8 +845,8 @@ export default function TelegramConfig() {
           </div>
 
           {/* Channels table */}
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-140 text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   {[
@@ -891,7 +887,7 @@ export default function TelegramConfig() {
                       <td className="px-4 py-3">{ch.filesCount ?? 0}</td>
                       <td className="px-4 py-3">
                         {ch.isActive ? (
-                          <Badge className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30">
+                          <Badge className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-600/20 dark:text-emerald-400">
                             {t("telegram.active")}
                           </Badge>
                         ) : (

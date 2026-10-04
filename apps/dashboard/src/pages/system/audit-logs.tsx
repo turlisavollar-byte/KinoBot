@@ -199,7 +199,7 @@ const ACTION_META: Record<
 > = {
   LOGIN: {
     icon: LogIn,
-    color: "text-emerald-400",
+    color: "text-emerald-700 dark:text-emerald-400",
     bgColor: "bg-emerald-400/10",
     label: "Login",
     category: "auth",
@@ -213,203 +213,203 @@ const ACTION_META: Record<
   },
   LOGIN_FAILED: {
     icon: AlertCircle,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Login Failed",
     category: "auth",
   },
   REGISTER: {
     icon: Plus,
-    color: "text-blue-400",
+    color: "text-blue-700 dark:text-blue-400",
     bgColor: "bg-blue-400/10",
     label: "Register",
     category: "auth",
   },
   VERIFY_EMAIL: {
     icon: Check,
-    color: "text-emerald-400",
+    color: "text-emerald-700 dark:text-emerald-400",
     bgColor: "bg-emerald-400/10",
     label: "Verify Email",
     category: "auth",
   },
   RESET_PASSWORD: {
     icon: Settings,
-    color: "text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bgColor: "bg-amber-400/10",
     label: "Reset Password",
     category: "auth",
   },
   CREATE: {
     icon: Plus,
-    color: "text-blue-400",
+    color: "text-blue-700 dark:text-blue-400",
     bgColor: "bg-blue-400/10",
     label: "Create",
     category: "crud",
   },
   READ: {
     icon: Eye,
-    color: "text-sky-400",
+    color: "text-sky-700 dark:text-sky-400",
     bgColor: "bg-sky-400/10",
     label: "Read",
     category: "crud",
   },
   UPDATE: {
     icon: Edit,
-    color: "text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bgColor: "bg-amber-400/10",
     label: "Update",
     category: "crud",
   },
   DELETE: {
     icon: Trash2,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Delete",
     category: "crud",
   },
   UPSERT: {
     icon: Edit,
-    color: "text-purple-400",
+    color: "text-purple-700 dark:text-purple-400",
     bgColor: "bg-purple-400/10",
     label: "Upsert",
     category: "crud",
   },
   SUBSCRIPTION_CREATED: {
     icon: Plus,
-    color: "text-emerald-400",
+    color: "text-emerald-700 dark:text-emerald-400",
     bgColor: "bg-emerald-400/10",
     label: "Subscription Created",
     category: "payment",
   },
   SUBSCRIPTION_CANCELLED: {
     icon: Trash2,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Subscription Cancelled",
     category: "payment",
   },
   SUBSCRIPTION_UPDATED: {
     icon: Edit,
-    color: "text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bgColor: "bg-amber-400/10",
     label: "Subscription Updated",
     category: "payment",
   },
   PAYMENT_COMPLETED: {
     icon: Check,
-    color: "text-emerald-400",
+    color: "text-emerald-700 dark:text-emerald-400",
     bgColor: "bg-emerald-400/10",
     label: "Payment Completed",
     category: "payment",
   },
   PAYMENT_FAILED: {
     icon: AlertCircle,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Payment Failed",
     category: "payment",
   },
   PAYMENT_REFUNDED: {
     icon: LogOut,
-    color: "text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bgColor: "bg-amber-400/10",
     label: "Payment Refunded",
     category: "payment",
   },
   BOT_COMMAND: {
     icon: Send,
-    color: "text-cyan-400",
+    color: "text-cyan-700 dark:text-cyan-400",
     bgColor: "bg-cyan-400/10",
     label: "Bot Command",
     category: "system",
   },
   CONFIG_CHANGED: {
     icon: Settings,
-    color: "text-violet-400",
+    color: "text-violet-700 dark:text-violet-400",
     bgColor: "bg-violet-400/10",
     label: "Config Changed",
     category: "admin",
   },
   ROLE_CHANGED: {
     icon: Shield,
-    color: "text-purple-400",
+    color: "text-purple-700 dark:text-purple-400",
     bgColor: "bg-purple-400/10",
     label: "Role Changed",
     category: "admin",
   },
   PERMISSION_CHANGED: {
     icon: Shield,
-    color: "text-indigo-400",
+    color: "text-indigo-700 dark:text-indigo-400",
     bgColor: "bg-indigo-400/10",
     label: "Permission Changed",
     category: "admin",
   },
   EXPORT_DATA: {
     icon: Download,
-    color: "text-blue-400",
+    color: "text-blue-700 dark:text-blue-400",
     bgColor: "bg-blue-400/10",
     label: "Export Data",
     category: "admin",
   },
   IMPORT_DATA: {
     icon: Upload,
-    color: "text-green-400",
+    color: "text-green-700 dark:text-green-400",
     bgColor: "bg-green-400/10",
     label: "Import Data",
     category: "admin",
   },
   SYSTEM_START: {
     icon: Info,
-    color: "text-green-400",
+    color: "text-green-700 dark:text-green-400",
     bgColor: "bg-green-400/10",
     label: "System Start",
     category: "system",
   },
   SYSTEM_STOP: {
     icon: Info,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "System Stop",
     category: "system",
   },
   ERROR: {
     icon: AlertCircle,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Error",
     category: "system",
   },
   WARNING: {
     icon: AlertCircle,
-    color: "text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bgColor: "bg-amber-400/10",
     label: "Warning",
     category: "system",
   },
   AUDIT_VIEW: {
     icon: Eye,
-    color: "text-sky-400",
+    color: "text-sky-700 dark:text-sky-400",
     bgColor: "bg-sky-400/10",
     label: "Audit View",
     category: "security",
   },
   AUDIT_EXPORT: {
     icon: Download,
-    color: "text-blue-400",
+    color: "text-blue-700 dark:text-blue-400",
     bgColor: "bg-blue-400/10",
     label: "Audit Export",
     category: "security",
   },
   SECURITY_ALERT: {
     icon: Shield,
-    color: "text-red-400",
+    color: "text-red-700 dark:text-red-400",
     bgColor: "bg-red-400/10",
     label: "Security Alert",
     category: "security",
   },
   COMPLIANCE_CHECK: {
     icon: Shield,
-    color: "text-purple-400",
+    color: "text-purple-700 dark:text-purple-400",
     bgColor: "bg-purple-400/10",
     label: "Compliance Check",
     category: "security",
@@ -526,7 +526,7 @@ function LogDetailsDialog({
         <ScrollArea className="h-[calc(80vh-120px)] pr-4">
           <div className="space-y-6">
             {/* Summary */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Action</p>
                 <p className="font-medium">{meta.label}</p>
@@ -615,12 +615,12 @@ function LogDetailsDialog({
                 <div className="bg-muted/30 rounded-lg p-4 space-y-2">
                   {log.diff &&
                     Object.entries(log.diff).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-3 gap-2 text-sm">
+                      <div key={key} className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                         <span className="font-medium">{key}</span>
-                        <span className="text-red-400 line-through">
+                        <span className="text-red-700 line-through dark:text-red-400">
                           {String(value.old)}
                         </span>
-                        <span className="text-emerald-400">
+                        <span className="text-emerald-700 dark:text-emerald-400">
                           {String(value.new)}
                         </span>
                       </div>
@@ -674,7 +674,7 @@ function LogDetailsDialog({
             {/* Context */}
             <div>
               <h4 className="text-sm font-semibold mb-2">Context</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 {log.ipAddress && (
                   <div>
                     <p className="text-muted-foreground">IP Address</p>

@@ -12,8 +12,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { clearTokens } from "@/lib/auth-token";
 import { useI18n } from "@/lib/i18n";
-import { Search, LogOut, User, Keyboard, Globe } from "lucide-react";
+import {
+  Search,
+  LogOut,
+  User,
+  Keyboard,
+  Globe,
+  Sun,
+  Moon,
+  Monitor,
+  Check,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 
 const BREADCRUMB_MAP: Record<string, string[]> = {
   "/":                       ["Dashboard"],
@@ -49,6 +60,7 @@ function TopHeader() {
   const logout = useIdentityLogout();
   const queryClient = useQueryClient();
   const { locale, setLocale, t } = useI18n();
+  const { theme, setTheme } = useTheme();
   const crumbs = getBreadcrumb(location);
 
   const handleLogout = () => {
@@ -102,6 +114,7 @@ function TopHeader() {
             variant="ghost" size="icon"
             className="h-7 w-7 sm:hidden"
             onClick={() => setOpen(true)}
+            aria-label={t("shell.search")}
           >
             <Search className="h-3.5 w-3.5" />
           </Button>
@@ -124,6 +137,47 @@ function TopHeader() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setLocale("en")} className="gap-2 text-xs">
                 <span className="w-4 text-center">🇬🇧</span> {t("language.en")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label={t("theme.label")}
+                title={t("theme.label")}
+              >
+                {theme === "system" ? (
+                  <Monitor className="h-4 w-4" />
+                ) : theme === "dark" ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel className="text-xs">
+                {t("theme.label")}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2">
+                <Sun className="h-3.5 w-3.5" />
+                {t("theme.light")}
+                {theme === "light" && <Check className="ml-auto h-3.5 w-3.5" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2">
+                <Moon className="h-3.5 w-3.5" />
+                {t("theme.dark")}
+                {theme === "dark" && <Check className="ml-auto h-3.5 w-3.5" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2">
+                <Monitor className="h-3.5 w-3.5" />
+                {t("theme.system")}
+                {theme === "system" && <Check className="ml-auto h-3.5 w-3.5" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -176,7 +230,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0">
           <TopHeader />
           <main className="flex-1 overflow-auto">
-            <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
+            <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 md:p-8">
               {children}
             </div>
           </main>
