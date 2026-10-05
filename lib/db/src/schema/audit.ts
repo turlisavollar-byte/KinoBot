@@ -10,8 +10,15 @@ import {
   jsonb,
   index,
   foreignKey,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+export const auditSeverityEnum = pgEnum("audit_severity", [
+  "info",
+  "warning",
+  "critical",
+]);
 
 // Audit log table - append-only design
 export const auditLogsTable = pgTable(
@@ -36,6 +43,7 @@ export const auditLogsTable = pgTable(
     // Action - what was done
     action: varchar("action", { length: 50 }).notNull(),
     actionCategory: varchar("action_category", { length: 50 }),
+    severity: auditSeverityEnum("severity").notNull().default("info"),
     
     // Target - what was affected
     targetType: varchar("target_type", { length: 50 }).notNull(),
@@ -113,6 +121,10 @@ export const auditLogsTable = pgTable(
     complianceIdx: index("audit_logs_compliance_idx").on(
       table.action,
       table.actorType,
+      table.createdAt.desc()
+    ),
+    severityCreatedAtIdx: index("audit_logs_severity_created_at_idx").on(
+      table.severity,
       table.createdAt.desc()
     ),
   })

@@ -50,6 +50,13 @@
       "when": 1791020814089,
       "tag": "0006_actor_movie_video_relations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791106901415,
+      "tag": "0007_bright_switch",
+      "breakpoints": true
     }
   ]
 }

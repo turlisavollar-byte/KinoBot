@@ -9,6 +9,7 @@ import type {
   CreateAuditLogDTO,
   AuditAction,
   AuditActorType,
+  AuditSeverity,
   AuditTargetType,
 } from "./audit.types";
 
@@ -44,6 +45,32 @@ import { Logger } from "@/shared/utils/logger";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const DEFAULT_RETENTION_DAYS = 90;
+
+type StoredAuditSeverity = "info" | "warning" | "critical";
+
+function toStoredSeverity(severity: AuditSeverity | undefined): StoredAuditSeverity {
+  if (severity === "CRITICAL") return "critical";
+  if (severity === "HIGH" || severity === "MEDIUM") return "warning";
+  return "info";
+}
+
+function toApiSeverity(
+  storedSeverity: StoredAuditSeverity,
+  legacySeverity?: unknown,
+): AuditSeverity {
+  if (
+    legacySeverity === "LOW" ||
+    legacySeverity === "MEDIUM" ||
+    legacySeverity === "HIGH" ||
+    legacySeverity === "CRITICAL"
+  ) {
+    return legacySeverity;
+  }
+
+  if (storedSeverity === "critical") return "CRITICAL";
+  if (storedSeverity === "warning") return "HIGH";
+  return "LOW";
+}
 
 // Custom error classes
 export class AuditError extends Error {
@@ -163,6 +190,7 @@ export class AuditService {
         // Action
         action: dto.action,
         actionCategory: this.categorizeAction(dto.action),
+        severity: toStoredSeverity(dto.severity),
 
         // Target
         targetType: dto.targetType,
@@ -879,7 +907,10 @@ export class AuditService {
       createdAtIso: row.createdAt.toISOString(),
 
       // Additional
-      severity: (row.metadata as any)?.severity,
+      severity: toApiSeverity(
+        row.severity,
+        (row.metadata as Record<string, unknown> | null)?.severity,
+      ),
     };
   }
 
