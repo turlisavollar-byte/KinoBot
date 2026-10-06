@@ -422,10 +422,7 @@ export class AuthController {
       const message =
         error instanceof Error ? error.message : "Password change failed";
       const status =
-        message === "Current password is incorrect" ||
-        message === "User not found"
-          ? 401
-          : 400;
+        message === "User not found" ? 404 : 400;
 
       res.status(status).json({
         success: false,

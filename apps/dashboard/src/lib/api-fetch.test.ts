@@ -39,4 +39,22 @@ describe("apiFetch forced-password handling", () => {
     await expect(apiFetch("/api/private")).rejects.toMatchObject({ status: 403 });
     expect(isMustChangePasswordRequired()).toBe(false);
   });
+
+  it("sends the stored access token and returns a successful password-change response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, message: "Password changed" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/identity/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword: "Temporary123!", newPassword: "Updated123!" }),
+    })).resolves.toEqual({ success: true, message: "Password changed" });
+
+    const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(requestInit.headers).get("Authorization")).toBe("Bearer access-token");
+  });
 });

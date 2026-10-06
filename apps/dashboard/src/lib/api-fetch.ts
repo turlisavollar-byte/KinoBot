@@ -5,13 +5,12 @@ import { handlePasswordChangeRequiredError } from "@/lib/password-change-flow";
 // Vite proxy will forward /api/* requests to the API server on port 8080
 export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   const token = getToken();
-  const res = await fetch(path, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts?.headers ?? {}),
-    },
+    const headers = new Headers(opts?.headers);
+    headers.set("Content-Type", "application/json");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(path, {
+      ...opts,
+      headers,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
