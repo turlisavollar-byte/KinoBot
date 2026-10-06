@@ -8,6 +8,7 @@ import { UserDeletedEvent } from "../../domain/events/user-deleted.event";
 import { Logger } from "@/shared/utils/logger";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
+import { canManageCustomerUser } from "@/shared/constants/user-access";
 
 @injectable()
 export class DeleteUserUseCase {
@@ -26,6 +27,7 @@ export class DeleteUserUseCase {
     id: string,
     actorId: string,
     soft: boolean = true,
+    actorRole?: string,
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -48,8 +50,13 @@ export class DeleteUserUseCase {
       );
     }
 
-    const actor = await this.repository.findById(actorId);
-    if (!actor || !actor.canManage(user)) {
+    const actor = actorRole
+      ? undefined
+      : await this.repository.findById(actorId);
+    const actorCanDelete = actorRole
+      ? canManageCustomerUser(actorId, actorRole, id, user.role.value)
+      : Boolean(actor?.canManage(user));
+    if (!actorCanDelete) {
       throw new AppError(
         "Cannot delete an equal or higher role",
         403,

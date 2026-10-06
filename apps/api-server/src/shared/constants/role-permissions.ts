@@ -19,6 +19,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
     // Users
     Permission.READ_USERS,
+    Permission.READ_USER_AUDIT,
     Permission.CREATE_USERS,
     Permission.UPDATE_USERS,
     Permission.DELETE_USERS,

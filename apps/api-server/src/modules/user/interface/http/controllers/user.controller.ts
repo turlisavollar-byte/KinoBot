@@ -26,8 +26,14 @@ import {
   subscriptionPlansTable,
   subscriptionsTable,
   usersTable,
+  userProfilesTable,
   watchSessionsTable,
 } from "@workspace/db";
+import {
+  canReadCustomerUser,
+  getCustomerUserScope,
+} from "@/shared/constants/user-access";
+import { logAuditEvent } from "@/shared/utils/audit";
 
 @injectable()
 export class UserController {
@@ -53,7 +59,14 @@ export class UserController {
     try {
       const filters = this.parseListFilters(req.query);
 
-      const result = await this.listUsers.execute(filters);
+      const actor = (req as any).user;
+      if (!actor?.id || !actor.role) {
+        throw new AppError("Authentication required", 401, ErrorCodes.UNAUTHORIZED);
+      }
+      const result = await this.listUsers.execute(filters, {
+        id: actor.id,
+        role: actor.role,
+      });
       const userIds = result.data.map((user) => user.id);
       const subscriptions = userIds.length
         ? await db
@@ -112,6 +125,18 @@ export class UserController {
       const includeDeleted = req.query.includeDeleted === "true";
 
       const user = await this.getUser.execute(id, includeDeleted);
+      const actor = (req as any).user;
+      if (
+        !actor?.id ||
+        !canReadCustomerUser(
+          actor.id,
+          actor.role ?? "viewer",
+          id,
+          user.role.value,
+        )
+      ) {
+        throw new AppError("User not found", 404, ErrorCodes.NOT_FOUND);
+      }
       const subscriptions = await db
         .select({
           subscription: subscriptionsTable,
@@ -130,6 +155,11 @@ export class UserController {
           ),
         )
         .orderBy(desc(subscriptionsTable.endDate));
+      const [profile] = await db
+        .select({ avatar: userProfilesTable.avatar })
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, id))
+        .limit(1);
       const [subscription] = subscriptions;
       const [watchStats] = await db
         .select({
@@ -143,6 +173,7 @@ export class UserController {
         success: true,
         data: {
           ...user.toPublicData(),
+          avatar: profile?.avatar ?? null,
           dailyCodeLimit: user.dailyCodeLimit ?? null,
           dailyCodeUsed: user.dailyCodeUsed,
           weeklyCodeLimit: user.weeklyCodeLimit ?? null,
@@ -215,6 +246,22 @@ export class UserController {
         { ...validatedData, actorRole },
         actorId,
       );
+
+      await logAuditEvent({
+        action: validatedData.role ? "ROLE_CHANGED" : "UPDATE",
+        targetType: "USER",
+        targetId: id,
+        actorId,
+        actorType: "ADMIN",
+        newValue: {
+          username: validatedData.username,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          languageCode: validatedData.languageCode,
+          accountStatus: validatedData.accountStatus,
+        },
+        req,
+      });
 
       res.json({
         success: true,
@@ -305,6 +352,15 @@ export class UserController {
           autoRenew: autoRenew ?? false,
         })
         .returning();
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CREATED",
+        targetType: "SUBSCRIPTION",
+        targetId: subscription.id,
+        actorId: (req as any).user?.id,
+        actorType: "ADMIN",
+        newValue: { userId: id, planId: plan.id, endDate },
+        req,
+      });
       res.status(201).json({
         success: true,
         data: { ...subscription, planName: plan.name },
@@ -351,6 +407,16 @@ export class UserController {
         .set({ status: "canceled", cancelledAt: new Date(), autoRenew: false })
         .where(eq(subscriptionsTable.id, subscription.id));
 
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CANCELLED",
+        targetType: "SUBSCRIPTION",
+        targetId: subscription.id,
+        actorId: (req as any).user?.id,
+        actorType: "ADMIN",
+        newValue: { userId: id, status: "canceled" },
+        req,
+      });
+
       res.sendStatus(204);
     } catch (error) {
       next(error);
@@ -377,6 +443,16 @@ export class UserController {
         actorRole,
       );
 
+      await logAuditEvent({
+        action: "UPDATE",
+        targetType: "USER",
+        targetId: id,
+        actorId,
+        actorType: "ADMIN",
+        newValue: { isBlocked: validatedData.blocked },
+        req,
+      });
+
       res.json({
         success: true,
         data: user.toPublicData(),
@@ -395,9 +471,19 @@ export class UserController {
         ? req.params.id[0]
         : req.params.id;
       const actorId = (req as any).user?.id;
+      const actorRole = (req as any).user?.role;
       const soft = req.query.soft !== "false";
 
-      await this.deleteUser.execute(id, actorId, soft);
+      await this.deleteUser.execute(id, actorId, soft, actorRole);
+      await logAuditEvent({
+        action: "DELETE",
+        targetType: "USER",
+        targetId: id,
+        actorId,
+        actorType: "ADMIN",
+        newValue: { softDeleted: soft },
+        req,
+      });
 
       res.json({
         success: true,
@@ -413,6 +499,11 @@ export class UserController {
   async export(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const filters = this.parseListFilters(req.query);
+      const actor = (req as any).user;
+      if (!actor?.id || !actor.role) {
+        throw new AppError("Authentication required", 401, ErrorCodes.UNAUTHORIZED);
+      }
+      filters.accessScope = getCustomerUserScope(actor.id, actor.role);
       const format = ((req.query.format as string) || "json") as "json" | "csv";
 
       const result = await this.exportUsers.execute(filters, format);

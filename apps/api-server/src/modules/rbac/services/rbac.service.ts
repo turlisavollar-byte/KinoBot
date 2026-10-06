@@ -28,6 +28,7 @@ const PERMISSION_CATEGORIES: Record<string, string[]> = {
   ],
   Users: [
     "read:users",
+    "read:user_audit",
     "create:users",
     "update:users",
     "delete:users",

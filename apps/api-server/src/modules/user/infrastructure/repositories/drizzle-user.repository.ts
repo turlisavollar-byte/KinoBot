@@ -170,10 +170,26 @@ export class DrizzleUserRepository implements IUserRepository {
       page = 1,
       limit = 20,
       includeDeleted = false,
+      accessScope,
     } = filters;
 
     const offset = (page - 1) * limit;
     const conditions = [];
+
+    if (accessScope?.selfOnly && accessScope.includeId) {
+      conditions.push(eq(usersTable.id, accessScope.includeId));
+    } else if (accessScope?.roles?.length && accessScope.includeId) {
+      conditions.push(
+        or(
+          inArray(usersTable.role, accessScope.roles),
+          eq(usersTable.id, accessScope.includeId),
+        ),
+      );
+    } else if (accessScope?.roles?.length) {
+      conditions.push(inArray(usersTable.role, accessScope.roles));
+    } else if (accessScope?.includeId) {
+      conditions.push(eq(usersTable.id, accessScope.includeId));
+    }
 
     // Search
     if (search) {

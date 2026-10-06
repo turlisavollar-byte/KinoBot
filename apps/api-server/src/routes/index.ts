@@ -38,6 +38,7 @@ router.use("/notifications", notificationModuleRouter());
 // ─── Core business routes (legacy - to be migrated to DDD) ───────────────────
 router.use(telegramRouter);
 router.use("/video-codes", videoCodesRouter());
+router.use("/admin/users", adminUsersRouter);
 router.use("/admin-users", adminUsersRouter);
 
 // Legacy CRUD endpoints the dashboard client still calls.

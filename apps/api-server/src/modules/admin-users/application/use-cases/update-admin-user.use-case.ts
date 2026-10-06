@@ -1,8 +1,5 @@
-import {
-  RoleHierarchy,
-  normalizeRoleName,
-  type Role,
-} from "@/shared/constants/roles";
+import { normalizeRoleName, type Role } from "@/shared/constants/roles";
+import { canManageAdminAccount } from "@/shared/constants/user-access";
 import type { AdminUsersRepository } from "../../infrastructure/repositories/admin-users.repository";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
@@ -21,21 +18,31 @@ export class UpdateAdminUserUseCase {
 
   async execute(command: UpdateAdminUserCommand) {
     const target = await this.repository.findById(command.targetId);
-    if (!target || command.actorId === command.targetId) {
+    if (!target) {
       throw new AppError(
-        !target
-          ? "Admin account not found"
-          : "Cannot edit your own admin account",
-        !target ? 404 : 403,
-        !target ? ErrorCodes.NOT_FOUND : ErrorCodes.FORBIDDEN,
+        "Admin account not found",
+        404,
+        ErrorCodes.NOT_FOUND,
       );
     }
 
     const actorRole = normalizeRoleName(command.actorRole) as Role;
     const currentRole = normalizeRoleName(target.role) as Role;
-    if (RoleHierarchy[actorRole] <= RoleHierarchy[currentRole]) {
+    const isSelf = command.actorId === command.targetId;
+    if (
+      (!isSelf &&
+        !canManageAdminAccount(
+          command.actorId,
+          command.actorRole,
+          command.targetId,
+          currentRole,
+        )) ||
+      (isSelf && command.role !== undefined)
+    ) {
       throw new AppError(
-        "Cannot edit an equal or higher role",
+        isSelf
+          ? "Cannot change your own administrative role"
+          : "Cannot edit an administrative account outside your scope",
         403,
         ErrorCodes.FORBIDDEN,
       );
@@ -45,8 +52,14 @@ export class UpdateAdminUserUseCase {
       ? (normalizeRoleName(command.role) as Role)
       : currentRole;
     if (
-      !(nextRole in RoleHierarchy) ||
-      RoleHierarchy[actorRole] <= RoleHierarchy[nextRole]
+      command.role &&
+      (isSelf ||
+        !canManageAdminAccount(
+          command.actorId,
+          actorRole,
+          command.targetId,
+          nextRole,
+        ))
     ) {
       throw new AppError(
         "Cannot assign an equal or higher role",

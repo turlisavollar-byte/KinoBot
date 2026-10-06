@@ -34,6 +34,26 @@ paths:
         "403":
           description: Forbidden
   /admin-users/{id}:
+    get:
+      operationId: getLegacyAdminUser
+      tags: [admin-users]
+      summary: Get a scoped administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccountDetailResponse"
+        "403": { description: Forbidden }
+        "404": { description: Not found }
     patch:
       operationId: updateAdminUser
       tags: [admin-users]
@@ -71,16 +91,144 @@ paths:
         "200": { description: Administrative account deleted }
         "403": { description: Forbidden }
         "404": { description: Not found }
+  /admin-users/{id}/ban:
+    post:
+      operationId: setLegacyAdminUserBan
+      tags: [admin-users]
+      summary: Ban or unban an administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanAdminUserBody"
+      responses:
+        "200": { description: Administrative account status changed }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+  /admin/users:
+    get:
+      operationId: listScopedAdminUsers
+      tags: [admin-users]
+      summary: List administrative accounts visible to the caller
+      description: Super admins see all accounts; admins see their own and moderator accounts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Scoped administrative account list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccountListResponse"
+        "401": { description: Unauthorized }
+        "403": { description: Forbidden }
+  /admin/users/{id}:
+    get:
+      operationId: getScopedAdminUser
+      tags: [admin-users]
+      summary: Get a whitelisted administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccountDetailResponse"
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+    patch:
+      operationId: updateScopedAdminUser
+      tags: [admin-users]
+      summary: Update an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminUserBody"
+      responses:
+        "200": { description: Administrative account updated }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteScopedAdminUser
+      tags: [admin-users]
+      summary: Delete an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Administrative account deleted }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
+  /admin/users/{id}/ban:
+    post:
+      operationId: setScopedAdminUserBan
+      tags: [admin-users]
+      summary: Deactivate or reactivate an administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanAdminUserBody"
+      responses:
+        "200": { description: Administrative account status changed }
+        "403": { description: Forbidden }
+        "404": { description: Not found }
 
 components:
   schemas:
     AdminAccount:
       type: object
-      required: [id, email, name, role, status, isActive, lastLoginAt, createdAt, updatedAt]
+      required: [id, email, role, status, isActive, lastLoginAt, createdAt, updatedAt]
       properties:
         id: { type: string }
         email: { type: string, format: email }
-        name: { type: string }
+        name: { type: string, nullable: true }
         role:
           type: string
           enum: [superadmin, admin, manager, moderator, user, viewer]
@@ -115,6 +263,21 @@ components:
         timestamp:
           type: string
           format: date-time
+    AdminAccountDetailResponse:
+      type: object
+      required: [success, data, timestamp]
+      properties:
+        success: { type: boolean }
+        data:
+          $ref: "#/components/schemas/AdminAccount"
+        timestamp:
+          type: string
+          format: date-time
+    BanAdminUserBody:
+      type: object
+      required: [banned]
+      properties:
+        banned: { type: boolean }
     UpdateAdminUserBody:
       type: object
       properties:

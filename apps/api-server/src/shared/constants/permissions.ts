@@ -12,6 +12,7 @@ export const Permissions = {
   READ_SESSIONS: "read:sessions",
   REVOKE_SESSIONS: "revoke:sessions",
   READ_USERS: "read:users",
+  READ_USER_AUDIT: "read:user_audit",
   CREATE_USERS: "create:users",
   UPDATE_USERS: "update:users",
   DELETE_USERS: "delete:users",

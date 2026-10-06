@@ -9,7 +9,7 @@ import { UserBlockedEvent } from "../../domain/events/user-blocked.event";
 import { Logger } from "@/shared/utils/logger";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
-import { canManage, normalizeRoleName } from "@/shared/constants/roles";
+import { canManageCustomerUser } from "@/shared/constants/user-access";
 
 @injectable()
 export class BlockUserUseCase {
@@ -52,10 +52,7 @@ export class BlockUserUseCase {
       ? undefined
       : await this.repository.findById(actorId);
     const actorCanManage = actorRole
-      ? canManage(
-          normalizeRoleName(actorRole),
-          normalizeRoleName(user.role.value),
-        )
+      ? canManageCustomerUser(actorId, actorRole, id, user.role.value)
       : Boolean(actor?.canManage(user));
     if (!actorCanManage) {
       throw new AppError(

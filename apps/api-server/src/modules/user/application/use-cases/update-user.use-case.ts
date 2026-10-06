@@ -13,7 +13,10 @@ import { UserUpdatedEvent } from "../../domain/events/user-updated.event";
 import { Logger } from "@/shared/utils/logger";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
-import { canManage, normalizeRoleName } from "@/shared/constants/roles";
+import {
+  canManageCustomerUser,
+  canReadCustomerUser,
+} from "@/shared/constants/user-access";
 
 export interface UpdateUserInput {
   username?: string;
@@ -28,6 +31,7 @@ export interface UpdateUserInput {
   weeklyCodeLimit?: number | null;
   monthlyCodeLimit?: number | null;
   actorRole?: string;
+  role?: string;
 }
 
 @injectable()
@@ -60,23 +64,85 @@ export class UpdateUserUseCase {
       );
     }
 
-    if (actorId && actorId !== id) {
-      const actor = input.actorRole
-        ? undefined
-        : await this.repository.findById(actorId);
-      const actorCanManage = input.actorRole
-        ? canManage(
-            normalizeRoleName(input.actorRole),
-            normalizeRoleName(user.role.value),
-          )
-        : Boolean(actor?.canManage(user));
-      if (!actorCanManage) {
+    if (actorId && input.actorRole) {
+      if (
+        !canReadCustomerUser(
+          actorId,
+          input.actorRole,
+          id,
+          user.role.value,
+        )
+      ) {
         throw new AppError(
-          "Cannot update an equal or higher role",
+          "Cannot access a user outside your scope",
           403,
           ErrorCodes.FORBIDDEN,
         );
       }
+
+      if (actorId === id) {
+        const selfMutation = [
+          input.role,
+          input.isActive,
+          input.status,
+          input.accountStatus,
+          input.dailyCodeLimit,
+          input.weeklyCodeLimit,
+          input.monthlyCodeLimit,
+          input.referralRewardTier,
+        ].some((value) => value !== undefined);
+        if (selfMutation) {
+          throw new AppError(
+            "Self-service updates cannot change access or account status",
+            403,
+            ErrorCodes.FORBIDDEN,
+          );
+        }
+      } else if (
+        !canManageCustomerUser(
+          actorId,
+          input.actorRole,
+          id,
+          user.role.value,
+        )
+      ) {
+        throw new AppError(
+          "Cannot update a user outside your management scope",
+          403,
+          ErrorCodes.FORBIDDEN,
+        );
+      }
+    } else if (actorId === id) {
+      throw new AppError(
+        "Authenticated role is required for self-service updates",
+        403,
+        ErrorCodes.FORBIDDEN,
+      );
+    } else if (actorId) {
+      const actor = await this.repository.findById(actorId);
+      if (!actor || !actor.canManage(user)) {
+        throw new AppError(
+          "Cannot update a user outside your management scope",
+          403,
+          ErrorCodes.FORBIDDEN,
+        );
+      }
+    }
+
+    if (input.role !== undefined) {
+      if (
+        !actorId ||
+        !input.actorRole ||
+        !canManageCustomerUser(actorId, input.actorRole, id, user.role.value) ||
+        !canManageCustomerUser(actorId, input.actorRole, id, input.role)
+      ) {
+        throw new AppError(
+          "Cannot assign a role outside your management scope",
+          403,
+          ErrorCodes.FORBIDDEN,
+        );
+      }
+      user.updateRole(input.role);
     }
 
     // Store old state for audit

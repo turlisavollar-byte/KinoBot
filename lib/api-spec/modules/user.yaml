@@ -135,6 +135,40 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   # ─── GET USER ────────────────────────────────────────────────────────────────
+  /users/{id}/audit:
+    get:
+      operationId: getUserAuditHistory
+      tags: [users]
+      summary: Get up to ten safe audit summaries for a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User audit summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, timestamp]
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    maxItems: 10
+                    items:
+                      $ref: "#/components/schemas/UserAuditSummary"
+                  timestamp:
+                    type: string
+                    format: date-time
+        "403": { description: Forbidden }
+        "404": { description: User not found }
+
   /users/{id}:
     get:
       operationId: getUser
@@ -899,6 +933,10 @@ components:
         - $ref: "#/components/schemas/User"
         - type: object
           properties:
+            avatar:
+              type: string
+              nullable: true
+              description: Existing user profile avatar URL
             profile:
               $ref: "#/components/schemas/UserProfile"
             stats:
@@ -919,6 +957,20 @@ components:
               type: integer
               nullable: true
               description: Total watch time in minutes (from stats)
+    UserAuditSummary:
+      type: object
+      required: [id, action, actorType, targetType, createdAt]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        actorId: { type: string, nullable: true }
+        actorType: { type: string }
+        targetType: { type: string }
+        targetId: { type: string, nullable: true }
+        createdAt:
+          type: string
+          format: date-time
+        severity: { type: string, nullable: true }
 
     UserProfile:
       type: object

@@ -257,6 +257,30 @@ paths:
         '403':
           description: Forbidden
   /admin-users/{id}:
+    get:
+      operationId: getLegacyAdminUser
+      tags:
+        - admin-users
+      summary: Get a scoped administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountDetailResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
     patch:
       operationId: updateAdminUser
       tags:
@@ -301,6 +325,171 @@ paths:
       responses:
         '200':
           description: Administrative account deleted
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin-users/{id}/ban:
+    post:
+      operationId: setLegacyAdminUserBan
+      tags:
+        - admin-users
+      summary: Ban or unban an administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account status changed
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin/users:
+    get:
+      operationId: listScopedAdminUsers
+      tags:
+        - admin-users
+      summary: List administrative accounts visible to the caller
+      description: >-
+        Super admins see all accounts; admins see their own and moderator
+        accounts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Scoped administrative account list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+  /admin/users/{id}:
+    get:
+      operationId: getScopedAdminUser
+      tags:
+        - admin-users
+      summary: Get a whitelisted administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountDetailResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+    patch:
+      operationId: updateScopedAdminUser
+      tags:
+        - admin-users
+      summary: Update an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account updated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+    delete:
+      operationId: deleteScopedAdminUser
+      tags:
+        - admin-users
+      summary: Delete an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Administrative account deleted
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin/users/{id}/ban:
+    post:
+      operationId: setScopedAdminUserBan
+      tags:
+        - admin-users
+      summary: Deactivate or reactivate an administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account status changed
         '403':
           description: Forbidden
         '404':
@@ -2803,6 +2992,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/audit:
+    get:
+      operationId: getUserAuditHistory
+      tags:
+        - users
+      summary: Get up to ten safe audit summaries for a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User audit summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    maxItems: 10
+                    items:
+                      $ref: '#/components/schemas/UserAuditSummary'
+                  timestamp:
+                    type: string
+                    format: date-time
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
   /users/{id}:
     get:
       operationId: getUser
@@ -3728,7 +3957,6 @@ components:
       required:
         - id
         - email
-        - name
         - role
         - status
         - isActive
@@ -3743,6 +3971,7 @@ components:
           format: email
         name:
           type: string
+          nullable: true
         role:
           type: string
           enum:
@@ -3794,6 +4023,27 @@ components:
         timestamp:
           type: string
           format: date-time
+    AdminAccountDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/AdminAccount'
+        timestamp:
+          type: string
+          format: date-time
+    BanAdminUserBody:
+      type: object
+      required:
+        - banned
+      properties:
+        banned:
+          type: boolean
     UpdateAdminUserBody:
       type: object
       properties:
@@ -5529,6 +5779,10 @@ components:
         - $ref: '#/components/schemas/User'
         - type: object
           properties:
+            avatar:
+              type: string
+              nullable: true
+              description: Existing user profile avatar URL
             profile:
               $ref: '#/components/schemas/UserProfile'
             stats:
@@ -5549,6 +5803,35 @@ components:
               type: integer
               nullable: true
               description: Total watch time in minutes (from stats)
+    UserAuditSummary:
+      type: object
+      required:
+        - id
+        - action
+        - actorType
+        - targetType
+        - createdAt
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+        actorId:
+          type: string
+          nullable: true
+        actorType:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          nullable: true
     UserProfile:
       type: object
       properties:

@@ -5,32 +5,59 @@ import { AdminUsersRepository } from "../../../infrastructure/repositories/admin
 import { ListAdminUsersUseCase } from "../../../application/use-cases/list-admin-users.use-case";
 import { UpdateAdminUserUseCase } from "../../../application/use-cases/update-admin-user.use-case";
 import { DeleteAdminUserUseCase } from "../../../application/use-cases/delete-admin-user.use-case";
+import { GetAdminUserUseCase } from "../../../application/use-cases/get-admin-user.use-case";
+import { BanAdminUserUseCase } from "../../../application/use-cases/ban-admin-user.use-case";
 import { AdminUsersController } from "../controllers/admin-users.controller";
+import { rateLimit } from "express-rate-limit";
 
 const repository = new AdminUsersRepository();
 const controller = new AdminUsersController(
   new ListAdminUsersUseCase(repository),
   new UpdateAdminUserUseCase(repository),
   new DeleteAdminUserUseCase(repository),
+  new GetAdminUserUseCase(repository),
+  new BanAdminUserUseCase(repository),
 );
 
 const router = Router();
+const adminMutationLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.get(
   "/",
   requireAuth,
   requirePermission(Permission.READ_ADMIN_USERS),
   controller.list,
 );
+router.get(
+  "/:id",
+  requireAuth,
+  requirePermission(Permission.READ_ADMIN_USERS),
+  controller.get,
+);
 router.patch(
   "/:id",
   requireAuth,
   requirePermission(Permission.UPDATE_ADMIN_USERS),
+  adminMutationLimit,
   controller.update,
+);
+router.post(
+  "/:id/ban",
+  requireAuth,
+  requirePermission(Permission.UPDATE_ADMIN_USERS),
+  adminMutationLimit,
+  controller.ban,
 );
 router.delete(
   "/:id",
   requireAuth,
   requirePermission(Permission.DELETE_ADMIN_USERS),
+  adminMutationLimit,
   controller.delete,
 );
 

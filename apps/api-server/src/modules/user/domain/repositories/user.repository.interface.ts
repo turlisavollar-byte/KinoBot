@@ -38,6 +38,11 @@ export interface UserFilters {
   page?: number;
   limit?: number;
   includeDeleted?: boolean;
+  accessScope?: {
+    roles?: string[];
+    includeId?: string;
+    selfOnly?: boolean;
+  };
 }
 
 export interface UserPaginationResult {

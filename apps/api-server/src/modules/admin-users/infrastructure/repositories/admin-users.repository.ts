@@ -1,10 +1,17 @@
-import { db, adminUsersTable, rolesTable } from "@workspace/db";
-import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
+import {
+  db,
+  adminUsersTable,
+  adminSessionsTable,
+  rolesTable,
+} from "@workspace/db";
+import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import type { UserAccessScope } from "@/shared/constants/user-access";
 
 export interface AdminUserListOptions {
   search?: string;
   page: number;
   pageSize: number;
+  scope?: UserAccessScope;
 }
 
 export interface AdminUserUpdateData {
@@ -29,10 +36,32 @@ export class AdminUsersRepository {
       );
     }
 
+    if (options.scope?.selfOnly && options.scope.includeId) {
+      conditions.push(eq(adminUsersTable.id, options.scope.includeId));
+    } else if (options.scope?.roles?.length && options.scope.includeId) {
+      conditions.push(
+        or(
+          eq(adminUsersTable.id, options.scope.includeId),
+          inArray(
+            sql<string>`coalesce(${rolesTable.name}, ${adminUsersTable.role})`,
+            options.scope.roles,
+          ),
+        )!,
+      );
+    } else if (options.scope?.roles?.length) {
+      conditions.push(
+        inArray(
+          sql<string>`coalesce(${rolesTable.name}, ${adminUsersTable.role})`,
+          options.scope.roles,
+        ),
+      );
+    }
+
     const whereClause = and(...conditions);
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(adminUsersTable)
+      .leftJoin(rolesTable, eq(adminUsersTable.roleId, rolesTable.id))
       .where(whereClause);
     const total = Number(countResult?.count || 0);
 
@@ -71,6 +100,26 @@ export class AdminUsersRepository {
     return user ?? null;
   }
 
+  async findSafeById(id: string) {
+    const [user] = await db
+      .select({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        name: adminUsersTable.name,
+        role: sql<string>`coalesce(${rolesTable.name}, ${adminUsersTable.role})`,
+        isActive: adminUsersTable.isActive,
+        lastLoginAt: adminUsersTable.lastLoginAt,
+        createdAt: adminUsersTable.createdAt,
+        updatedAt: adminUsersTable.updatedAt,
+      })
+      .from(adminUsersTable)
+      .leftJoin(rolesTable, eq(adminUsersTable.roleId, rolesTable.id))
+      .where(and(eq(adminUsersTable.id, id), isNull(adminUsersTable.deletedAt)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
   async findRoleId(role: string): Promise<string | null> {
     const [row] = await db
       .select({ id: rolesTable.id })
@@ -82,19 +131,66 @@ export class AdminUsersRepository {
   }
 
   async update(id: string, data: AdminUserUpdateData) {
-    const [updated] = await db
-      .update(adminUsersTable)
-      .set(data)
-      .where(eq(adminUsersTable.id, id))
-      .returning({ id: adminUsersTable.id });
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(adminUsersTable)
+        .set(data)
+        .where(eq(adminUsersTable.id, id))
+        .returning({ id: adminUsersTable.id });
 
-    return updated ?? null;
+      if (updated && data.role !== undefined) {
+        await tx
+          .update(adminSessionsTable)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(adminSessionsTable.adminId, id),
+              isNull(adminSessionsTable.revokedAt),
+            ),
+          );
+      }
+
+      return updated ?? null;
+    });
   }
 
   async softDelete(id: string): Promise<void> {
-    await db
-      .update(adminUsersTable)
-      .set({ deletedAt: new Date(), isActive: false })
-      .where(eq(adminUsersTable.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(adminUsersTable)
+        .set({ deletedAt: new Date(), isActive: false })
+        .where(eq(adminUsersTable.id, id));
+
+      await tx
+        .update(adminSessionsTable)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(adminSessionsTable.adminId, id),
+            isNull(adminSessionsTable.revokedAt),
+          ),
+        );
+    });
+  }
+
+  async setActive(id: string, isActive: boolean): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(adminUsersTable)
+        .set({ isActive })
+        .where(eq(adminUsersTable.id, id));
+
+      if (!isActive) {
+        await tx
+          .update(adminSessionsTable)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(adminSessionsTable.adminId, id),
+              isNull(adminSessionsTable.revokedAt),
+            ),
+          );
+      }
+    });
   }
 }
