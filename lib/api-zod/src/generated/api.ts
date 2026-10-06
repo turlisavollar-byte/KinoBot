@@ -181,7 +181,7 @@ export const ListAdminUsersResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
-  "name": zod.string(),
+  "name": zod.string().nullish(),
   "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
   "status": zod.enum(['active', 'inactive', 'suspended']),
   "isActive": zod.boolean(),
@@ -191,6 +191,30 @@ export const ListAdminUsersResponse = zod.object({
 })),
   "meta": zod.object({
   "total": zod.number().int()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+export const GetLegacyAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetLegacyAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
 }),
   "timestamp": zod.date()
 })
@@ -220,6 +244,157 @@ export const DeleteAdminUserParams = zod.object({
 })
 
 export const DeleteAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const SetLegacyAdminUserBanParams = zod.object({
+  "id": zod.string()
+})
+
+export const SetLegacyAdminUserBanBody = zod.object({
+  "banned": zod.boolean()
+})
+
+export const SetLegacyAdminUserBanResponse = zod.unknown()
+
+
+/**
+ * Super admins see all accounts; admins see their own and moderator accounts.
+ * @summary List administrative accounts visible to the caller
+ */
+export const listScopedAdminUsersQueryPageDefault = 1;
+
+export const listScopedAdminUsersQueryPageSizeDefault = 50;
+export const listScopedAdminUsersQueryPageSizeMax = 100;
+
+
+
+export const ListScopedAdminUsersQueryParams = zod.object({
+  "search": zod.string().optional(),
+  "page": zod.number().int().min(1).default(listScopedAdminUsersQueryPageDefault),
+  "pageSize": zod.number().int().min(1).max(listScopedAdminUsersQueryPageSizeMax).default(listScopedAdminUsersQueryPageSizeDefault)
+})
+
+export const ListScopedAdminUsersResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.array(zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+})),
+  "meta": zod.object({
+  "total": zod.number().int()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * The password is hashed server-side, never returned, and must be changed on first login.
+ * @summary Create an administrative account as Super Admin
+ */
+export const createAdminUserBodyEmailMax = 255;
+
+export const createAdminUserBodyPasswordMin = 8;
+export const createAdminUserBodyPasswordMax = 128;
+
+
+
+export const CreateAdminUserBody = zod.object({
+  "email": zod.string().email().max(createAdminUserBodyEmailMax),
+  "role": zod.enum(['admin', 'moderator']),
+  "password": zod.string().min(createAdminUserBodyPasswordMin).max(createAdminUserBodyPasswordMax)
+})
+
+export const CreateAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+}).and(zod.object({
+  "mustChangePassword": zod.boolean()
+})),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+export const GetScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetScopedAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Update an administrative account within caller role scope
+ */
+export const UpdateScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const UpdateScopedAdminUserBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().email().optional(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']).optional()
+})
+
+export const UpdateScopedAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const DeleteScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteScopedAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const SetScopedAdminUserBanParams = zod.object({
+  "id": zod.string()
+})
+
+export const SetScopedAdminUserBanBody = zod.object({
+  "banned": zod.boolean()
+})
+
+export const SetScopedAdminUserBanResponse = zod.unknown()
 
 
 /**
@@ -1866,6 +2041,7 @@ export const IdentityRegisterResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1889,6 +2065,7 @@ export const IdentityLoginResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1911,6 +2088,7 @@ export const RefreshAccessTokenResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1941,6 +2119,21 @@ export const IdentityGetMeResponse = zod.object({
 export const IdentityLogoutResponse = zod.object({
   "success": zod.boolean().optional()
 })
+
+
+/**
+ * @summary Change the current password
+ */
+export const identityChangePasswordBodyNewPasswordMin = 8;
+
+
+
+export const IdentityChangePasswordBody = zod.object({
+  "currentPassword": zod.string(),
+  "newPassword": zod.string().min(identityChangePasswordBodyNewPasswordMin)
+})
+
+export const IdentityChangePasswordResponse = zod.unknown()
 
 
 /**
@@ -2491,6 +2684,33 @@ export const ListUsersResponse = zod.object({
 
 
 /**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+export const GetUserAuditHistoryParams = zod.object({
+  "id": zod.string()
+})
+
+export const getUserAuditHistoryResponseDataMax = 10;
+
+
+
+export const GetUserAuditHistoryResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.array(zod.object({
+  "id": zod.string(),
+  "action": zod.string(),
+  "actorId": zod.string().nullish(),
+  "actorType": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.string().nullish(),
+  "createdAt": zod.date(),
+  "severity": zod.string().nullish()
+})).max(getUserAuditHistoryResponseDataMax),
+  "timestamp": zod.date()
+})
+
+
+/**
  * Get detailed user information including profile and stats.
  * Requires `users:read` permission.
  * Data is cached for 5 minutes.
@@ -2556,6 +2776,7 @@ export const GetUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2689,6 +2910,7 @@ export const UpdateUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2814,6 +3036,7 @@ export const GetMeResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2925,6 +3148,7 @@ export const BlockUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -3037,6 +3261,7 @@ export const GrantUserSubscriptionResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),

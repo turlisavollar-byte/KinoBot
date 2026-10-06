@@ -141,7 +141,7 @@ paths:
         "401": { description: Unauthorized }
         "403": { description: Forbidden }
     post:
-      operationId: createScopedAdminUser
+      operationId: createAdminUser
       tags: [admin-users]
       summary: Create an administrative account as Super Admin
       description: The password is hashed server-side, never returned, and must be changed on first login.

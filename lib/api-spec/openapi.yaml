@@ -397,7 +397,7 @@ paths:
         '403':
           description: Forbidden
     post:
-      operationId: createScopedAdminUser
+      operationId: createAdminUser
       tags:
         - admin-users
       summary: Create an administrative account as Super Admin

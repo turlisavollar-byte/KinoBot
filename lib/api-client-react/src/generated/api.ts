@@ -22,15 +22,20 @@ import type {
 import type {
   Actor,
   ActorDetail,
+  AdminAccountDetailResponse,
   AdminAccountListResponse,
   AttachActorToMovieBody,
   AuthResult,
+  BanAdminUserBody,
   BlockUserInput,
   BroadcastInput,
   BroadcastNotification202,
   CancelBillingSubscription200,
   CancelSubscriptionBody,
+  ChangePasswordInput,
   CreateActorBody,
+  CreateAdminUserBody,
+  CreateAdminUserResponse,
   CreateAnorPayment200,
   CreateAnorPaymentBody,
   CreateBillingPlan201,
@@ -83,6 +88,7 @@ import type {
   GetTopContent200,
   GetTopContentParams,
   GetUserActivityParams,
+  GetUserAuditHistory200,
   GetUserParams,
   GetUserStatsParams,
   GetVideoCodeStats200,
@@ -114,6 +120,7 @@ import type {
   ListNotificationsParams,
   ListPayments200,
   ListPaymentsParams,
+  ListScopedAdminUsersParams,
   ListSeriesParams,
   ListSubscriptionPlans200,
   ListSubscriptionsParams,
@@ -951,6 +958,83 @@ export function useListAdminUsers<TData = Awaited<ReturnType<typeof listAdminUse
 
 
 
+export const getGetLegacyAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}`
+}
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+export const getLegacyAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountDetailResponse> => {
+
+  return customFetch<AdminAccountDetailResponse>(getGetLegacyAdminUserUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLegacyAdminUserQueryKey = (id: string,) => {
+    return [
+    `/api/admin-users/${id}`
+    ] as const;
+    }
+
+
+export const getGetLegacyAdminUserQueryOptions = <TData = Awaited<ReturnType<typeof getLegacyAdminUser>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLegacyAdminUserQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLegacyAdminUser>>> = ({ signal }) => getLegacyAdminUser(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLegacyAdminUserQueryResult = NonNullable<Awaited<ReturnType<typeof getLegacyAdminUser>>>
+export type GetLegacyAdminUserQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+
+export function useGetLegacyAdminUser<TData = Awaited<ReturnType<typeof getLegacyAdminUser>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLegacyAdminUserQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateAdminUserUrl = (id: string,) => {
 
 
@@ -1112,6 +1196,598 @@ export const useDeleteAdminUser = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteAdminUserMutationOptions(options));
+    }
+
+export const getSetLegacyAdminUserBanUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}/ban`
+}
+
+/**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const setLegacyAdminUserBan = async (id: string,
+    banAdminUserBody: BanAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getSetLegacyAdminUserBanUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(banAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getSetLegacyAdminUserBanMutationKey = () => ['setLegacyAdminUserBan'] as const;
+
+export const getSetLegacyAdminUserBanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext> => {
+
+const mutationKey = getSetLegacyAdminUserBanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, SetLegacyAdminUserBanMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setLegacyAdminUserBan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetLegacyAdminUserBanMutationResult = NonNullable<Awaited<ReturnType<typeof setLegacyAdminUserBan>>>
+    export type SetLegacyAdminUserBanMutationBody = BodyType<BanAdminUserBody>
+    export type SetLegacyAdminUserBanMutationError = ErrorType<void>
+    export type SetLegacyAdminUserBanMutationVariables = {id: string;data: BodyType<BanAdminUserBody>}
+
+    /**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const useSetLegacyAdminUserBan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setLegacyAdminUserBan>>,
+        TError,
+        SetLegacyAdminUserBanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetLegacyAdminUserBanMutationOptions(options));
+    }
+
+export const getListScopedAdminUsersUrl = (params?: ListScopedAdminUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/users?${stringifiedParams}` : `/api/admin/users`
+}
+
+/**
+ * Super admins see all accounts; admins see their own and moderator accounts.
+ * @summary List administrative accounts visible to the caller
+ */
+export const listScopedAdminUsers = async (params?: ListScopedAdminUsersParams, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountListResponse> => {
+
+  return customFetch<AdminAccountListResponse>(getListScopedAdminUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListScopedAdminUsersQueryKey = (params?: ListScopedAdminUsersParams,) => {
+    return [
+    `/api/admin/users`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListScopedAdminUsersQueryOptions = <TData = Awaited<ReturnType<typeof listScopedAdminUsers>>, TError = ErrorType<void>>(params?: ListScopedAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListScopedAdminUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listScopedAdminUsers>>> = ({ signal }) => listScopedAdminUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListScopedAdminUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listScopedAdminUsers>>>
+export type ListScopedAdminUsersQueryError = ErrorType<void>
+
+
+/**
+ * @summary List administrative accounts visible to the caller
+ */
+
+export function useListScopedAdminUsers<TData = Awaited<ReturnType<typeof listScopedAdminUsers>>, TError = ErrorType<void>>(
+ params?: ListScopedAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListScopedAdminUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminUserUrl = () => {
+
+
+
+
+  return `/api/admin/users`
+}
+
+/**
+ * The password is hashed server-side, never returned, and must be changed on first login.
+ * @summary Create an administrative account as Super Admin
+ */
+export const createAdminUser = async (createAdminUserBody: CreateAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateAdminUserResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateAdminUserResponse>(getCreateAdminUserUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminUserMutationKey = () => ['createAdminUser'] as const;
+
+export const getCreateAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getCreateAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminUser>>, CreateAdminUserMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminUser(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminUser>>>
+    export type CreateAdminUserMutationBody = BodyType<CreateAdminUserBody>
+    export type CreateAdminUserMutationError = ErrorType<void>
+    export type CreateAdminUserMutationVariables = {data: BodyType<CreateAdminUserBody>}
+
+    /**
+ * @summary Create an administrative account as Super Admin
+ */
+export const useCreateAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminUser>>,
+        TError,
+        CreateAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAdminUserMutationOptions(options));
+    }
+
+export const getGetScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+export const getScopedAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountDetailResponse> => {
+
+  return customFetch<AdminAccountDetailResponse>(getGetScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScopedAdminUserQueryKey = (id: string,) => {
+    return [
+    `/api/admin/users/${id}`
+    ] as const;
+    }
+
+
+export const getGetScopedAdminUserQueryOptions = <TData = Awaited<ReturnType<typeof getScopedAdminUser>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScopedAdminUserQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScopedAdminUser>>> = ({ signal }) => getScopedAdminUser(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScopedAdminUserQueryResult = NonNullable<Awaited<ReturnType<typeof getScopedAdminUser>>>
+export type GetScopedAdminUserQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+
+export function useGetScopedAdminUser<TData = Awaited<ReturnType<typeof getScopedAdminUser>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScopedAdminUserQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Update an administrative account within caller role scope
+ */
+export const updateScopedAdminUser = async (id: string,
+    updateAdminUserBody: UpdateAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateScopedAdminUserMutationKey = () => ['updateScopedAdminUser'] as const;
+
+export const getUpdateScopedAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getUpdateScopedAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateScopedAdminUser>>, UpdateScopedAdminUserMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateScopedAdminUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateScopedAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateScopedAdminUser>>>
+    export type UpdateScopedAdminUserMutationBody = BodyType<UpdateAdminUserBody>
+    export type UpdateScopedAdminUserMutationError = ErrorType<void>
+    export type UpdateScopedAdminUserMutationVariables = {id: string;data: BodyType<UpdateAdminUserBody>}
+
+    /**
+ * @summary Update an administrative account within caller role scope
+ */
+export const useUpdateScopedAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateScopedAdminUser>>,
+        TError,
+        UpdateScopedAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateScopedAdminUserMutationOptions(options));
+    }
+
+export const getDeleteScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const deleteScopedAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteScopedAdminUserMutationKey = () => ['deleteScopedAdminUser'] as const;
+
+export const getDeleteScopedAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getDeleteScopedAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteScopedAdminUser>>, DeleteScopedAdminUserMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteScopedAdminUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteScopedAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteScopedAdminUser>>>
+
+    export type DeleteScopedAdminUserMutationError = ErrorType<void>
+    export type DeleteScopedAdminUserMutationVariables = {id: string}
+
+    /**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const useDeleteScopedAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteScopedAdminUser>>,
+        TError,
+        DeleteScopedAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteScopedAdminUserMutationOptions(options));
+    }
+
+export const getSetScopedAdminUserBanUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}/ban`
+}
+
+/**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const setScopedAdminUserBan = async (id: string,
+    banAdminUserBody: BanAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getSetScopedAdminUserBanUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(banAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getSetScopedAdminUserBanMutationKey = () => ['setScopedAdminUserBan'] as const;
+
+export const getSetScopedAdminUserBanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext> => {
+
+const mutationKey = getSetScopedAdminUserBanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setScopedAdminUserBan>>, SetScopedAdminUserBanMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setScopedAdminUserBan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetScopedAdminUserBanMutationResult = NonNullable<Awaited<ReturnType<typeof setScopedAdminUserBan>>>
+    export type SetScopedAdminUserBanMutationBody = BodyType<BanAdminUserBody>
+    export type SetScopedAdminUserBanMutationError = ErrorType<void>
+    export type SetScopedAdminUserBanMutationVariables = {id: string;data: BodyType<BanAdminUserBody>}
+
+    /**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const useSetScopedAdminUserBan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setScopedAdminUserBan>>,
+        TError,
+        SetScopedAdminUserBanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetScopedAdminUserBanMutationOptions(options));
     }
 
 export const getGetAnalyticsOverviewUrl = (params?: GetAnalyticsOverviewParams,) => {
@@ -7166,6 +7842,94 @@ export const useIdentityLogout = <TError = ErrorType<unknown>,
       return useMutation(getIdentityLogoutMutationOptions(options));
     }
 
+export const getIdentityChangePasswordUrl = () => {
+
+
+
+
+  return `/api/identity/auth/change-password`
+}
+
+/**
+ * @summary Change the current password
+ */
+export const identityChangePassword = async (changePasswordInput: ChangePasswordInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getIdentityChangePasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changePasswordInput)
+  }
+);}
+
+
+
+
+
+export const getIdentityChangePasswordMutationKey = () => ['identityChangePassword'] as const;
+
+export const getIdentityChangePasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext> => {
+
+const mutationKey = getIdentityChangePasswordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof identityChangePassword>>, IdentityChangePasswordMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  identityChangePassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IdentityChangePasswordMutationResult = NonNullable<Awaited<ReturnType<typeof identityChangePassword>>>
+    export type IdentityChangePasswordMutationBody = BodyType<ChangePasswordInput>
+    export type IdentityChangePasswordMutationError = ErrorType<void>
+    export type IdentityChangePasswordMutationVariables = {data: BodyType<ChangePasswordInput>}
+
+    /**
+ * @summary Change the current password
+ */
+export const useIdentityChangePassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof identityChangePassword>>,
+        TError,
+        IdentityChangePasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIdentityChangePasswordMutationOptions(options));
+    }
+
 export const getListNotificationsUrl = (params?: ListNotificationsParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -8806,6 +9570,83 @@ export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetUserAuditHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/audit`
+}
+
+/**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+export const getUserAuditHistory = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<GetUserAuditHistory200> => {
+
+  return customFetch<GetUserAuditHistory200>(getGetUserAuditHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserAuditHistoryQueryKey = (id: string,) => {
+    return [
+    `/api/users/${id}/audit`
+    ] as const;
+    }
+
+
+export const getGetUserAuditHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getUserAuditHistory>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserAuditHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserAuditHistory>>> = ({ signal }) => getUserAuditHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUserAuditHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getUserAuditHistory>>>
+export type GetUserAuditHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+
+export function useGetUserAuditHistory<TData = Awaited<ReturnType<typeof getUserAuditHistory>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUserAuditHistoryQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

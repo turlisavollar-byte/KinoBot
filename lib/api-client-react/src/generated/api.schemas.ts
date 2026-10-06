@@ -115,7 +115,7 @@ export const AdminAccountStatus = {
 export interface AdminAccount {
   id: string;
   email: string;
-  name: string;
+  name?: string | null;
   role: AdminAccountRole;
   status: AdminAccountStatus;
   isActive: boolean;
@@ -133,6 +133,45 @@ export interface AdminAccountListResponse {
   data: AdminAccount[];
   meta: AdminAccountListResponseMeta;
   timestamp: string;
+}
+
+export interface AdminAccountDetailResponse {
+  success: boolean;
+  data: AdminAccount;
+  timestamp: string;
+}
+
+export type CreateAdminUserBodyRole = typeof CreateAdminUserBodyRole[keyof typeof CreateAdminUserBodyRole];
+
+
+export const CreateAdminUserBodyRole = {
+  admin: 'admin',
+  moderator: 'moderator',
+} as const;
+
+export interface CreateAdminUserBody {
+  /** @maxLength 255 */
+  email: string;
+  role: CreateAdminUserBodyRole;
+  /**
+     * @minLength 8
+     * @maxLength 128
+     */
+  password: string;
+}
+
+export type CreateAdminUserResponseData = AdminAccount & {
+  mustChangePassword: boolean;
+};
+
+export interface CreateAdminUserResponse {
+  success: boolean;
+  data: CreateAdminUserResponseData;
+  timestamp: string;
+}
+
+export interface BanAdminUserBody {
+  banned: boolean;
 }
 
 export type UpdateAdminUserBodyRole = typeof UpdateAdminUserBodyRole[keyof typeof UpdateAdminUserBodyRole];
@@ -773,7 +812,15 @@ export interface IdentityAuthResult {
   refreshToken: string;
   /** Access token expiration time in seconds */
   expiresIn: number;
+  /** Whether a temporary password must be changed before other actions */
+  mustChangePassword: boolean;
   user: IdentityUser;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
 }
 
 export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
@@ -1229,6 +1276,8 @@ export interface UserStats {
 }
 
 export type UserDetail = User & ({
+  /** Existing user profile avatar URL */
+  avatar?: string | null;
   profile?: UserProfile;
   stats?: UserStats;
   activeSubscription?: UserSubscription | null;
@@ -1239,6 +1288,17 @@ export type UserDetail = User & ({
   /** Total watch time in minutes (from stats) */
   totalWatchMinutes?: number | null;
 });
+
+export interface UserAuditSummary {
+  id: string;
+  action: string;
+  actorId?: string | null;
+  actorType: string;
+  targetType: string;
+  targetId?: string | null;
+  createdAt: string;
+  severity?: string | null;
+}
 
 /**
  * New user status
@@ -1557,6 +1617,19 @@ export type ListAdminUsersParams = {
  * Search by name, email, or role
  */
 search?: string;
+};
+
+export type ListScopedAdminUsersParams = {
+search?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
 };
 
 export type GetAnalyticsOverviewParams = {
@@ -2118,6 +2191,13 @@ export const ListUsersSortOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type GetUserAuditHistory200 = {
+  success: boolean;
+  /** @maxItems 10 */
+  data: UserAuditSummary[];
+  timestamp: string;
+};
 
 export type GetUserParams = {
 /**

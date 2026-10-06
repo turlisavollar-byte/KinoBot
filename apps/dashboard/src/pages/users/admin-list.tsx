@@ -71,8 +71,8 @@ export default function AdminUsersList() {
 
   const openEdit = (user: AdminUser) => {
     setEditingUser(user);
-    setName(user.name);
-    setEmail(user.email);
+    setName(user.name ?? "");
+    setEmail(user.email ?? "");
     setRole(user.role);
   };
 
