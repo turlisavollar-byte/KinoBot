@@ -45,6 +45,7 @@ import {
 
 import { randomBytes } from "node:crypto";
 import { Logger } from "@/shared/utils/logger";
+import { sanitizeAuditPayload } from "./audit.sanitize";
 
 // Constants
 const DEFAULT_LIMIT = 50;
@@ -217,54 +218,55 @@ export class AuditService {
    */
   async log(dto: CreateAuditLogDTO): Promise<AuditLog> {
     const startTime = Date.now();
+    const safeDto = sanitizeAuditPayload(dto) as CreateAuditLogDTO;
 
     if (this.shouldSkipAuditWrites()) {
       return this.createFallbackAuditLog(
-        dto,
+        safeDto,
         "Audit logging disabled for this environment",
       );
     }
 
     try {
       // Validate
-      this.validateLogDTO(dto);
+      this.validateLogDTO(safeDto);
 
       // Prepare row
       const row: NewAuditLogRow = {
         id: generateAuditId(),
 
         // Actor
-        actorId: dto.actorId,
-        actorType: dto.actorType,
-        actorEmail: dto.actorEmail,
-        actorIp: dto.metadata?.ipAddress as string,
-        actorUserAgent: dto.metadata?.userAgent as string,
+        actorId: safeDto.actorId,
+        actorType: safeDto.actorType,
+        actorEmail: safeDto.actorEmail,
+        actorIp: safeDto.metadata?.ipAddress as string,
+        actorUserAgent: safeDto.metadata?.userAgent as string,
 
         // Action
-        action: dto.action,
-        actionCategory: this.categorizeAction(dto.action),
-        severity: toStoredSeverity(dto.severity),
+        action: safeDto.action,
+        actionCategory: this.categorizeAction(safeDto.action),
+        severity: toStoredSeverity(safeDto.severity),
 
         // Target
-        targetType: dto.targetType,
-        targetId: dto.targetId,
-        targetName: dto.targetName,
+        targetType: safeDto.targetType,
+        targetId: safeDto.targetId,
+        targetName: safeDto.targetName,
 
         // Changes
-        oldValue: dto.oldValue,
-        newValue: dto.newValue,
-        diff: this.calculateDiff(dto.oldValue, dto.newValue),
+        oldValue: safeDto.oldValue,
+        newValue: safeDto.newValue,
+        diff: this.calculateDiff(safeDto.oldValue, safeDto.newValue),
 
         // Context
         metadata: {
-          ...dto.metadata,
-          severity: dto.severity || "LOW",
-          tags: dto.tags || [],
+          ...safeDto.metadata,
+          severity: safeDto.severity || "LOW",
+          tags: safeDto.tags || [],
         },
-        ipAddress: dto.ipAddress,
-        userAgent: dto.userAgent,
-        requestId: dto.requestId,
-        sessionId: dto.sessionId,
+        ipAddress: safeDto.ipAddress,
+        userAgent: safeDto.userAgent,
+        requestId: safeDto.requestId,
+        sessionId: safeDto.sessionId,
 
         // Additional fields
         environment: process.env.NODE_ENV,
@@ -286,28 +288,31 @@ export class AuditService {
       }
 
       // Insert tags if provided
-      if (dto.tags && dto.tags.length > 0) {
-        await this.insertTags(inserted.id, dto.tags);
+      if (safeDto.tags && safeDto.tags.length > 0) {
+        await this.insertTags(inserted.id, safeDto.tags);
       }
 
       const duration = Date.now() - startTime;
       this.logger.debug(`Audit log created in ${duration}ms`, {
         id: inserted.id,
-        action: dto.action,
+        action: safeDto.action,
       });
 
       return this.mapRowToAuditLog(inserted);
     } catch (error) {
-      this.logger.error("Failed to create audit log", { error, dto });
+      this.logger.error("Failed to create audit log", {
+        error,
+        dto: safeDto,
+      });
 
       if (this.shouldSkipAuditWrites()) {
         console.error("[AUDIT_FALLBACK] Failed to create audit log:", {
           timestamp: new Date().toISOString(),
-          dto,
+          dto: safeDto,
           error: error instanceof Error ? error.message : String(error),
         });
 
-        return this.createFallbackAuditLog(dto, error);
+        return this.createFallbackAuditLog(safeDto, error);
       }
 
       // In development, throw to surface issues early

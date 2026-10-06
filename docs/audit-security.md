@@ -32,6 +32,24 @@ owner.
 Never grant `LOGIN` to `audit_owner`, set a password for it, or grant it as a
 membership to an application or operator login role.
 
+### Audit Payload Redaction
+
+`AuditService.log()` sanitizes the DTO before fallback handling, validation,
+diff generation, database insertion, or DTO logging. This covers audit writes
+from the middleware, shared audit utility, and direct service callers. Nested
+objects and arrays are traversed immutably; sensitive values are replaced with
+`[REDACTED]`. The current key patterns include password/passphrase, token,
+authorization, cookie, secret, API/private/signing/encryption keys,
+credentials, session ID, JWT, bearer, CSRF/XSRF, and signature names. The exact
+key `auth` is also redacted. Raw credentials must not be placed in free-text
+fields because key-based redaction cannot reliably discover secrets embedded
+inside arbitrary strings.
+
+Sanitization applies to new writes only. Historical audit rows are not
+rewritten. Review them with the approved read-only key/path scanner; do not
+select secret values into terminal output or update historical records without
+a separate approved remediation and backup plan.
+
 ## 4. Environment Configuration
 
 The current application and live migration scripts use `DATABASE_URL` only;

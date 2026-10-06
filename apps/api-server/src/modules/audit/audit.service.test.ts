@@ -142,6 +142,34 @@ describe("AuditService audit write controls", () => {
     expect(result.severity).toBe("LOW");
   });
 
+  it("redacts secrets before writing the audit row", async () => {
+    await service.log({
+      actorType: "ADMIN",
+      action: "UPDATE",
+      targetType: "USER",
+      oldValue: { password: "old-secret" },
+      newValue: {
+        account: { refresh_token: "refresh-secret" },
+        headers: { Authorization: "Bearer access-secret" },
+      },
+      metadata: { Cookie: "session-secret" },
+    });
+
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldValue: { password: "[REDACTED]" },
+        newValue: {
+          account: { refresh_token: "[REDACTED]" },
+          headers: { Authorization: "[REDACTED]" },
+        },
+        metadata: expect.objectContaining({
+          Cookie: "[REDACTED]",
+          severity: "LOW",
+        }),
+      }),
+    );
+  });
+
   it("stores warning severity using the new database enum", async () => {
     insertValuesMock.mockReturnValue({
       returning: async () => [
