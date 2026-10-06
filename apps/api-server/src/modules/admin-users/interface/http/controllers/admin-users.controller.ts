@@ -9,6 +9,7 @@ import { BanAdminUserUseCase } from "../../../application/use-cases/ban-admin-us
 import { logAuditEvent } from "@/shared/utils/audit";
 import { toSafeAdminUser } from "./admin-user-response";
 import { z } from "zod";
+import { CreateAdminUserUseCase } from "../../../application/use-cases/create-admin-user.use-case";
 
 export class AdminUsersController {
   constructor(
@@ -17,7 +18,58 @@ export class AdminUsersController {
     private readonly deleteUser: DeleteAdminUserUseCase,
     private readonly getUser: GetAdminUserUseCase,
     private readonly banUser: BanAdminUserUseCase,
+    private readonly createAdmin: CreateAdminUserUseCase,
   ) {}
+
+  create = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const actor = req.user;
+      if (!actor?.id || !actor.role) {
+        throw new AppError(
+          "Authentication required",
+          401,
+          ErrorCodes.UNAUTHORIZED,
+        );
+      }
+
+      const body = z
+        .object({
+          email: z.string().trim().email().max(255),
+          role: z.enum(["admin", "moderator"]),
+          password: z.string().min(8).max(128),
+        })
+        .strict()
+        .parse(req.body);
+
+      const created = await this.createAdmin.execute({
+        actorId: actor.id,
+        actorRole: actor.role,
+        ...body,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          id: created.id,
+          email: created.email,
+          name: created.name,
+          role: created.role,
+          isActive: created.isActive,
+          lastLoginAt: created.lastLoginAt?.toISOString() ?? null,
+          createdAt: created.createdAt.toISOString(),
+          updatedAt: created.updatedAt.toISOString(),
+          mustChangePassword: created.mustChangePassword,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   list = async (
     req: Request,

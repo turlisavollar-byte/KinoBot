@@ -64,6 +64,13 @@
       "when": 1791228517609,
       "tag": "0008_audit_owner_separation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791270053338,
+      "tag": "0009_admin_must_change_password",
+      "breakpoints": true
     }
   ]
 }

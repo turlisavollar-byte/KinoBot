@@ -11,6 +11,7 @@ export interface UserProps {
   role: Role;
   permissions?: Permission[];
   status: UserStatus;
+  mustChangePassword?: boolean;
   avatar?: string;
   lastLoginAt?: Date;
   lastFailedLoginAt?: Date;
@@ -66,6 +67,9 @@ export class User {
   }
   get isActive(): boolean {
     return this.props.status === "active";
+  }
+  get mustChangePassword(): boolean {
+    return this.props.mustChangePassword ?? false;
   }
   get avatar(): string | undefined {
     return this.props.avatar;
@@ -176,6 +180,14 @@ export class User {
     });
   }
 
+  updateMustChangePassword(mustChangePassword: boolean): User {
+    return new User({
+      ...this.props,
+      mustChangePassword,
+      updatedAt: new Date(),
+    });
+  }
+
   updateRole(role: Role): User {
     return new User({
       ...this.props,
@@ -193,6 +205,7 @@ export class User {
       role: this.role,
       permissions: this.permissions,
       status: this.props.status,
+      mustChangePassword: this.mustChangePassword,
       avatar: this.avatar,
       lastLoginAt: this.lastLoginAt,
       lastFailedLoginAt: this.lastFailedLoginAt,
@@ -211,6 +224,7 @@ export class User {
       role: this.role,
       permissions: this.permissions,
       status: this.props.status,
+      mustChangePassword: this.mustChangePassword,
       avatar: this.avatar,
       lastLoginAt: this.lastLoginAt,
       lastFailedLoginAt: this.lastFailedLoginAt,

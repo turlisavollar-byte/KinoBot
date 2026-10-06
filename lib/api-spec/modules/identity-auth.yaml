@@ -105,6 +105,25 @@ paths:
                   success:
                     type: boolean
 
+  /identity/auth/change-password:
+    post:
+      operationId: identityChangePassword
+      tags: [identity-auth]
+      summary: Change the current password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Password changed and forced-change state cleared
+        "400": { description: Invalid password or credentials }
+        "401": { description: Unauthorized }
+
 components:
   schemas:
     IdentityRegisterInput:
@@ -142,7 +161,7 @@ components:
 
     IdentityAuthResult:
       type: object
-      required: [accessToken, refreshToken, expiresIn, user]
+      required: [accessToken, refreshToken, expiresIn, user, mustChangePassword]
       properties:
         accessToken:
           type: string
@@ -154,8 +173,23 @@ components:
           type: integer
           description: Access token expiration time in seconds
           example: 3600
+        mustChangePassword:
+          type: boolean
+          description: Whether a temporary password must be changed before other actions
         user:
           $ref: "#/components/schemas/IdentityUser"
+
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 8
+          writeOnly: true
 
     IdentityUser:
       type: object

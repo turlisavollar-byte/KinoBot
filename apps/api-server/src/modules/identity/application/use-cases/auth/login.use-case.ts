@@ -198,6 +198,7 @@ export class LoginUseCase {
       accessToken,
       refreshToken,
       expiresIn,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

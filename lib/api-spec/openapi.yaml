@@ -396,6 +396,42 @@ paths:
           description: Unauthorized
         '403':
           description: Forbidden
+    post:
+      operationId: createScopedAdminUser
+      tags:
+        - admin-users
+      summary: Create an administrative account as Super Admin
+      description: >-
+        The password is hashed server-side, never returned, and must be changed
+        on first login.
+      security:
+        - bearerAuth: []
+      x-rate-limit:
+        max: 5
+        windowSeconds: 3600
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminUserBody'
+      responses:
+        '201':
+          description: Administrative account created; no password or hash is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAdminUserResponse'
+        '400':
+          description: Invalid input or password policy failure
+        '401':
+          description: Unauthorized
+        '403':
+          description: Super Admin permission required
+        '409':
+          description: Email already exists
+        '429':
+          description: Rate limit exceeded
   /admin/users/{id}:
     get:
       operationId: getScopedAdminUser
@@ -2393,6 +2429,27 @@ paths:
                 properties:
                   success:
                     type: boolean
+  /identity/auth/change-password:
+    post:
+      operationId: identityChangePassword
+      tags:
+        - identity-auth
+      summary: Change the current password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordInput'
+      responses:
+        '200':
+          description: Password changed and forced-change state cleared
+        '400':
+          description: Invalid password or credentials
+        '401':
+          description: Unauthorized
   /notifications:
     get:
       operationId: listNotifications
@@ -4037,6 +4094,49 @@ components:
         timestamp:
           type: string
           format: date-time
+    CreateAdminUserBody:
+      type: object
+      required:
+        - email
+        - role
+        - password
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        role:
+          type: string
+          enum:
+            - admin
+            - moderator
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+    CreateAdminUserResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          allOf:
+            - $ref: '#/components/schemas/AdminAccount'
+            - type: object
+              required:
+                - mustChangePassword
+              properties:
+                mustChangePassword:
+                  type: boolean
+        timestamp:
+          type: string
+          format: date-time
     BanAdminUserBody:
       type: object
       required:
@@ -5120,6 +5220,7 @@ components:
         - refreshToken
         - expiresIn
         - user
+        - mustChangePassword
       properties:
         accessToken:
           type: string
@@ -5131,8 +5232,24 @@ components:
           type: integer
           description: Access token expiration time in seconds
           example: 3600
+        mustChangePassword:
+          type: boolean
+          description: Whether a temporary password must be changed before other actions
         user:
           $ref: '#/components/schemas/IdentityUser'
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 8
+          writeOnly: true
     IdentityUser:
       type: object
       required:

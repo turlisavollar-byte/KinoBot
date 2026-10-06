@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import type { UserAccessScope } from "@/shared/constants/user-access";
+import { randomUUID } from "node:crypto";
 
 export interface AdminUserListOptions {
   search?: string;
@@ -22,6 +23,56 @@ export interface AdminUserUpdateData {
 }
 
 export class AdminUsersRepository {
+  async emailExists(email: string): Promise<boolean> {
+    const [existing] = await db
+      .select({ id: adminUsersTable.id })
+      .from(adminUsersTable)
+      .where(
+        and(
+          eq(adminUsersTable.email, email),
+          isNull(adminUsersTable.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(existing);
+  }
+
+  async createAdmin(input: {
+    email: string;
+    role: "admin" | "moderator";
+    passwordHash: string;
+    roleId: string;
+  }) {
+    const [created] = await db
+      .insert(adminUsersTable)
+      .values({
+        id: randomUUID(),
+        email: input.email,
+        name: null,
+        role: input.role,
+        roleId: input.roleId,
+        passwordHash: input.passwordHash,
+        isActive: true,
+        mustChangePassword: true,
+        isEmailVerified: true,
+      })
+      .returning({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        name: adminUsersTable.name,
+        role: adminUsersTable.role,
+        isActive: adminUsersTable.isActive,
+        lastLoginAt: adminUsersTable.lastLoginAt,
+        createdAt: adminUsersTable.createdAt,
+        updatedAt: adminUsersTable.updatedAt,
+        mustChangePassword: adminUsersTable.mustChangePassword,
+      });
+
+    if (!created) throw new Error("Failed to create administrative account");
+    return created;
+  }
+
   async list(options: AdminUserListOptions) {
     const conditions = [isNull(adminUsersTable.deletedAt)];
 

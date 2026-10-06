@@ -140,6 +140,34 @@ paths:
                 $ref: "#/components/schemas/AdminAccountListResponse"
         "401": { description: Unauthorized }
         "403": { description: Forbidden }
+    post:
+      operationId: createScopedAdminUser
+      tags: [admin-users]
+      summary: Create an administrative account as Super Admin
+      description: The password is hashed server-side, never returned, and must be changed on first login.
+      security:
+        - bearerAuth: []
+      x-rate-limit:
+        max: 5
+        windowSeconds: 3600
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminUserBody"
+      responses:
+        "201":
+          description: Administrative account created; no password or hash is returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAdminUserResponse"
+        "400": { description: Invalid input or password policy failure }
+        "401": { description: Unauthorized }
+        "403": { description: Super Admin permission required }
+        "409": { description: Email already exists }
+        "429": { description: Rate limit exceeded }
   /admin/users/{id}:
     get:
       operationId: getScopedAdminUser
@@ -270,6 +298,35 @@ components:
         success: { type: boolean }
         data:
           $ref: "#/components/schemas/AdminAccount"
+        timestamp:
+          type: string
+          format: date-time
+    CreateAdminUserBody:
+      type: object
+      required: [email, role, password]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        role:
+          type: string
+          enum: [admin, moderator]
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+    CreateAdminUserResponse:
+      type: object
+      required: [success, data, timestamp]
+      properties:
+        success: { type: boolean }
+        data:
+          allOf:
+            - $ref: "#/components/schemas/AdminAccount"
+            - type: object
+              required: [mustChangePassword]
+              properties:
+                mustChangePassword: { type: boolean }
         timestamp:
           type: string
           format: date-time

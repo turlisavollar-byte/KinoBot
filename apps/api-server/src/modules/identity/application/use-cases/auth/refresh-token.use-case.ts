@@ -23,6 +23,10 @@ export class RefreshTokenUseCase {
       throw new Error("Account is not active");
     }
 
+    if (user.mustChangePassword) {
+      throw new Error("Password change is required before refreshing tokens");
+    }
+
     const accessToken = jwtService.generateAccessToken({
       sub: user.id,
       email: user.email,
@@ -57,6 +61,7 @@ export class RefreshTokenUseCase {
       accessToken,
       refreshToken,
       expiresIn,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }
