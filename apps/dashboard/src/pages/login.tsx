@@ -21,6 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { setMustChangePasswordRequired } from "@/lib/password-change-flow";
 
 export default function Login() {
   const { t } = useI18n();
@@ -46,10 +47,15 @@ export default function Login() {
           onSuccess: (data) => {
             // Store JWT tokens in-memory (+ best-effort localStorage)
             setTokens(data.accessToken, data.refreshToken);
+            const requiresPasswordChange = Boolean(
+              (data as typeof data & { mustChangePassword?: boolean })
+                .mustChangePassword,
+            );
+            setMustChangePasswordRequired(requiresPasswordChange);
             // Populate /identity/auth/me cache directly so ProtectedRoute re-renders
             // immediately — no second round-trip needed.
             queryClient.setQueryData(getIdentityGetMeQueryKey(), data.user);
-            setLocation("/");
+            setLocation(requiresPasswordChange ? "/change-password" : "/");
           },
           onError: (error: unknown) => {
             const responseError = error as {
@@ -78,6 +84,7 @@ export default function Login() {
           onSuccess: (data) => {
             // Store JWT tokens in-memory (+ best-effort localStorage)
             setTokens(data.accessToken, data.refreshToken);
+            setMustChangePasswordRequired(false);
             // Populate /identity/auth/me cache directly so ProtectedRoute re-renders
             // immediately — no second round-trip needed.
             queryClient.setQueryData(getIdentityGetMeQueryKey(), data.user);

@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -13,8 +18,15 @@ import {
 import { Layout } from "@/components/layout";
 import { clearTokens, getAccessToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { canAccessDashboardPath } from "@/lib/navigation-access";
 import { useLocation } from "wouter";
+import ChangePassword from "@/pages/change-password";
+import {
+  handlePasswordChangeRequiredError,
+  isMustChangePasswordRequired,
+  PASSWORD_CHANGE_REQUIRED_EVENT,
+} from "@/lib/password-change-flow";
 
 // ─── Pages ───────────────────────────────────────────────────────────────────
 import Login from "@/pages/login";
@@ -51,10 +63,20 @@ import Settings from "@/pages/settings/index";
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: handlePasswordChangeRequiredError,
+  }),
+  mutationCache: new MutationCache({
+    onError: handlePasswordChangeRequiredError,
+  }),
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if ((error as { status?: number })?.status === 429) return false;
+        const apiError = error as { status?: number; data?: { error?: { code?: string } } };
+        if (
+          apiError.status === 429 ||
+          apiError.data?.error?.code === "PASSWORD_CHANGE_REQUIRED"
+        ) return false;
         return failureCount < 1;
       },
       refetchOnWindowFocus: false,
@@ -84,7 +106,7 @@ function ProtectedRoute({
   });
 
   useEffect(() => {
-    if (error) {
+    if ((error as { status?: number } | null)?.status === 401) {
       clearTokens();
     }
   }, [error]);
@@ -159,9 +181,29 @@ function ProtectedRoute({
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 function Router() {
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    const enforcePasswordChange = () => {
+      if (isMustChangePasswordRequired()) {
+        toast.error("Parolni o'zgartirishingiz kerak");
+        setLocation("/change-password");
+      }
+    };
+    window.addEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, enforcePasswordChange);
+    enforcePasswordChange();
+    return () =>
+      window.removeEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, enforcePasswordChange);
+  }, [setLocation]);
+
+  if (isMustChangePasswordRequired() && location !== "/change-password") {
+    return <ChangePassword />;
+  }
+
   const P = (C: React.ComponentType) => () => <ProtectedRoute component={C} />;
   return (
     <Switch>
+      <Route path="/change-password" component={ChangePassword} />
       {/* Overview */}
       <Route path="/" component={P(Dashboard)} />
       <Route path="/analytics" component={P(Analytics)} />
