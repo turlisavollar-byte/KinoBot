@@ -1,4 +1,8 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Avatar as AvatarRoot,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 type UserAvatarSize = "sm" | "md" | "lg";
@@ -40,13 +44,15 @@ export function UserAvatar({
   const initials = getInitials(name);
 
   return (
-    <Avatar className={cn(sizeClasses[size], className)}>
+    <AvatarRoot className={cn(sizeClasses[size], className)}>
       {src ? (
         <AvatarImage src={src} alt={name ?? "User"} className="object-cover" />
       ) : null}
       <AvatarFallback className="bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-100">
         {initials}
       </AvatarFallback>
-    </Avatar>
+    </AvatarRoot>
   );
 }
+
+export const Avatar = UserAvatar;

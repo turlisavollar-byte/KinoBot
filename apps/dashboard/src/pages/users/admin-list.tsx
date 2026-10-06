@@ -8,6 +8,9 @@ import {
   type AdminAccount,
   type UpdateAdminUserBodyRole,
 } from "@workspace/api-client-react";
+import { AddAdminModal } from "@/components/add-admin-modal";
+import { UserDetailModal } from "@/components/user-detail-modal";
+import { Avatar } from "@/components/avatar";
 import {
   Table,
   TableBody,
@@ -16,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,8 @@ export default function AdminUsersList() {
   const deleteAdminUser = useDeleteAdminUser();
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UpdateAdminUserBodyRole>("viewer");
@@ -118,7 +123,7 @@ export default function AdminUsersList() {
           {t("users.manageAdminAccounts")}
         </p>
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -128,6 +133,12 @@ export default function AdminUsersList() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
+        {actorRole === "superadmin" && (
+          <Button onClick={() => setAddModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Admin
+          </Button>
+        )}
       </div>
       <div className="border rounded-md">
         <Table>
@@ -156,7 +167,18 @@ export default function AdminUsersList() {
             ) : (
               users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <Avatar name={user.name ?? user.email} size="sm" />
+                      <button
+                        type="button"
+                        className="text-left hover:underline"
+                        onClick={() => setDetailUserId(user.id)}
+                      >
+                        {user.name ?? user.email}
+                      </button>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono text-sm">
                     {user.email}
                   </TableCell>
@@ -265,6 +287,23 @@ export default function AdminUsersList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {addModalOpen ? (
+        <AddAdminModal
+          open={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onSuccess={() => {
+            setAddModalOpen(false);
+            refresh();
+          }}
+        />
+      ) : null}
+      {detailUserId ? (
+        <UserDetailModal
+          userId={detailUserId}
+          open={Boolean(detailUserId)}
+          onClose={() => setDetailUserId(null)}
+        />
+      ) : null}
     </div>
   );
 }

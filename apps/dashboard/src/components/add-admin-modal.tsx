@@ -34,7 +34,15 @@ function generatePassword(length = 16) {
   return value;
 }
 
-export function AddAdminModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddAdminModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
   const createAdminUser = useCreateAdminUser();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("admin");
@@ -74,6 +82,7 @@ export function AddAdminModal({ open, onClose }: { open: boolean; onClose: () =>
       setEmail("");
       setRole("admin");
       toast.success(`Admin created. Password: ${responsePassword}`);
+      onSuccess?.();
       if (result?.data?.email) {
         // keep the generated password visible once for the user to copy
       }

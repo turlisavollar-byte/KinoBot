@@ -27,7 +27,8 @@ describe("AddAdminModal", () => {
 
   it("creates the selected admin account and shows the one-time password", async () => {
     const user = userEvent.setup();
-    render(<AddAdminModal open onClose={vi.fn()} />);
+    const onSuccess = vi.fn();
+    render(<AddAdminModal open onClose={vi.fn()} onSuccess={onSuccess} />);
 
     await user.type(screen.getByLabelText("Email"), "  new-admin@example.com  ");
     await user.click(screen.getByRole("button", { name: /generate/i }));
@@ -43,6 +44,7 @@ describe("AddAdminModal", () => {
         password,
       },
     }));
+    expect(onSuccess).toHaveBeenCalledOnce();
     expect(screen.getByText(password)).toBeInTheDocument();
     expect(screen.getByText(/will not be shown again/i)).toBeInTheDocument();
   });
