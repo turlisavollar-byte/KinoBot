@@ -13,6 +13,8 @@ import {
 import { Layout } from "@/components/layout";
 import { clearTokens, getAccessToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/button";
+import { canAccessDashboardPath } from "@/lib/navigation-access";
+import { useLocation } from "wouter";
 
 // ─── Pages ───────────────────────────────────────────────────────────────────
 import Login from "@/pages/login";
@@ -67,6 +69,7 @@ function ProtectedRoute({
 }: {
   component: React.ComponentType;
 }) {
+  const [location, navigate] = useLocation();
   const hasAccessToken = Boolean(getAccessToken());
   const {
     data: user,
@@ -125,6 +128,22 @@ function ProtectedRoute({
             }}
           >
             Sign out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canAccessDashboardPath(role, user.permissions, location)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="max-w-md text-center space-y-3">
+          <h1 className="text-xl font-semibold">Ruxsat yo'q</h1>
+          <p className="text-muted-foreground">
+            Bu sahifani ko'rish uchun ruxsatingiz yo'q.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/")}>
+            Dashboardga qaytish
           </Button>
         </div>
       </div>

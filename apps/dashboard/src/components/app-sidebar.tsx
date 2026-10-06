@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
+import { useIdentityGetMe } from "@workspace/api-client-react";
+import { canAccessNavigationPath } from "@/lib/navigation-access";
 
 const NAV = [
   {
@@ -91,6 +93,13 @@ function isActive(location: string, href: string) {
 export function AppSidebar() {
   const { t } = useI18n();
   const [location, navigate] = useLocation();
+  const { data: me } = useIdentityGetMe();
+  const visibleGroups = NAV.map(({ group, items }) => ({
+    group,
+    items: items.filter(({ href }) =>
+      canAccessNavigationPath(me?.role, me?.permissions, href),
+    ),
+  })).filter(({ items }) => items.length > 0);
 
   return (
     <Sidebar>
@@ -109,7 +118,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {NAV.map(({ group, items }, gi) => (
+        {visibleGroups.map(({ group, items }, gi) => (
           <SidebarGroup key={group}>
             {gi > 0 && <SidebarSeparator className="mb-1" />}
             <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60 px-3">
