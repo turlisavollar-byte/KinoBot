@@ -10,6 +10,7 @@ import { BanAdminUserUseCase } from "../../../application/use-cases/ban-admin-us
 import { CreateAdminUserUseCase } from "../../../application/use-cases/create-admin-user.use-case";
 import { AdminUsersController } from "../controllers/admin-users.controller";
 import { rateLimit } from "express-rate-limit";
+import { createAdminRateLimit } from "@/middleware/rate-limit";
 import { PasswordService } from "@/modules/identity/infrastructure/services/password.service";
 
 const repository = new AdminUsersRepository();
@@ -29,18 +30,12 @@ const adminMutationLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-const adminCreateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 router.post(
   "/",
   requireAuth,
   requirePermission(Permission.CREATE_ADMIN_USERS),
-  adminCreateLimit,
+  createAdminRateLimit,
   controller.create,
 );
 
