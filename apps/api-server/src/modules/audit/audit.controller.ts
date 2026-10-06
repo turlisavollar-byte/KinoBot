@@ -322,6 +322,17 @@ export class AuditController {
    * Apply retention policy (Admin only)
    */
   async applyRetention(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (process.env.AUDIT_RETENTION_ENABLED !== "true") {
+      res.status(503).json({
+        success: false,
+        error: {
+          code: "RETENTION_DISABLED",
+          message: "Audit retention is disabled",
+        },
+      });
+      return;
+    }
+
     try {
       const { retentionDays, archiveAfterDays, deleteAfterDays } = req.body;
 

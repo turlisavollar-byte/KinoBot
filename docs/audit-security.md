@@ -67,13 +67,33 @@ psql -h 127.0.0.1 -p 5432 -U postgres -d kinobot
 Do not run the production migration until the pending migration list and
 backup have been verified.
 
+### Retention Runtime
+
+Retention is disabled unless `AUDIT_RETENTION_ENABLED=true`. Keep it unset or
+set to `false` in production until the retention behavior has passed staging
+verification. The controller returns HTTP 503 with `RETENTION_DISABLED`, and
+the service independently rejects the operation as a second fail-closed guard.
+
+Variant B runs a separate, lazily created `audit_archiver` connection pool in
+the API process. Configure `DATABASE_URL_ARCHIVER` only in the protected server
+environment; it must connect as `audit_archiver`, and its URL is never logged.
+The pool is limited to two connections and is closed during orderly shutdown.
+Because this places a privileged credential in the API process, the longer-term
+isolation option is a separate retention worker.
+
+The current archive operation only sets the database `archived_at` marker and
+retention metadata; it does not copy records to S3 or a file archive. The
+approved policy archives records at 90 days and permanently deletes records at
+365 days. Require `deleteAfterDays >= archiveAfterDays`. The archive update and
+delete run sequentially in one transaction using the archiver connection. Do
+not enable the production flag until staging checks confirm both operations.
+
 ## 6. Deployment Verification and Deferred Smoke Test
 
-There is currently no staging database available. Commit 1 contains the
-approved migration, journal entry, and this runbook; it does not contain or
-claim to have run a mutation smoke test. The staging-only smoke test and its
-package command are deferred to Commit 2. Do not add `AUDIT_TEST_*` values to
-the production `.env` for Commit 1.
+There is currently no staging database available. The staging-only mutation
+smoke-test code and package command are present in Commit 2, but the test has
+not been run against staging. Do not add `AUDIT_TEST_*` values to the
+production `.env`.
 
 After applying 0008 in production, verify role attributes and table ownership
 using this read-only catalog query as `postgres`:

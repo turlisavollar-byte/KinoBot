@@ -20,7 +20,12 @@ import type {
   NewAuditLogTagRow,
 } from "@workspace/db";
 
-import { db, auditLogsTable, auditLogTagsTable } from "@workspace/db";
+import {
+  createDbClient,
+  db,
+  auditLogsTable,
+  auditLogTagsTable,
+} from "@workspace/db";
 
 import {
   and,
@@ -45,6 +50,54 @@ import { Logger } from "@/shared/utils/logger";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const DEFAULT_RETENTION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type AuditArchiverClient = ReturnType<typeof createDbClient>;
+let auditArchiverClient: AuditArchiverClient | undefined;
+
+function getArchiverDb() {
+  const connectionString = process.env.DATABASE_URL_ARCHIVER;
+  if (!connectionString) {
+    throw new AuditError(
+      "DATABASE_URL_ARCHIVER is required for retention",
+      "ARCHIVER_DATABASE_NOT_CONFIGURED",
+    );
+  }
+
+  auditArchiverClient ??= createDbClient(connectionString, 2);
+  return auditArchiverClient.db;
+}
+
+export async function closeAuditArchiverPool(): Promise<void> {
+  if (!auditArchiverClient) return;
+
+  const client = auditArchiverClient;
+  auditArchiverClient = undefined;
+  await client.pool.end();
+}
+
+export function getRetentionCutoffs(
+  now: Date,
+  policy: AuditLogRetentionPolicy,
+): { archiveDate: Date; deleteDate: Date } {
+  if (
+    !Number.isSafeInteger(policy.archiveAfterDays) ||
+    !Number.isSafeInteger(policy.deleteAfterDays) ||
+    policy.archiveAfterDays < 0 ||
+    policy.deleteAfterDays < policy.archiveAfterDays
+  ) {
+    throw new AuditValidationError(
+      "deleteAfterDays must be an integer greater than or equal to archiveAfterDays",
+    );
+  }
+
+  return {
+    archiveDate: new Date(
+      now.getTime() - policy.archiveAfterDays * DAY_MS,
+    ),
+    deleteDate: new Date(now.getTime() - policy.deleteAfterDays * DAY_MS),
+  };
+}
 
 type StoredAuditSeverity = "info" | "warning" | "critical";
 
@@ -565,18 +618,9 @@ export class AuditService {
    */
   async deleteOlderThan(date: Date): Promise<number> {
     try {
-      // First, archive old logs if needed
-      const archived = await this.archiveLogs(date);
-
-      // Then delete
-      const deleted = await db
+      const deleted = await getArchiverDb()
         .delete(auditLogsTable)
-        .where(
-          and(
-            lte(auditLogsTable.createdAt, date),
-            isNull(auditLogsTable.archivedAt),
-          ),
-        )
+        .where(lte(auditLogsTable.createdAt, date))
         .returning({ id: auditLogsTable.id });
 
       this.logger.info(
@@ -597,7 +641,7 @@ export class AuditService {
    * Archive audit logs (mark as archived)
    */
   async archiveLogs(date: Date): Promise<number> {
-    const archived = await db
+    const archived = await getArchiverDb()
       .update(auditLogsTable)
       .set({
         archivedAt: new Date(),
@@ -623,19 +667,50 @@ export class AuditService {
     archived: number;
     deleted: number;
   }> {
-    const now = new Date();
-    const archiveDate = new Date(now);
-    archiveDate.setDate(archiveDate.getDate() - policy.archiveAfterDays);
+    if (process.env.AUDIT_RETENTION_ENABLED !== "true") {
+      throw new AuditError(
+        "Audit retention is disabled",
+        "RETENTION_DISABLED",
+      );
+    }
 
-    const deleteDate = new Date(now);
-    deleteDate.setDate(deleteDate.getDate() - policy.deleteAfterDays);
+    const { archiveDate, deleteDate } = getRetentionCutoffs(
+      new Date(),
+      policy,
+    );
+    const archiverDb = getArchiverDb();
 
-    const [archived, deleted] = await Promise.all([
-      this.archiveLogs(archiveDate),
-      this.deleteOlderThan(deleteDate),
-    ]);
+    try {
+      return await archiverDb.transaction(async (tx) => {
+        const archived = await tx
+          .update(auditLogsTable)
+          .set({
+            archivedAt: new Date(),
+            retentionDays: DEFAULT_RETENTION_DAYS + 90,
+          })
+          .where(
+            and(
+              lte(auditLogsTable.createdAt, archiveDate),
+              isNull(auditLogsTable.archivedAt),
+            ),
+          )
+          .returning({ id: auditLogsTable.id });
 
-    return { archived, deleted };
+        const deleted = await tx
+          .delete(auditLogsTable)
+          .where(lte(auditLogsTable.createdAt, deleteDate))
+          .returning({ id: auditLogsTable.id });
+
+        return { archived: archived.length, deleted: deleted.length };
+      });
+    } catch (error) {
+      this.logger.error("Failed to apply audit retention", { error, policy });
+      throw new AuditError(
+        "Failed to apply audit retention",
+        "RETENTION_FAILED",
+        { error, policy },
+      );
+    }
   }
 
   /**

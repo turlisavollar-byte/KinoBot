@@ -28,7 +28,6 @@ let _bot: Bot<BotContext> | null = null;
 let _isRunning = false;
 let _startPromise: Promise<void> | null = null;
 let _sessionRedis: Redis | null = null;
-let _shutdownHandlersRegistered = false;
 
 const SESSION_TTL_SECONDS = 60 * 60;
 
@@ -113,20 +112,6 @@ async function closeSessionRedis(): Promise<void> {
   }
 }
 
-function registerShutdownHandlers(): void {
-  if (_shutdownHandlersRegistered) return;
-  _shutdownHandlersRegistered = true;
-
-  const shutdown = async (signal: string) => {
-    logger.info(`Stopping Telegram bot on ${signal}`);
-    await stopBot();
-    process.exit(0);
-  };
-
-  process.once("SIGTERM", () => void shutdown("SIGTERM"));
-  process.once("SIGINT", () => void shutdown("SIGINT"));
-}
-
 export function buildBot(token: string): Bot<BotContext> {
   const bot = new Bot<BotContext>(token);
 
@@ -201,7 +186,6 @@ export async function startBot(): Promise<void> {
       }
 
       _bot = buildBot(config.botToken);
-      registerShutdownHandlers();
 
       _isRunning = true;
 
