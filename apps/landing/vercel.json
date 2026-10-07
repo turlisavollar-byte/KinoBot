@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/landing build",
+  "outputDirectory": "apps/landing/.next",
+  "regions": ["auto"]
+}
