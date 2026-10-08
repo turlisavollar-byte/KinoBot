@@ -2,6 +2,7 @@
 
 import { Reveal } from '@/components/reveal';
 import { useLang } from '@/components/language-provider';
+import { FAQ_ITEMS } from '@/config';
 
 export function FAQ() {
   const { t } = useLang();
@@ -17,7 +18,7 @@ export function FAQ() {
 
         <Reveal className="mt-12" delay={100}>
           <div className="space-y-3">
-            {t.faq.items.map((faq, i) => (
+            {FAQ_ITEMS.map((faq, i) => (
               <details key={i} className="group rounded-xl border border-slate-200 bg-white px-4 shadow-sm sm:px-6 dark:border-slate-700 dark:bg-slate-800">
                 <summary className="cursor-pointer list-none py-4 text-left text-sm font-semibold text-slate-900 sm:text-base dark:text-white">
                   {faq.question}

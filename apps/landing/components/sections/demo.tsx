@@ -4,10 +4,13 @@ import { Play, Smartphone, Monitor, CheckCircle2 } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { Button } from '@/components/ui/button';
 import { useLang } from '@/components/language-provider';
+import { siteConfig, SOCIAL_LINKS } from '@/config';
 
 export function Demo() {
   const { t } = useLang();
   const trustSignals = [t.demo.trust1, t.demo.trust2, t.demo.trust3];
+  const telegramUrl = SOCIAL_LINKS.telegramSupport || siteConfig.telegramSupport;
+  const adminUrl = siteConfig.url ? `${siteConfig.url}/admin` : '#contact';
 
   return (
     <section id="demo" className="bg-white py-16 dark:bg-slate-950 lg:py-24">
@@ -39,14 +42,14 @@ export function Demo() {
         </Reveal>
 
         <Reveal className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6" delay={200}>
-          <Button size="lg" className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto">
+          <a href={telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto">
             <Smartphone className="mr-2 h-5 w-5" />
             {t.demo.telegramBtn}
-          </Button>
-          <Button size="lg" variant="outline" className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto">
+          </a>
+          <a href={adminUrl} className="inline-flex items-center justify-center rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto">
             <Monitor className="mr-2 h-5 w-5" />
             {t.demo.adminBtn}
-          </Button>
+          </a>
         </Reveal>
 
         <Reveal className="mt-8 flex flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:gap-6" delay={300}>

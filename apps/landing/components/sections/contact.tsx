@@ -4,6 +4,7 @@ import { Send, Mail, Phone, Clock, MapPin } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { ContactForm } from '@/components/contact-form';
 import { useLang } from '@/components/language-provider';
+import { CONTACT_DETAILS } from '@/config';
 
 const infoIcons = [Send, Mail, Phone, Clock, MapPin];
 
@@ -11,11 +12,11 @@ export function Contact() {
   const { t } = useLang();
 
   const infoItems = [
-    { label: t.contact.infoLabels.telegram, value: t.contact.infoValues.telegram },
-    { label: t.contact.infoLabels.email, value: t.contact.infoValues.email },
-    { label: t.contact.infoLabels.phone, value: t.contact.infoValues.phone },
-    { label: t.contact.infoLabels.hours, value: t.contact.infoValues.hours },
-    { label: t.contact.infoLabels.address, value: t.contact.infoValues.address },
+    { label: t.contact.infoLabels.telegram, value: CONTACT_DETAILS.telegram || 'Bog\'lanish', href: CONTACT_DETAILS.telegram || '#contact' },
+    { label: t.contact.infoLabels.email, value: CONTACT_DETAILS.email || 'info@kinobot.uz', href: CONTACT_DETAILS.email ? `mailto:${CONTACT_DETAILS.email}` : '#contact' },
+    { label: t.contact.infoLabels.phone, value: CONTACT_DETAILS.phone || 'Telefon topilmadi', href: CONTACT_DETAILS.phone ? `tel:${CONTACT_DETAILS.phone.replace(/\s/g, '')}` : '#contact' },
+    { label: t.contact.infoLabels.hours, value: CONTACT_DETAILS.hours },
+    { label: t.contact.infoLabels.address, value: CONTACT_DETAILS.address || 'Manzil topilmadi' },
   ];
 
   return (
@@ -37,8 +38,15 @@ export function Contact() {
             <div className="space-y-3 sm:space-y-4">
               {infoItems.map((info, i) => {
                 const Icon = infoIcons[i];
+                const isLink = info.href?.startsWith('mailto:') || info.href?.startsWith('tel:') || info.href?.startsWith('http');
                 return (
-                  <div key={i} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5 dark:border-slate-700 dark:bg-slate-800">
+                  <a
+                    key={i}
+                    href={info.href ?? '#contact'}
+                    target={isLink && info.href?.startsWith('http') ? '_blank' : undefined}
+                    rel={isLink && info.href?.startsWith('http') ? 'noreferrer' : undefined}
+                    className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5 dark:border-slate-700 dark:bg-slate-800"
+                  >
                     <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-lg sm:h-12 sm:w-12">
                       <Icon className="h-5 w-5 text-white" />
                     </div>
@@ -46,7 +54,7 @@ export function Contact() {
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{info.label}</p>
                       <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{info.value}</p>
                     </div>
-                  </div>
+                  </a>
                 );
               })}
             </div>

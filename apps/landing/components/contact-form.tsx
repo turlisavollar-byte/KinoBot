@@ -26,13 +26,15 @@ export function ContactForm() {
         body: JSON.stringify(payload),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'Unable to submit contact request.');
+      if (!response.ok) {
+        throw new Error(result.error && result.error !== 'Contact delivery is temporarily unavailable.' ? result.error : 'Unable to submit your request right now. Please try again later.');
+      }
       setStatus('success');
       setMessage('Rahmat! Xabaringiz jo’natildi.');
       event.currentTarget.reset();
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Unexpected error.');
+      setMessage('Unable to submit your request right now. Please try again later.');
     }
   }
 

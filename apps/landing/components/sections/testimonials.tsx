@@ -5,6 +5,7 @@ import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/components/language-provider';
+import { TESTIMONIALS } from '@/config';
 
 const gradients = [
   'from-blue-500 to-violet-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500',
@@ -15,7 +16,7 @@ export function Testimonials() {
   const { t } = useLang();
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const items = t.testimonials.items;
+  const items = TESTIMONIALS;
 
   useEffect(() => {
     if (isPaused) return;

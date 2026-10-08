@@ -1,23 +1,24 @@
+import { siteConfig } from '@/config';
+
 export function SchemaMarkup() {
   const schema = {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'Organization',
-        name: 'KinoBot',
-        url: 'https://kinobot.uz',
-        email: 'info@kinobot.uz',
-        description:
-          'Telegram bot va admin panel platformasi. Kino biznesingizni avtomatlashtiring.',
-        areaServed: "O'zbekiston",
+        name: siteConfig.name,
+        url: siteConfig.url,
+        email: siteConfig.contactEmail,
+        description: siteConfig.description,
+        areaServed: 'O\'zbekiston',
       },
       {
         '@type': 'WebSite',
-        name: 'KinoBot',
-        url: 'https://kinobot.uz',
+        name: siteConfig.name,
+        url: siteConfig.url,
         potentialAction: {
           '@type': 'SearchAction',
-          target: 'https://kinobot.uz/?q={search_term_string}',
+          target: `${siteConfig.url}/?q={search_term_string}`,
           'query-input': 'required name=search_term_string',
         },
       },

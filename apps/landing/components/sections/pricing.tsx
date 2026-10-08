@@ -5,6 +5,7 @@ import { Reveal } from '@/components/reveal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/components/language-provider';
+import { PRICING_PLANS } from '@/config';
 
 export function Pricing() {
   const { t } = useLang();
@@ -22,8 +23,8 @@ export function Pricing() {
         </Reveal>
 
         <div className="mt-12 grid grid-cols-1 gap-6 lg:mt-16 lg:grid-cols-3 lg:gap-8">
-          {t.pricing.plans.map((plan, i) => (
-            <Reveal key={i} delay={i * 100}>
+          {PRICING_PLANS.map((plan, i) => (
+            <Reveal key={plan.id} delay={i * 100}>
               <div
                 className={cn(
                   'relative h-full rounded-2xl border-2 p-6 transition-all duration-300 sm:p-8',
@@ -45,8 +46,8 @@ export function Pricing() {
                   <h3 className="text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white">{plan.name}</h3>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{plan.description}</p>
                   <div className="mt-6">
-                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">{plan.price}</span>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t.pricing.oneTime}</p>
+                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">${plan.price.toLocaleString()}</span>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{plan.period}</p>
                   </div>
                 </div>
 

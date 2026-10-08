@@ -5,14 +5,14 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { LanguageProvider } from '@/components/language-provider';
 import { Analytics } from '@/components/analytics';
 import { SchemaMarkup } from '@/components/schema-markup';
+import { siteConfig } from '@/config';
 
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '700', '800'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kinobot.uz'),
-  title: 'KinoBot — Kino biznesingizni keyingi darajaga olib chiqing',
-  description:
-    'Telegram bot + Admin panel platformasi. 24/7 ishlaydigan, xavfsiz, professional. Kino biznesingizni avtomatlashtiring.',
+  metadataBase: new URL(siteConfig.url || 'http://localhost:3000'),
+  title: `${siteConfig.name} — Kino biznesingizni keyingi darajaga olib chiqing`,
+  description: siteConfig.description,
   openGraph: {
     title: 'KinoBot — Kino biznesingizni keyingi darajaga olib chiqing',
     description:

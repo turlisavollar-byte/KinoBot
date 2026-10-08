@@ -3,6 +3,7 @@
 import { Bot, LayoutDashboard, Film, CreditCard, ShieldCheck, BarChart3, Bell, Globe, Smartphone, LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { useLang } from '@/components/language-provider';
+import { FEATURES } from '@/config';
 
 const icons: LucideIcon[] = [Bot, LayoutDashboard, Film, CreditCard, ShieldCheck, BarChart3, Bell, Globe, Smartphone];
 const gradients = [
@@ -25,7 +26,7 @@ export function Features() {
         </Reveal>
 
         <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:mt-16">
-          {t.features.items.map((feature, i) => {
+          {FEATURES.map((feature, i) => {
             const Icon = icons[i];
             return (
               <Reveal key={i} delay={i * 60}>

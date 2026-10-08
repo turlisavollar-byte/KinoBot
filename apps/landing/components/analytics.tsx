@@ -1,19 +1,17 @@
 'use client';
 
 import Script from 'next/script';
-
-const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-const yandexMetricaId = process.env.NEXT_PUBLIC_YANDEX_METRICA_ID;
+import { siteConfig } from '@/config';
 
 export function Analytics() {
   return (
     <>
-      {gaMeasurementId ? (
+      {siteConfig.ga4Id ? (
         <>
           <Script
             id="ga4-loader"
             strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+            src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.ga4Id}`}
           />
           <Script
             id="ga4-config"
@@ -23,18 +21,18 @@ export function Analytics() {
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${gaMeasurementId}', { send_page_view: true });
+                gtag('config', '${siteConfig.ga4Id}', { send_page_view: true });
               `,
             }}
           />
         </>
       ) : null}
-      {yandexMetricaId ? (
+      {siteConfig.yandexMetricaId ? (
         <>
           <Script
             id="yandex-metrica-loader"
             strategy="afterInteractive"
-            src={`https://mc.yandex.com/api/jsapi/v2.js?cid=${yandexMetricaId}`}
+            src={`https://mc.yandex.com/api/jsapi/v2.js?cid=${siteConfig.yandexMetricaId}`}
           />
           <Script
             id="yandex-metrica-config"
@@ -43,7 +41,7 @@ export function Analytics() {
               __html: `
                 (function() {
                   if (window.ym) {
-                    window.ym(${JSON.stringify(yandexMetricaId)}, 'ym', '001');
+                    window.ym(${JSON.stringify(siteConfig.yandexMetricaId)}, 'ym', '001');
                     window.ym('hit', 'pageView');
                   }
                 })();

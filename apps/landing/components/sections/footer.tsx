@@ -2,32 +2,19 @@
 
 import { Film, Send, Mail, Phone } from 'lucide-react';
 import { useLang } from '@/components/language-provider';
+import { siteConfig, SOCIAL_LINKS } from '@/config';
 
 export function Footer() {
   const { t } = useLang();
-  const scrollTo = (href: string) => document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' });
+  const sectionLinks = ['#features', '#pricing', '#demo', '#faq'];
+  const telegramUrl = SOCIAL_LINKS.telegramSupport || siteConfig.telegramSupport;
+  const emailUrl = siteConfig.contactEmail ? `mailto:${siteConfig.contactEmail}` : '#contact';
+  const phoneUrl = siteConfig.contactPhone ? `tel:${siteConfig.contactPhone.replace(/\s/g, '')}` : '#contact';
 
-  const handleLinkClick = (e: React.MouseEvent, link: string) => {
-    e.preventDefault();
-    const mapping: Record<string, string> = {
-      [t.footer.columns[Object.keys(t.footer.columns)[0]][0]]: '#features',
-      [t.footer.columns[Object.keys(t.footer.columns)[0]][1]]: '#pricing',
-      [t.footer.columns[Object.keys(t.footer.columns)[0]][2]]: '#demo',
-      [t.footer.columns[Object.keys(t.footer.columns)[0]][3]]: '#faq',
-    };
-    const target = mapping[link];
-    if (target) {
-      scrollTo(target);
-    }
-    // Contact/Support links
-    const companyLinks = t.footer.columns[Object.keys(t.footer.columns)[1]];
-    if (companyLinks.includes(link)) {
-      scrollTo('#contact');
-    }
-    const resursLinks = t.footer.columns[Object.keys(t.footer.columns)[2]];
-    if (link === resursLinks[2]) {
-      scrollTo('#faq');
-    }
+  const footerHref = (categoryIndex: number, linkIndex: number) => {
+    if (categoryIndex === 0) return sectionLinks[linkIndex] ?? '#contact';
+    if (categoryIndex === 1 || categoryIndex === 2) return linkIndex === 2 && categoryIndex === 2 ? '#faq' : '#contact';
+    return '#contact';
   };
 
   return (
@@ -47,13 +34,13 @@ export function Footer() {
             </a>
             <p className="mt-4 max-w-xs text-sm text-slate-400">{t.footer.description}</p>
             <div className="mt-6 flex gap-3">
-              <a href="#" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Telegram">
+              <a href={telegramUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Telegram">
                 <Send className="h-5 w-5" />
               </a>
-              <a href="#" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Email">
+              <a href={emailUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Email">
                 <Mail className="h-5 w-5" />
               </a>
-              <a href="#" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Phone">
+              <a href={phoneUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Phone">
                 <Phone className="h-5 w-5" />
               </a>
             </div>
@@ -67,8 +54,7 @@ export function Footer() {
                   {links.map((link, i) => (
                     <li key={i}>
                       <a
-                        href="#"
-                        onClick={(e) => handleLinkClick(e, link)}
+                        href={footerHref(Object.keys(t.footer.columns).indexOf(category), i)}
                         className="text-sm text-slate-400 transition-colors hover:text-white"
                       >
                         {link}
