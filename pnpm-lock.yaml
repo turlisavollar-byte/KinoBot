@@ -427,10 +427,10 @@ importers:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
-        specifier: ^18.3.1
+        specifier: 18.3.1
         version: 18.3.1
       react-dom:
-        specifier: ^18.3.1
+        specifier: 18.3.1
         version: 18.3.1(react@18.3.1)
       tailwind-merge:
         specifier: ^2.5.5
@@ -440,10 +440,10 @@ importers:
         specifier: ^22.10.2
         version: 22.20.1
       '@types/react':
-        specifier: ^18.3.18
+        specifier: 18.3.31
         version: 18.3.31
       '@types/react-dom':
-        specifier: ^18.3.5
+        specifier: 18.3.7
         version: 18.3.7(@types/react@18.3.31)
       autoprefixer:
         specifier: ^10.4.20
