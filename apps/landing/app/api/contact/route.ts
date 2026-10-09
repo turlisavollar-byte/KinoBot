@@ -1,50 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { SITE_CONFIG } from '@/config';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { contactFormSchema } from '@/lib/validations';
 
-type ContactPayload = {
-  name?: unknown;
-  email?: unknown;
-  telegram?: unknown;
-  phone?: unknown;
-  plan?: unknown;
-  message?: unknown;
-};
-
-const MAX_REQUESTS = (() => {
-  const value = Number(process.env.CONTACT_RATE_LIMIT_MAX ?? 5);
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 5;
-})();
-const RATE_WINDOW_MS = (() => {
-  const value = Number(process.env.CONTACT_RATE_LIMIT_WINDOW ?? 60 * 60 * 1000);
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 60 * 60 * 1000;
-})();
 const MAX_BODY_BYTES = 16 * 1024;
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function resetRateLimit() {
-  for (const [key, value] of rateLimitStore) {
-    if (value.resetAt <= Date.now()) rateLimitStore.delete(key);
-  }
-}
 
 function getClientId(request: Request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  return request.headers.get('x-real-ip')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || 'unknown';
 }
 
-function checkRateLimit(request: Request) {
-  resetRateLimit();
-  const id = getClientId(request);
-  const current = rateLimitStore.get(id);
-  if (!current || current.resetAt <= Date.now()) {
-    rateLimitStore.set(id, { count: 1, resetAt: Date.now() + RATE_WINDOW_MS });
-    return true;
+function isSameOriginRequest(request: NextRequest) {
+  const originHeader = request.headers.get('origin');
+  const refererHeader = request.headers.get('referer');
+  const source = originHeader || refererHeader;
+  if (!source) return false;
+
+  try {
+    const sourceOrigin = new URL(source).origin;
+    const configuredOrigin = new URL(SITE_CONFIG.url).origin;
+    return sourceOrigin === new URL(request.url).origin || sourceOrigin === configuredOrigin;
+  } catch {
+    return false;
   }
-  if (current.count >= MAX_REQUESTS) return false;
-  current.count += 1;
-  return true;
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function escapeHtml(value: string) {
@@ -60,19 +39,9 @@ function escapeHtml(value: string) {
   });
 }
 
-export async function POST(request: Request) {
-  const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-  const telegramChatId = process.env.TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CONTACT_CHAT_ID;
-
-  if (!telegramBotToken || !telegramChatId) {
-    return NextResponse.json(
-      { error: 'Contact delivery is temporarily unavailable.' },
-      { status: 503 },
-    );
-  }
-
-  if (!checkRateLimit(request)) {
-    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
   const contentLength = Number(request.headers.get('content-length') ?? 0);
@@ -80,49 +49,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
   }
 
-  let body: ContactPayload;
+  let body: unknown;
   try {
     const rawBody = await request.text();
-    if (rawBody.length > MAX_BODY_BYTES) {
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
       return NextResponse.json({ error: 'Request is too large.' }, { status: 413 });
     }
-    body = JSON.parse(rawBody) as ContactPayload;
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: 'Invalid request format.' }, { status: 400 });
   }
 
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-  const telegram = typeof body.telegram === 'string' ? body.telegram.trim() : '';
-  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-  const plan = typeof body.plan === 'string' ? body.plan.trim() : '';
-  const message = typeof body.message === 'string' ? body.message.trim() : '';
-
-  if (name.length < 2 || name.length > 100 || !isValidEmail(email) || email.length > 254 || message.length < 10 || message.length > 2000) {
-    return NextResponse.json({ error: 'Please check the required fields and message length.' }, { status: 400 });
+  const result = contactFormSchema.safeParse(body);
+  if (!result.success) {
+    return NextResponse.json(
+      { error: 'Validatsiya xatosi', details: result.error.flatten().fieldErrors },
+      { status: 400 },
+    );
   }
 
-  if (telegram.length > 100 || phone.length > 30 || plan.length > 100) {
-    return NextResponse.json({ error: 'One or more fields are too long.' }, { status: 400 });
+  const { name, email, telegram, phone, plan, message, honeypot } = result.data;
+  if (honeypot) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const rateLimit = await checkRateLimit(getClientId(request));
+  const rateLimitHeaders = {
+    'X-RateLimit-Limit': String(rateLimit.limit),
+    'X-RateLimit-Remaining': String(rateLimit.remaining),
+  };
+
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: 'Juda ko\'p so\'rov. Iltimos, keyinroq urinib ko\'ring.' },
+      {
+        status: 429,
+        headers: {
+          ...rateLimitHeaders,
+          'Retry-After': String(Math.max(1, Math.ceil((rateLimit.reset - Date.now()) / 1000))),
+        },
+      },
+    );
+  }
+
+  const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+  const telegramChatId = process.env.TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CONTACT_CHAT_ID;
+  if (!telegramBotToken || !telegramChatId) {
+    return NextResponse.json(
+      { error: 'Contact delivery is temporarily unavailable.' },
+      { status: 503, headers: rateLimitHeaders },
+    );
   }
 
   const text = [
-    '🆕 StreamX contact form',
+    '<b>Yangi xabar</b>',
     '',
-    `Name: ${escapeHtml(name)}`,
-    `Email: ${escapeHtml(email)}`,
-    `Telegram: ${escapeHtml(telegram || 'not provided')}`,
-    `Phone: ${escapeHtml(phone || 'not provided')}`,
-    `Plan: ${escapeHtml(plan || 'not selected')}`,
+    `<b>Ism:</b> ${escapeHtml(name)}`,
+    `<b>Email:</b> ${escapeHtml(email)}`,
+    telegram ? `<b>Telegram:</b> ${escapeHtml(telegram)}` : '',
+    phone ? `<b>Telefon:</b> ${escapeHtml(phone)}` : '',
+    plan ? `<b>Tarif:</b> ${escapeHtml(plan)}` : '',
     '',
-    escapeHtml(message),
-  ].join('\n');
+    `<b>Xabar:</b>\n${escapeHtml(message)}`,
+  ].filter(Boolean).join('\n');
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: telegramChatId, text, parse_mode: 'HTML' }),
+      body: JSON.stringify({
+        chat_id: telegramChatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unable to deliver the contact message.' }, { status: 502 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { headers: rateLimitHeaders });
   } catch (error) {
     console.error('Telegram request failed', error);
     return NextResponse.json({ error: 'Contact delivery timed out.' }, { status: 504 });

@@ -41,27 +41,37 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="sr-only" aria-hidden="true">
+        <Label htmlFor="website">Website</Label>
+        <Input
+          id="website"
+          name="honeypot"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <Label htmlFor="name">Ism</Label>
-          <Input id="name" name="name" required autoComplete="name" className="mt-1.5" />
+          <Input id="name" name="name" required minLength={2} maxLength={100} autoComplete="name" className="mt-1.5" />
         </div>
         <div>
           <Label htmlFor="email">Elektron pochta</Label>
-          <Input id="email" name="email" type="email" required autoComplete="email" className="mt-1.5" />
+          <Input id="email" name="email" type="email" required maxLength={255} autoComplete="email" className="mt-1.5" />
         </div>
         <div>
           <Label htmlFor="telegram">Telegram hisobingiz</Label>
-          <Input id="telegram" name="telegram" autoComplete="username" className="mt-1.5" />
+          <Input id="telegram" name="telegram" maxLength={50} autoComplete="username" className="mt-1.5" />
         </div>
         <div>
           <Label htmlFor="phone">Telefon</Label>
-          <Input id="phone" name="phone" type="tel" autoComplete="tel" className="mt-1.5" />
+          <Input id="phone" name="phone" type="tel" maxLength={30} autoComplete="tel" className="mt-1.5" />
         </div>
       </div>
       <div>
         <Label htmlFor="message">Xabaringiz</Label>
-        <Textarea id="message" name="message" required maxLength={2000} className="mt-1.5 min-h-[120px]" />
+        <Textarea id="message" name="message" required minLength={10} maxLength={2000} className="mt-1.5 min-h-[120px]" />
       </div>
       <Button type="submit" disabled={status === 'submitting'} className="w-full">
         {status === 'submitting' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
