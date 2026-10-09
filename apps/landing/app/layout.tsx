@@ -5,28 +5,31 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { LanguageProvider } from '@/components/language-provider';
 import { Analytics } from '@/components/analytics';
 import { SchemaMarkup } from '@/components/schema-markup';
-import { siteConfig } from '@/config';
+import { SITE_CONFIG } from '@/config';
 
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '700', '800'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url || 'http://localhost:3000'),
-  title: `${siteConfig.name} — Kino biznesingizni keyingi darajaga olib chiqing`,
-  description: siteConfig.description,
+  metadataBase: new URL(SITE_CONFIG.url),
+  title: {
+    default: `${SITE_CONFIG.name} — Kino streaming platformasi`,
+    template: `%s | ${SITE_CONFIG.name}`,
+  },
+  description: SITE_CONFIG.description,
   openGraph: {
-    title: 'KinoBot — Kino biznesingizni keyingi darajaga olib chiqing',
-    description:
-      'Telegram bot + Admin panel platformasi. 24/7 ishlaydigan, xavfsiz, professional.',
+    title: SITE_CONFIG.name,
+    description: SITE_CONFIG.description,
+    url: SITE_CONFIG.url,
+    siteName: SITE_CONFIG.name,
     type: 'website',
     locale: 'uz_UZ',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KinoBot — Kino biznesingizni keyingi darajaga olib chiqing',
-    description:
-      'Telegram bot + Admin panel platformasi. 24/7 ishlaydigan, xavfsiz, professional.',
+    title: SITE_CONFIG.name,
+    description: SITE_CONFIG.description,
   },
-  keywords: ['kinobot', 'telegram bot', 'kino bot', 'admin panel', 'kino biznes', 'o\'zbekiston'],
+  keywords: ['StreamX', 'kino streaming', 'film platformasi', 'o\'zbekiston'],
 };
 
 export default function RootLayout({
@@ -35,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uz" suppressHydrationWarning>
+    <html lang={SITE_CONFIG.locale} suppressHydrationWarning>
       <body className={inter.className}>
         <SchemaMarkup />
         <Analytics />

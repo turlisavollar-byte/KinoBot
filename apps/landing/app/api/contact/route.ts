@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   }
 
   const text = [
-    '🆕 KinoBot contact form',
+    '🆕 StreamX contact form',
     '',
     `Name: ${name}`,
     `Email: ${email}`,

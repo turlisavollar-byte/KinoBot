@@ -131,7 +131,7 @@ const translations: Record<Language, Translation> = {
     trustedBy: 'Ishonch bildirgan bizneslar',
     features: {
       title: 'Nima uchun',
-      titleHighlight: 'KinoBot?',
+      titleHighlight: 'StreamX?',
       subtitle: "Barcha kerakli xususiyatlar bitta platformada",
       items: [
         { title: 'Telegram Bot', description: "24/7 ishlaydigan, tez va qulay. Mijozlar telegram orqali kino ko'radi." },
@@ -165,7 +165,7 @@ const translations: Record<Language, Translation> = {
       title: 'Live',
       titleHighlight: 'Demo',
       subtitle: "Platformani o'zingiz sinab ko'ring",
-      videoLabel: "KinoBot demo — 2 daqiqada ko'ring",
+      videoLabel: "StreamX demo — 2 daqiqada ko'ring",
       telegramBtn: 'Telegram botni sinash',
       adminBtn: 'Admin panelni sinash',
       trust1: '5 daqiqada javob',
@@ -190,7 +190,7 @@ const translations: Record<Language, Translation> = {
       title: 'Mijozlar nima',
       titleHighlight: 'deydi?',
       items: [
-        { name: 'Aziz Karimov', role: 'Kino biznesi egasi', quote: "KinoBot bizning biznesimizni butunlay o'zgartirdi. Endi 24/7 ishlaydi, mijozlar mamnun! Daromadimiz 3 barobar oshdi." },
+        { name: 'Aziz Karimov', role: 'Kino biznesi egasi', quote: "StreamX bizning biznesimizni butunlay o'zgartirdi. Endi 24/7 ishlaydi, mijozlar mamnun! Daromadimiz 3 barobar oshdi." },
         { name: 'Malika Yusupova', role: 'Kino biznesi egasi', quote: "O'rnatish juda oson edi. Support ham zo'r! 5 daqiqada hammasi tayyor bo'ldi. Tavsiya qilaman." },
         { name: 'Jasur Tursunov', role: "Kino tarmog'i direktori", quote: "Admin panel juda qulay. Statistikani real vaqtda ko'ramiz. To'lov tizimi ham mukammal ishlaydi." },
         { name: 'Dilnoza Ahmedova', role: 'Online kino platformasi', quote: "Multi-language funksiyasi bizga juda yordam berdi. O'zbek, rus va ingliz tilidagi mijozlar mamnun." },
@@ -238,7 +238,7 @@ const translations: Record<Language, Translation> = {
       successTitle: 'Xabar yuborildi!',
       successMsg: "Tez orada siz bilan bog'lanamiz.",
       infoLabels: { telegram: 'Telegram', email: 'Email', phone: 'Telefon', hours: 'Ish vaqti', address: 'Manzil' },
-      infoValues: { telegram: '@kinobot_support', email: 'info@kinobot.uz', phone: '+998 90 123 45 67', hours: '24/7', address: "Toshkent, O'zbekiston" },
+      infoValues: { telegram: '@streamxuz', email: 'streamxuz555@mail.com', phone: '', hours: '24/7', address: "Toshkent, O'zbekiston" },
     },
     footer: {
       description: "Telegram bot + Admin panel platformasi. Kino biznesingizni avtomatlashtiring.",
@@ -248,7 +248,7 @@ const translations: Record<Language, Translation> = {
         Resurslar: ['Docs', 'Blog', 'Savol-javob'],
         Huquqiy: ['Shartlar', 'Maxfiylik', 'Pul qaytarish'],
       },
-      copyright: '2026 KinoBot. Barcha huquqlar himoyalangan.',
+      copyright: '2026 StreamX. Barcha huquqlar himoyalangan.',
     },
   },
   ru: {
@@ -274,7 +274,7 @@ const translations: Record<Language, Translation> = {
     trustedBy: 'Нам доверяют бизнесы',
     features: {
       title: 'Почему',
-      titleHighlight: 'KinoBot?',
+      titleHighlight: 'StreamX?',
       subtitle: 'Все необходимые функции на одной платформе',
       items: [
         { title: 'Telegram Бот', description: 'Работает 24/7, быстро и удобно. Клиенты смотрят кино через Telegram.' },
@@ -308,7 +308,7 @@ const translations: Record<Language, Translation> = {
       title: 'Живое',
       titleHighlight: 'Демо',
       subtitle: 'Попробуйте платформу сами',
-      videoLabel: 'KinoBot демо — за 2 минуты',
+      videoLabel: 'Демо StreamX — за 2 минуты',
       telegramBtn: 'Попробовать Telegram бот',
       adminBtn: 'Попробовать админ панель',
       trust1: 'Ответ за 5 минут',
@@ -333,7 +333,7 @@ const translations: Record<Language, Translation> = {
       title: 'Что говорят',
       titleHighlight: 'клиенты?',
       items: [
-        { name: 'Азиз Каримов', role: 'Владелец кино-бизнеса', quote: 'KinoBot полностью изменил наш бизнес. Теперь работает 24/7, клиенты довольны! Наш доход вырос в 3 раза.' },
+        { name: 'Азиз Каримов', role: 'Владелец кино-бизнеса', quote: 'StreamX полностью изменил наш бизнес. Теперь работает 24/7, клиенты довольны! Наш доход вырос в 3 раза.' },
         { name: 'Малика Юсупова', role: 'Владелец кино-бизнеса', quote: 'Установка была очень простой. Поддержка отличная! За 5 минут всё было готово. Рекомендую.' },
         { name: 'Жасур Турсунов', role: 'Директор кино-сети', quote: 'Админ панель очень удобная. Статистику видим в реальном времени. Платёжная система работает идеально.' },
         { name: 'Дилноза Ахмедова', role: 'Online кино платформа', quote: 'Мультиязычность очень помогла. Клиенты на узбекском, русском и английском довольны.' },
@@ -381,7 +381,7 @@ const translations: Record<Language, Translation> = {
       successTitle: 'Сообщение отправлено!',
       successMsg: 'Скоро мы свяжемся с вами.',
       infoLabels: { telegram: 'Telegram', email: 'Email', phone: 'Телефон', hours: 'Рабочее время', address: 'Адрес' },
-      infoValues: { telegram: '@kinobot_support', email: 'info@kinobot.uz', phone: '+998 90 123 45 67', hours: '24/7', address: 'Ташкент, Узбекистан' },
+      infoValues: { telegram: '@streamxuz', email: 'streamxuz555@mail.com', phone: '', hours: '24/7', address: 'Ташкент, Узбекистан' },
     },
     footer: {
       description: 'Платформа Telegram бот + Админ панель. Автоматизируйте ваш кино-бизнес.',
@@ -391,7 +391,7 @@ const translations: Record<Language, Translation> = {
         Ресурсы: ['Документы', 'Блог', 'Вопросы'],
         Правовое: ['Условия', 'Конфиденциальность', 'Возврат'],
       },
-      copyright: '2026 KinoBot. Все права защищены.',
+      copyright: '2026 StreamX. Все права защищены.',
     },
   },
   en: {
@@ -417,7 +417,7 @@ const translations: Record<Language, Translation> = {
     trustedBy: 'Trusted by businesses',
     features: {
       title: 'Why',
-      titleHighlight: 'KinoBot?',
+      titleHighlight: 'StreamX?',
       subtitle: 'All the features you need in one platform',
       items: [
         { title: 'Telegram Bot', description: 'Runs 24/7, fast and convenient. Customers watch movies via Telegram.' },
@@ -451,7 +451,7 @@ const translations: Record<Language, Translation> = {
       title: 'Live',
       titleHighlight: 'Demo',
       subtitle: 'Try the platform yourself',
-      videoLabel: 'KinoBot demo — see in 2 minutes',
+      videoLabel: 'StreamX demo — see in 2 minutes',
       telegramBtn: 'Try Telegram bot',
       adminBtn: 'Try admin panel',
       trust1: 'Reply in 5 minutes',
@@ -476,7 +476,7 @@ const translations: Record<Language, Translation> = {
       title: 'What',
       titleHighlight: 'customers say?',
       items: [
-        { name: 'Aziz Karimov', role: 'Cinema business owner', quote: 'KinoBot completely transformed our business. Now it runs 24/7, customers are happy! Our revenue tripled.' },
+        { name: 'Aziz Karimov', role: 'Cinema business owner', quote: 'StreamX completely transformed our business. Now it runs 24/7, customers are happy! Our revenue tripled.' },
         { name: 'Malika Yusupova', role: 'Cinema business owner', quote: 'Installation was very easy. Support is great! Everything was ready in 5 minutes. Highly recommend.' },
         { name: 'Jasur Tursunov', role: 'Cinema network director', quote: 'Admin panel is very convenient. We see statistics in real-time. Payment system works perfectly.' },
         { name: 'Dilnoza Ahmedova', role: 'Online cinema platform', quote: 'Multi-language feature helped us a lot. Customers in Uzbek, Russian and English are satisfied.' },
@@ -524,7 +524,7 @@ const translations: Record<Language, Translation> = {
       successTitle: 'Message sent!',
       successMsg: 'We will contact you soon.',
       infoLabels: { telegram: 'Telegram', email: 'Email', phone: 'Phone', hours: 'Working hours', address: 'Address' },
-      infoValues: { telegram: '@kinobot_support', email: 'info@kinobot.uz', phone: '+998 90 123 45 67', hours: '24/7', address: 'Tashkent, Uzbekistan' },
+      infoValues: { telegram: '@streamxuz', email: 'streamxuz555@mail.com', phone: '', hours: '24/7', address: 'Tashkent, Uzbekistan' },
     },
     footer: {
       description: 'Telegram bot + Admin panel platform. Automate your cinema business.',
@@ -534,7 +534,7 @@ const translations: Record<Language, Translation> = {
         Resources: ['Docs', 'Blog', 'FAQ'],
         Legal: ['Terms', 'Privacy', 'Refund'],
       },
-      copyright: '2026 KinoBot. All rights reserved.',
+      copyright: '2026 StreamX. All rights reserved.',
     },
   },
 };

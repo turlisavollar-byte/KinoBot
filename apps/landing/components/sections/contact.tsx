@@ -13,7 +13,7 @@ export function Contact() {
 
   const infoItems = [
     { label: t.contact.infoLabels.telegram, value: CONTACT_DETAILS.telegram || 'Bog\'lanish', href: CONTACT_DETAILS.telegram || '#contact' },
-    { label: t.contact.infoLabels.email, value: CONTACT_DETAILS.email || 'info@kinobot.uz', href: CONTACT_DETAILS.email ? `mailto:${CONTACT_DETAILS.email}` : '#contact' },
+    { label: t.contact.infoLabels.email, value: CONTACT_DETAILS.email || 'streamxuz555@mail.com', href: CONTACT_DETAILS.email ? `mailto:${CONTACT_DETAILS.email}` : '#contact' },
     { label: t.contact.infoLabels.phone, value: CONTACT_DETAILS.phone || 'Telefon topilmadi', href: CONTACT_DETAILS.phone ? `tel:${CONTACT_DETAILS.phone.replace(/\s/g, '')}` : '#contact' },
     { label: t.contact.infoLabels.hours, value: CONTACT_DETAILS.hours },
     { label: t.contact.infoLabels.address, value: CONTACT_DETAILS.address || 'Manzil topilmadi' },

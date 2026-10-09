@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Play, DollarSign, CheckCircle2, Film, Bot, LayoutDashboard, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLang } from '@/components/language-provider';
+import { siteConfig } from '@/config';
 
 function FloatingParticles() {
   const [particles, setParticles] = useState<Array<{ id: number; left: number; top: number; size: number; delay: number; duration: number }>>([]);
@@ -46,7 +47,7 @@ function DashboardMockup() {
         <div className="h-3 w-3 rounded-full bg-red-400" />
         <div className="h-3 w-3 rounded-full bg-yellow-400" />
         <div className="h-3 w-3 rounded-full bg-green-400" />
-        <span className="ml-3 text-xs text-slate-400">admin.kinobot.uz</span>
+        <span className="ml-3 text-xs text-slate-400">{siteConfig.name} Admin</span>
       </div>
       <div className="grid grid-cols-12 gap-2 sm:gap-3">
         <div className="col-span-3 space-y-2">

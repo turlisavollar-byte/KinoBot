@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/theme-provider';
 import { useLang } from '@/components/language-provider';
 import { Language } from '@/lib/translations';
+import { siteConfig } from '@/config';
 
 const langLabels: Record<Language, string> = {
   uz: 'UZ',
@@ -69,7 +70,7 @@ export function Navbar() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white">
               <Film className="h-5 w-5" />
             </span>
-            <span className="text-gradient-hero">KinoBot</span>
+            <span className="text-gradient-hero">{siteConfig.name}</span>
           </a>
 
           <div className="hidden items-center gap-8 lg:flex">

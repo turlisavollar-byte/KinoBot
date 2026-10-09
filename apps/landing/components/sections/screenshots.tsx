@@ -5,6 +5,7 @@ import { LayoutDashboard, Bot, BarChart3, Film, Users, DollarSign, Settings, Sea
 import { Reveal } from '@/components/reveal';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/components/language-provider';
+import { siteConfig } from '@/config';
 
 type TabKey = 'admin' | 'bot' | 'analytics';
 
@@ -17,7 +18,7 @@ function AdminMockup() {
         <div className="h-3 w-3 rounded-full bg-green-400" />
         <div className="ml-3 flex-1 flex items-center gap-2 rounded-md bg-slate-800 px-3 py-1">
           <Search className="h-3 w-3 text-slate-500" />
-          <span className="text-xs text-slate-500 hidden sm:inline">admin.kinobot.uz/dashboard</span>
+          <span className="text-xs text-slate-500 hidden sm:inline">{siteConfig.name}/admin/dashboard</span>
         </div>
       </div>
       <div className="grid grid-cols-12 gap-2 pt-3 sm:gap-3">
@@ -69,7 +70,7 @@ function BotMockup() {
               <Film className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold">KinoBot</p>
+              <p className="font-bold">{siteConfig.name}</p>
               <p className="text-xs text-white/80">online</p>
             </div>
           </div>

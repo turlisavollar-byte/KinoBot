@@ -1,6 +1,6 @@
 'use client';
 
-import { Film, Send, Mail, Phone } from 'lucide-react';
+import { Film, Send, Mail, Phone, Facebook } from 'lucide-react';
 import { useLang } from '@/components/language-provider';
 import { siteConfig, SOCIAL_LINKS } from '@/config';
 
@@ -30,7 +30,7 @@ export function Footer() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white">
                 <Film className="h-5 w-5" />
               </span>
-              <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">KinoBot</span>
+              <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">{siteConfig.name}</span>
             </a>
             <p className="mt-4 max-w-xs text-sm text-slate-400">{t.footer.description}</p>
             <div className="mt-6 flex gap-3">
@@ -40,6 +40,11 @@ export function Footer() {
               <a href={emailUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Email">
                 <Mail className="h-5 w-5" />
               </a>
+              {siteConfig.facebookUrl ? (
+                <a href={siteConfig.facebookUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Facebook">
+                  <Facebook className="h-5 w-5" />
+                </a>
+              ) : null}
               <a href={phoneUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Phone">
                 <Phone className="h-5 w-5" />
               </a>

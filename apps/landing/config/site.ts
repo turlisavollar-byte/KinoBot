@@ -3,18 +3,18 @@ export const SITE_CONFIG = {
   url: (process.env.NEXT_PUBLIC_SITE_URL || 'https://streamx.uz').replace(/\/$/, ''),
   description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION || 'Kino streaming platformasi',
   locale: process.env.NEXT_PUBLIC_SITE_LOCALE || 'uz',
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@streamx.uz',
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'streamxuz555@mail.com',
   phone: process.env.NEXT_PUBLIC_CONTACT_PHONE || '',
   contactAddress: process.env.NEXT_PUBLIC_CONTACT_ADDRESS || '',
   demo: {
     videoUrl: process.env.NEXT_PUBLIC_DEMO_VIDEO_URL || '',
-    botUrl: process.env.NEXT_PUBLIC_DEMO_BOT_URL || 'https://t.me/streamx_demo_bot',
+    botUrl: process.env.NEXT_PUBLIC_DEMO_BOT_URL || 'https://t.me/streamxuz',
     adminUrl: process.env.NEXT_PUBLIC_DEMO_ADMIN_URL || '',
   },
   socials: {
-    telegramSupport: process.env.NEXT_PUBLIC_TELEGRAM_SUPPORT || 'https://t.me/streamx_support',
-    telegramChannel: process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL || 'https://t.me/streamx',
-    facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
+    telegramSupport: process.env.NEXT_PUBLIC_TELEGRAM_SUPPORT || 'https://t.me/streamxuz',
+    telegramChannel: process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL || '',
+    facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || 'https://www.facebook.com/share/p/1Db8hJeCnH/',
   },
   analytics: {
     ga4Id: process.env.NEXT_PUBLIC_GA4_ID || '',

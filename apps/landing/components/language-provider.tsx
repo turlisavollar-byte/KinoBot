@@ -15,7 +15,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>('uz');
 
   useEffect(() => {
-    const stored = localStorage.getItem('kinobot-lang') as Language | null;
+    const stored = localStorage.getItem('streamx-lang') as Language | null;
     if (stored && ['uz', 'ru', 'en'].includes(stored)) {
       setLangState(stored);
     }
@@ -23,7 +23,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);
-    localStorage.setItem('kinobot-lang', newLang);
+    localStorage.setItem('streamx-lang', newLang);
   };
 
   return (

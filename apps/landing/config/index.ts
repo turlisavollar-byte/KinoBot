@@ -5,4 +5,5 @@ export { PRICING_PLANS } from './pricing';
 export { SOCIAL_LINKS } from './social';
 export { SITE_CONFIG } from './site';
 export { siteConfig } from './site';
+export { contactConfig } from './site';
 export { TESTIMONIALS } from './testimonials';
