@@ -9,12 +9,12 @@ const nextConfig = {
   async headers() {
     const contentSecurityPolicy = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
+      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://yastatic.net",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
       "media-src 'self' https: blob:",
-      "connect-src 'self' https://www.google-analytics.com https://region1.google.com https://region1.googleusercontent.com",
+      "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://region1.google.com https://region1.googleusercontent.com https://mc.yandex.ru https://mc.yandex.com https://yandex.ru https://yandex.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
