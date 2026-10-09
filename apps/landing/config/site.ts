@@ -8,7 +8,7 @@ export const SITE_CONFIG = {
   contactAddress: process.env.NEXT_PUBLIC_CONTACT_ADDRESS || '',
   demo: {
     videoUrl: process.env.NEXT_PUBLIC_DEMO_VIDEO_URL || '',
-    botUrl: process.env.NEXT_PUBLIC_DEMO_BOT_URL || 'https://t.me/streamxuz',
+    botUrl: process.env.NEXT_PUBLIC_DEMO_BOT_URL || 'https://t.me/streamx_demo_bot',
     adminUrl: process.env.NEXT_PUBLIC_DEMO_ADMIN_URL || '',
   },
   socials: {

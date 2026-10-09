@@ -13,6 +13,7 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
+      "media-src 'self' https: blob:",
       "connect-src 'self' https://www.google-analytics.com https://region1.google.com https://region1.googleusercontent.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

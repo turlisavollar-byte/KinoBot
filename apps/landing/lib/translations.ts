@@ -44,6 +44,7 @@ export interface Translation {
     titleHighlight: string;
     subtitle: string;
     videoLabel: string;
+    videoUnavailable: string;
     telegramBtn: string;
     adminBtn: string;
     trust1: string;
@@ -166,6 +167,7 @@ const translations: Record<Language, Translation> = {
       titleHighlight: 'Demo',
       subtitle: "Platformani o'zingiz sinab ko'ring",
       videoLabel: "StreamX demo — 2 daqiqada ko'ring",
+      videoUnavailable: 'Demo video tez orada',
       telegramBtn: 'Telegram botni sinash',
       adminBtn: 'Admin panelni sinash',
       trust1: '5 daqiqada javob',
@@ -309,6 +311,7 @@ const translations: Record<Language, Translation> = {
       titleHighlight: 'Демо',
       subtitle: 'Попробуйте платформу сами',
       videoLabel: 'Демо StreamX — за 2 минуты',
+      videoUnavailable: 'Демо-видео скоро появится',
       telegramBtn: 'Попробовать Telegram бот',
       adminBtn: 'Попробовать админ панель',
       trust1: 'Ответ за 5 минут',
@@ -452,6 +455,7 @@ const translations: Record<Language, Translation> = {
       titleHighlight: 'Demo',
       subtitle: 'Try the platform yourself',
       videoLabel: 'StreamX demo — see in 2 minutes',
+      videoUnavailable: 'Demo video coming soon',
       telegramBtn: 'Try Telegram bot',
       adminBtn: 'Try admin panel',
       trust1: 'Reply in 5 minutes',
