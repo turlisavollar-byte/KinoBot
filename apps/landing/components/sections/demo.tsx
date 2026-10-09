@@ -4,12 +4,12 @@ import { Play, Smartphone, Monitor, CheckCircle2 } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { Button } from '@/components/ui/button';
 import { useLang } from '@/components/language-provider';
-import { siteConfig, SOCIAL_LINKS } from '@/config';
+import { siteConfig, VISIBLE_SOCIAL_LINKS } from '@/config';
 
 export function Demo() {
   const { t } = useLang();
   const trustSignals = [t.demo.trust1, t.demo.trust2, t.demo.trust3];
-  const telegramUrl = SOCIAL_LINKS.telegramSupport || siteConfig.telegramSupport;
+  const telegramUrl = VISIBLE_SOCIAL_LINKS.find((link) => link.id === 'telegram')?.url || siteConfig.telegramSupport;
   const adminUrl = siteConfig.url ? `${siteConfig.url}/admin` : '#contact';
 
   return (

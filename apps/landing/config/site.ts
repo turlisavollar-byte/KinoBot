@@ -12,7 +12,7 @@ export const SITE_CONFIG = {
     adminUrl: process.env.NEXT_PUBLIC_DEMO_ADMIN_URL || '',
   },
   socials: {
-    telegramSupport: process.env.NEXT_PUBLIC_TELEGRAM_SUPPORT || 'https://t.me/streamxuz',
+    telegramSupport: process.env.NEXT_PUBLIC_TELEGRAM_URL || process.env.NEXT_PUBLIC_TELEGRAM_SUPPORT || 'https://t.me/streamxuz',
     telegramChannel: process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL || '',
     facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || 'https://www.facebook.com/share/p/1Db8hJeCnH/',
   },

@@ -3,11 +3,11 @@
 import { Send, Mail, CheckCircle2 } from 'lucide-react';
 import { Reveal } from '@/components/reveal';
 import { useLang } from '@/components/language-provider';
-import { siteConfig, SOCIAL_LINKS } from '@/config';
+import { siteConfig, VISIBLE_SOCIAL_LINKS } from '@/config';
 
 export function CTA() {
   const { t } = useLang();
-  const telegramUrl = SOCIAL_LINKS.telegramSupport || siteConfig.telegramSupport;
+  const telegramUrl = VISIBLE_SOCIAL_LINKS.find((link) => link.id === 'telegram')?.url || siteConfig.telegramSupport;
   const emailUrl = siteConfig.contactEmail ? `mailto:${siteConfig.contactEmail}` : '#contact';
   const trustSignals = [t.cta.trust1, t.cta.trust2, t.cta.trust3];
 

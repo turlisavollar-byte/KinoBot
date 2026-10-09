@@ -1,13 +1,22 @@
 'use client';
 
-import { Film, Send, Mail, Phone, Facebook } from 'lucide-react';
+import { Film, Mail, Phone, Send, Facebook, Instagram, Youtube, Github, Twitter, Linkedin, type LucideIcon } from 'lucide-react';
 import { useLang } from '@/components/language-provider';
-import { siteConfig, SOCIAL_LINKS } from '@/config';
+import { siteConfig, VISIBLE_SOCIAL_LINKS } from '@/config';
+
+const socialIcons: Record<string, LucideIcon> = {
+  Send,
+  Facebook,
+  Instagram,
+  Youtube,
+  Github,
+  Twitter,
+  Linkedin,
+};
 
 export function Footer() {
   const { t } = useLang();
   const sectionLinks = ['#features', '#pricing', '#demo', '#faq'];
-  const telegramUrl = SOCIAL_LINKS.telegramSupport || siteConfig.telegramSupport;
   const emailUrl = siteConfig.contactEmail ? `mailto:${siteConfig.contactEmail}` : '#contact';
   const phoneUrl = siteConfig.contactPhone ? `tel:${siteConfig.contactPhone.replace(/\s/g, '')}` : '#contact';
 
@@ -34,17 +43,18 @@ export function Footer() {
             </a>
             <p className="mt-4 max-w-xs text-sm text-slate-400">{t.footer.description}</p>
             <div className="mt-6 flex gap-3">
-              <a href={telegramUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Telegram">
-                <Send className="h-5 w-5" />
-              </a>
+              {VISIBLE_SOCIAL_LINKS.map((link) => {
+                const Icon = socialIcons[link.icon];
+                if (!Icon) return null;
+                return (
+                  <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" style={{ color: link.color }} aria-label={link.name} title={link.name}>
+                    <Icon className="h-5 w-5" />
+                  </a>
+                );
+              })}
               <a href={emailUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Email">
                 <Mail className="h-5 w-5" />
               </a>
-              {siteConfig.facebookUrl ? (
-                <a href={siteConfig.facebookUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Facebook">
-                  <Facebook className="h-5 w-5" />
-                </a>
-              ) : null}
               <a href={phoneUrl} className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-400 transition-colors hover:bg-blue-600 hover:text-white dark:bg-slate-800" aria-label="Phone">
                 <Phone className="h-5 w-5" />
               </a>
