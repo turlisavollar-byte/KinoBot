@@ -47,6 +47,19 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character];
+  });
+}
+
 export async function POST(request: Request) {
   const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
   const telegramChatId = process.env.TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CONTACT_CHAT_ID;
@@ -96,13 +109,13 @@ export async function POST(request: Request) {
   const text = [
     '🆕 StreamX contact form',
     '',
-    `Name: ${name}`,
-    `Email: ${email}`,
-    `Telegram: ${telegram || 'not provided'}`,
-    `Phone: ${phone || 'not provided'}`,
-    `Plan: ${plan || 'not selected'}`,
+    `Name: ${escapeHtml(name)}`,
+    `Email: ${escapeHtml(email)}`,
+    `Telegram: ${escapeHtml(telegram || 'not provided')}`,
+    `Phone: ${escapeHtml(phone || 'not provided')}`,
+    `Plan: ${escapeHtml(plan || 'not selected')}`,
     '',
-    message,
+    escapeHtml(message),
   ].join('\n');
 
   try {

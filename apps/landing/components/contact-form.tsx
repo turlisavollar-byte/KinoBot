@@ -13,10 +13,11 @@ export function ContactForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setStatus('submitting');
     setMessage('');
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const payload = Object.fromEntries(form.entries());
 
     try {
@@ -31,7 +32,7 @@ export function ContactForm() {
       }
       setStatus('success');
       setMessage('Rahmat! Xabaringiz jo’natildi.');
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       setStatus('error');
       setMessage('Unable to submit your request right now. Please try again later.');
