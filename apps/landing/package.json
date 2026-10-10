@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --tsconfig tsconfig.json --test tests/*.test.ts",
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "test:e2e": "pnpm build:e2e && playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "lighthouse": "lhci autorun",
+    "test:all": "pnpm test:unit && pnpm build && pnpm test:e2e && pnpm lighthouse"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.2",
@@ -26,6 +32,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.64.0",
     "@types/node": "^22.10.2",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",

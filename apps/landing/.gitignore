@@ -3,3 +3,9 @@ node_modules/
 out/
 *.log
 .env*.local
+.vercel
+.env*
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/.lighthouseci/
