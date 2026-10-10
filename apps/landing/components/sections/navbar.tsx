@@ -90,7 +90,7 @@ export function Navbar() {
               <button
                 onClick={() => setLangOpen(!langOpen)}
                 className="flex h-10 items-center gap-1 rounded-lg px-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                aria-label="Language"
+                aria-label={`Language ${langLabels[lang]}`}
               >
                 <Globe className="h-5 w-5" />
                 <span className="text-xs font-bold">{langLabels[lang]}</span>

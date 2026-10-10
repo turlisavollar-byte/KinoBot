@@ -64,7 +64,7 @@ export function Footer() {
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:col-span-8">
             {Object.entries(t.footer.columns).map(([category, links]) => (
               <div key={category}>
-                <h4 className="text-sm font-bold uppercase tracking-wide text-white">{category}</h4>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-white">{category}</h3>
                 <ul className="mt-4 space-y-3">
                   {links.map((link, i) => (
                     <li key={i}>
@@ -83,7 +83,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 border-t border-slate-800 pt-8 text-center">
-          <p className="text-sm text-slate-500">&copy; {t.footer.copyright}</p>
+          <p className="text-sm text-slate-400">&copy; {t.footer.copyright}</p>
         </div>
       </div>
     </footer>

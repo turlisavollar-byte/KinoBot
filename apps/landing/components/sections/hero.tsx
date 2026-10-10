@@ -89,7 +89,7 @@ function DashboardMockup() {
           <div className="rounded-lg bg-slate-800 p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs text-slate-400">Revenue dynamics</span>
-              <span className="text-xs text-slate-500">30d</span>
+              <span className="text-xs text-slate-300">30d</span>
             </div>
             <div className="flex h-20 items-end gap-1 sm:gap-1.5 sm:h-24">
               {[40, 55, 35, 70, 50, 80, 60, 90, 65, 85, 75, 95, 70, 88, 60, 78, 82, 50, 68, 92, 72, 85, 60, 78, 90, 65, 80, 70, 88, 95].map((h, i) => (
@@ -144,7 +144,7 @@ export function Hero() {
   const trustSignals = [t.hero.trust1, t.hero.trust2, t.hero.trust3];
 
   return (
-    <section className="relative overflow-hidden hero-gradient pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32">
+    <section id="hero" className="relative overflow-hidden hero-gradient pt-28 pb-16 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-32">
       <div className="absolute inset-0 grid-pattern opacity-30" />
       <FloatingParticles />
       <div className="absolute -left-40 top-20 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />

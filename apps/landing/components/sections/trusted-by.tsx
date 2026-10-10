@@ -17,7 +17,7 @@ export function TrustedBy() {
         <div className="relative overflow-hidden">
           <div className="flex animate-marquee gap-12">
             {[...logos, ...logos].map((logo, i) => (
-              <div key={i} className="flex flex-shrink-0 items-center gap-2 text-xl font-bold text-slate-300 transition-colors hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-300">
+              <div key={i} className="flex flex-shrink-0 items-center gap-2 text-xl font-bold text-slate-600 transition-colors hover:text-slate-800 dark:text-slate-300 dark:hover:text-white">
                 <Star className="h-5 w-5" />
                 {logo}
               </div>
