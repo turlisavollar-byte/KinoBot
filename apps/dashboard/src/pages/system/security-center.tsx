@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Shield, Lock, AlertTriangle, CheckCircle, Activity, UserCheck, Eye } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/lib/i18n";
 
 export default function SecurityCenter() {
+  const { t } = useI18n();
   // Mock data - replace with actual API calls
   const securityStats = {
     totalUsers: 156,
@@ -75,16 +77,36 @@ export default function SecurityCenter() {
     },
   ];
 
+  const translateEventType = (type: string) => {
+    switch (type) {
+      case "failed_login": return t("security.eventType.failedLogin");
+      case "account_locked": return t("security.eventType.accountLocked");
+      case "successful_login": return t("security.eventType.successfulLogin");
+      case "password_reset": return t("security.eventType.passwordReset");
+      default: return type;
+    }
+  };
+
+  const translateSeverity = (severity: string) => {
+    switch (severity) {
+      case "high": return t("security.severity.high");
+      case "critical": return t("security.severity.critical");
+      case "info": return t("security.severity.info");
+      case "warning": return t("security.severity.warning");
+      default: return severity;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Security Center</h1>
-          <p className="text-muted-foreground">Monitor and manage security events</p>
+          <h1 className="text-2xl font-bold">{t("security.title")}</h1>
+          <p className="text-muted-foreground">{t("security.subtitle")}</p>
         </div>
         <Button variant="outline" size="sm">
           <Activity className="h-4 w-4 mr-2" />
-          Refresh
+          {t("common.refresh")}
         </Button>
       </div>
 
@@ -92,45 +114,45 @@ export default function SecurityCenter() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Security Score</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("security.score")}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{securityStats.securityScore}%</div>
-            <p className="text-xs text-muted-foreground">Excellent security posture</p>
+            <p className="text-xs text-muted-foreground">{t("security.scoreDescription")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("security.activeUsers")}</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{securityStats.activeUsers}</div>
-            <p className="text-xs text-muted-foreground">of {securityStats.totalUsers} total</p>
+            <p className="text-xs text-muted-foreground">{t("security.usersTotal", { count: securityStats.totalUsers })}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Locked Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("security.lockedAccounts")}</CardTitle>
             <Lock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{securityStats.lockedAccounts}</div>
-            <p className="text-xs text-muted-foreground">Require attention</p>
+            <p className="text-xs text-muted-foreground">{t("security.lockedAccountsAttention")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed Logins (24h)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("security.failedLogins24h")}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{securityStats.failedLogins24h}</div>
-            <p className="text-xs text-muted-foreground">{securityStats.successfulLogins24h} successful</p>
+            <p className="text-xs text-muted-foreground">{securityStats.successfulLogins24h} {t("security.successfulLogins")}</p>
           </CardContent>
         </Card>
       </div>
@@ -140,21 +162,21 @@ export default function SecurityCenter() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5" />
-            Locked Accounts
+            {t("security.lockedAccounts")}
           </CardTitle>
           <CardDescription>
-            Accounts locked due to multiple failed login attempts
+            {t("security.lockedAccountsDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Failed Attempts</TableHead>
-                <TableHead>Locked Until</TableHead>
-                <TableHead>Last Failed Login</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t("security.email")}</TableHead>
+                <TableHead>{t("security.failedAttempts")}</TableHead>
+                <TableHead>{t("security.lockedUntil")}</TableHead>
+                <TableHead>{t("security.lastFailedLogin")}</TableHead>
+                <TableHead>{t("security.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -169,7 +191,7 @@ export default function SecurityCenter() {
                   <TableCell>
                     <Button variant="outline" size="sm">
                       <UserCheck className="h-4 w-4 mr-2" />
-                      Unlock
+                      {t("security.unlock")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -184,27 +206,27 @@ export default function SecurityCenter() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Eye className="h-5 w-5" />
-            Recent Security Events
+            {t("security.recentEvents")}
           </CardTitle>
           <CardDescription>
-            Real-time security monitoring and alerts
+            {t("security.recentEventsDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>IP Address</TableHead>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Severity</TableHead>
+                <TableHead>{t("security.type")}</TableHead>
+                <TableHead>{t("security.user")}</TableHead>
+                <TableHead>{t("security.ipAddress")}</TableHead>
+                <TableHead>{t("security.timestamp")}</TableHead>
+                <TableHead>{t("security.severity")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {recentSecurityEvents.map((event) => (
                 <TableRow key={event.id}>
-                  <TableCell className="font-medium capitalize">{event.type.replace(/_/g, ' ')}</TableCell>
+                  <TableCell className="font-medium">{translateEventType(event.type)}</TableCell>
                   <TableCell>{event.user}</TableCell>
                   <TableCell className="font-mono text-xs">{event.ip}</TableCell>
                   <TableCell>{event.timestamp}</TableCell>
@@ -217,7 +239,7 @@ export default function SecurityCenter() {
                         'default'
                       }
                     >
-                      {event.severity}
+                      {translateSeverity(event.severity)}
                     </Badge>
                   </TableCell>
                 </TableRow>
