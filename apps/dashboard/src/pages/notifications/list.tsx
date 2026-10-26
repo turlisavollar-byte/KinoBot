@@ -47,7 +47,7 @@ import { useI18n } from "@/lib/i18n";
 type TemplateButton = { text: string; url: string };
 
 export default function NotificationsList() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const { data: templates, isLoading } = useListNotificationTemplates();
   const createTemplate = useCreateNotificationTemplate();
   const updateTemplate = useUpdateNotificationTemplate();
@@ -111,7 +111,10 @@ export default function NotificationsList() {
   const handleSave = () => {
     if (!name || !content) return;
     if (contentType !== "text" && !mediaFileId.trim()) {
-      toast({ title: "Media File ID is required", variant: "destructive" });
+      toast({
+        title: t("notifications.mediaFileIdRequired"),
+        variant: "destructive",
+      });
       return;
     }
     const data = {
@@ -139,7 +142,19 @@ export default function NotificationsList() {
         });
         setIsOpen(false);
         resetForm();
+        toast({
+          title: editingTemplateId
+            ? t("notifications.updated")
+            : t("notifications.created"),
+        });
       },
+      onError: () =>
+        toast({
+          title: editingTemplateId
+            ? t("notifications.updateError")
+            : t("notifications.createError"),
+          variant: "destructive",
+        }),
     };
     if (editingTemplateId) {
       updateTemplate.mutate({ id: editingTemplateId, data }, options);
@@ -158,7 +173,13 @@ export default function NotificationsList() {
             queryKey: getListNotificationTemplatesQueryKey(),
           });
           if (selectedTemplate === id) setSelectedTemplate("");
+          toast({ title: t("notifications.deleted") });
         },
+        onError: () =>
+          toast({
+            title: t("notifications.deleteError"),
+            variant: "destructive",
+          }),
       },
     );
   };
@@ -181,13 +202,20 @@ export default function NotificationsList() {
             description:
               recipientType === "channels"
                 ? t("notifications.broadcast.queuedChannels", {
-                    count: res.data?.recipientCount ?? recipients.length,
+                    count: formatNumber(
+                      res.data?.recipientCount ?? recipients.length,
+                    ),
                   })
                 : t("notifications.broadcast.queuedUsers", {
-                    count: res.data?.recipientCount ?? 0,
+                    count: formatNumber(res.data?.recipientCount ?? 0),
                   }),
           });
         },
+        onError: () =>
+          toast({
+            title: t("notifications.broadcast.error"),
+            variant: "destructive",
+          }),
       },
     );
   };
@@ -226,29 +254,31 @@ export default function NotificationsList() {
             {t("notifications.noNotifications")}
           </div>
         ) : (
-          templates?.map((t) => (
-            <Card key={t.id}>
+          templates?.map((template) => (
+            <Card key={template.id}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex justify-between">
-                  <span>{t.name}</span>
+                  <span>{template.name}</span>
                   <span className="flex items-center gap-2">
                     <span className="text-xs uppercase bg-muted px-2 py-1 rounded text-muted-foreground">
-                      {t.channel}
+                      {template.channel}
                     </span>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => openEdit(t)}
-                      aria-label="Edit notification template"
+                      onClick={() => openEdit(template)}
+                      aria-label={t("notifications.edit")}
+                      title={t("notifications.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => handleDelete(t.id)}
+                      onClick={() => handleDelete(template.id)}
                       disabled={deleteTemplate.isPending}
-                      aria-label="Delete notification template"
+                      aria-label={t("notifications.delete")}
+                      title={t("notifications.delete")}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -257,7 +287,7 @@ export default function NotificationsList() {
               </CardHeader>
               <CardContent>
                 <div className="bg-muted p-4 rounded-md font-mono text-sm whitespace-pre-wrap text-muted-foreground">
-                  {t.content}
+                  {template.content}
                 </div>
               </CardContent>
             </Card>
@@ -417,7 +447,8 @@ export default function NotificationsList() {
                             ),
                       )
                     }
-                    aria-label="Remove button"
+                    aria-label={t("notifications.removeButton")}
+                    title={t("notifications.removeButton")}
                   >
                     ×
                   </Button>
@@ -450,7 +481,16 @@ export default function NotificationsList() {
               )}
               {contentType !== "text" && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Image className="h-3.5 w-3.5" /> {contentType}{" "}
+                  <Image className="h-3.5 w-3.5" />{" "}
+                  {t(
+                    `notifications.${contentType === "animation" ? "animation" : contentType}` as
+                      | "notifications.photo"
+                      | "notifications.video"
+                      | "notifications.animation"
+                      | "notifications.audio"
+                      | "notifications.voice"
+                      | "notifications.document",
+                  )}{" "}
                   {t("notifications.mediaAttached")}
                 </div>
               )}
@@ -490,9 +530,9 @@ export default function NotificationsList() {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates?.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
+                  {templates?.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -592,10 +632,10 @@ export default function NotificationsList() {
                   onChange={(event) =>
                     setRecipients(
                       event.target.value
-                      .split(",")
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  )
+                        .split(",")
+                        .map((value) => value.trim())
+                        .filter(Boolean),
+                    )
                   }
                   placeholder={t(
                     "notifications.broadcast.channelIdsPlaceholder",

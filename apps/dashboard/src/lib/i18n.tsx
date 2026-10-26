@@ -793,6 +793,14 @@ const messages = {
     "notifications.deleteConfirm":
       "Are you sure you want to delete this notification?",
     "notifications.noNotifications": "No notifications found.",
+    "notifications.created": "Notification created successfully",
+    "notifications.createError": "Failed to create notification",
+    "notifications.updated": "Notification updated successfully",
+    "notifications.updateError": "Failed to update notification",
+    "notifications.deleted": "Notification deleted successfully",
+    "notifications.deleteError": "Failed to delete notification",
+    "notifications.mediaFileIdRequired": "Media File ID is required",
+    "notifications.removeButton": "Remove button",
     "notifications.templateName": "Template Name",
     "notifications.templateNamePlaceholder": "e.g. New Movie Alert",
     "notifications.messageContent": "Message Content",
@@ -837,6 +845,7 @@ const messages = {
     "notifications.broadcast.channelsHint":
       "Choose registered channels or enter channel IDs separated by commas.",
     "notifications.broadcast.scheduled": "Broadcast scheduled",
+    "notifications.broadcast.error": "Failed to schedule broadcast",
     "notifications.broadcast.queuedUsers": "Message queued for {count} users.",
     "notifications.broadcast.queuedChannels":
       "Message queued for {count} channels.",
@@ -1892,6 +1901,14 @@ const messages = {
     "notifications.deleteConfirm":
       "Вы уверены, что хотите удалить это уведомление?",
     "notifications.noNotifications": "Уведомления не найдены.",
+    "notifications.created": "Уведомление успешно создано",
+    "notifications.createError": "Не удалось создать уведомление",
+    "notifications.updated": "Уведомление успешно обновлено",
+    "notifications.updateError": "Не удалось обновить уведомление",
+    "notifications.deleted": "Уведомление успешно удалено",
+    "notifications.deleteError": "Не удалось удалить уведомление",
+    "notifications.mediaFileIdRequired": "Укажите Media File ID",
+    "notifications.removeButton": "Удалить кнопку",
     "notifications.templateName": "Название шаблона",
     "notifications.templateNamePlaceholder": "например, Новое кино",
     "notifications.messageContent": "Содержание сообщения",
@@ -1936,6 +1953,7 @@ const messages = {
     "notifications.broadcast.channelsHint":
       "Выберите зарегистрированные каналы или введите ID каналов через запятую.",
     "notifications.broadcast.scheduled": "Рассылка запланирована",
+    "notifications.broadcast.error": "Не удалось запланировать рассылку",
     "notifications.broadcast.queuedUsers":
       "Сообщение поставлено в очередь для {count} пользователей.",
     "notifications.broadcast.queuedChannels":
@@ -2961,7 +2979,7 @@ const messages = {
     "plans.noPlans": "Rejalar sozlanmagan.",
     "plans.inactive": "Nofaol",
     "plans.days": "kun davomiylik",
-    "plans.devices": "{count} qurilvichagacha",
+    "plans.devices": "{count} qurilmagacha",
     "plans.name": "Nomi",
     "plans.namePlaceholder": "masalan, Standart",
     "plans.tier": "Tarif kodi",
@@ -2993,6 +3011,14 @@ const messages = {
     "notifications.delete": "Bildirishnomani o'chirish",
     "notifications.deleteConfirm": "Ushbu bildirishnomani o'chirmoqchimisiz?",
     "notifications.noNotifications": "Bildirishnomalar topilmadi.",
+    "notifications.created": "Bildirishnoma muvaffaqiyatli yaratildi",
+    "notifications.createError": "Bildirishnomani yaratib bo'lmadi",
+    "notifications.updated": "Bildirishnoma muvaffaqiyatli yangilandi",
+    "notifications.updateError": "Bildirishnomani yangilab bo'lmadi",
+    "notifications.deleted": "Bildirishnoma muvaffaqiyatli o'chirildi",
+    "notifications.deleteError": "Bildirishnomani o'chirib bo'lmadi",
+    "notifications.mediaFileIdRequired": "Media File ID kiritilishi shart",
+    "notifications.removeButton": "Tugmani olib tashlash",
     "notifications.templateName": "Shablon nomi",
     "notifications.templateNamePlaceholder": "masalan, Yangi kino",
     "notifications.messageContent": "Xabar mazmuni",
@@ -3038,6 +3064,7 @@ const messages = {
     "notifications.broadcast.channelsHint":
       "Ro'yxatdagi kanallarni tanlang yoki kanal ID larini vergul bilan kiriting.",
     "notifications.broadcast.scheduled": "Ommaviy xabar navbatga qo'yildi",
+    "notifications.broadcast.error": "Ommaviy xabarni navbatga qo'yib bo'lmadi",
     "notifications.broadcast.queuedUsers":
       "Xabar {count} ta foydalanuvchi uchun navbatga qo'yildi.",
     "notifications.broadcast.queuedChannels":
