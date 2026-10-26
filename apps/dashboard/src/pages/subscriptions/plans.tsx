@@ -32,7 +32,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { toast } from "sonner";
 
 export default function PlansList() {
-  const { t } = useI18n();
+  const { t, formatNumber, locale } = useI18n();
   const { data: plans, isLoading } = useListSubscriptionPlans();
   const planList = Array.isArray(plans?.data) ? plans.data : [];
   const createPlan = useCreateSubscriptionPlan();
@@ -99,7 +99,9 @@ export default function PlansList() {
               queryKey: getListSubscriptionPlansQueryKey(),
             });
             setIsOpen(false);
+            toast.success(t("plans.updated"));
           },
+          onError: () => toast.error(t("plans.updateError")),
         },
       );
     } else {
@@ -111,14 +113,16 @@ export default function PlansList() {
               queryKey: getListSubscriptionPlansQueryKey(),
             });
             setIsOpen(false);
+            toast.success(t("plans.created"));
           },
+          onError: () => toast.error(t("plans.createError")),
         },
       );
     }
   };
 
   const handleDelete = async (plan: any) => {
-    if (!window.confirm(t("genres.deleteConfirm") || "Are you sure?")) {
+    if (!window.confirm(t("plans.deleteConfirm", { name: plan.name }))) {
       return;
     }
 
@@ -131,9 +135,9 @@ export default function PlansList() {
       queryClient.invalidateQueries({
         queryKey: getListSubscriptionPlansQueryKey(),
       });
-      toast.success("Plan deleted");
-    } catch (error) {
-      toast.error((error as Error).message || "Could not delete plan");
+      toast.success(t("plans.deleted"));
+    } catch {
+      toast.error(t("plans.deleteError"));
     }
   };
 
@@ -179,10 +183,11 @@ export default function PlansList() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-4xl font-bold">
-                  {plan.price ? plan.price.toLocaleString() : "0"}{" "}
-                  <span className="text-lg font-normal text-muted-foreground">
-                    {plan.currency || ""}
-                  </span>
+                  {new Intl.NumberFormat(locale, {
+                    style: "currency",
+                    currency: plan.currency || "UZS",
+                    maximumFractionDigits: 0,
+                  }).format(plan.price ?? 0)}{" "}
                 </div>
                 <div className="text-sm text-muted-foreground h-10">
                   {plan.description || ""}
@@ -190,11 +195,13 @@ export default function PlansList() {
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-green-500" />
-                    {plan.durationDays || 0} {t("plans.days")}
+                    {formatNumber(plan.durationDays || 0)} {t("plans.days")}
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-green-500" />
-                    {t("plans.devices", { count: plan.maxDevices || 1 })}
+                    {t("plans.devices", {
+                      count: formatNumber(plan.maxDevices || 1),
+                    })}
                   </li>
                 </ul>
               </CardContent>
@@ -203,6 +210,7 @@ export default function PlansList() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => openEdit(plan)}
+                  aria-label={t("plans.edit")}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   {t("common.edit")}
@@ -212,6 +220,7 @@ export default function PlansList() {
                   size="icon"
                   onClick={() => void handleDelete(plan)}
                   aria-label={t("common.delete")}
+                  title={t("common.delete")}
                 >
                   <Trash className="w-4 h-4" />
                 </Button>

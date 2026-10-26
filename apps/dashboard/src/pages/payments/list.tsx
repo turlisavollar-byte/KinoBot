@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 
 const PAYMENT_PROVIDERS = [
   { value: "click", label: "Click" },
@@ -50,7 +51,7 @@ const PAYMENT_PROVIDERS = [
 ] as const;
 
 export default function PaymentsList() {
-  const { t } = useI18n();
+  const { t, formatDate, formatNumber } = useI18n();
   const [status, setStatus] = useState<string>("all");
   const [isOpen, setIsOpen] = useState(false);
   const [provider, setProvider] = useState<string>("payme");
@@ -68,6 +69,11 @@ export default function PaymentsList() {
   const createNBUPayment = useCreateNBUPayment();
   const createUzcardPayment = useCreateUzcardPayment();
   const createOctoPayment = useCreateOctoPayment();
+  const onPaymentCreated = () => {
+    setIsOpen(false);
+    toast.success(t("payments.created"));
+  };
+  const onPaymentCreateError = () => toast.error(t("payments.createError"));
 
   const handleCreatePayment = () => {
     const payload = { invoiceId };
@@ -76,49 +82,49 @@ export default function PaymentsList() {
       case "click":
         createClickPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "payme":
         createPaymePayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "uzum":
         createUzumPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "paynet":
         createPaynetPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "anor":
         createAnorPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "nbu":
         createNBUPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "uzcard":
         createUzcardPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
       case "octo":
         createOctoPayment.mutate(
           { data: payload },
-          { onSuccess: () => setIsOpen(false) },
+          { onSuccess: onPaymentCreated, onError: onPaymentCreateError },
         );
         break;
     }
@@ -135,20 +141,20 @@ export default function PaymentsList() {
         </div>
         <Button onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create Payment
+          {t("payments.create")}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-45">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t("payments.filterStatus")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="all">{t("payments.allStatuses")}</SelectItem>
+            <SelectItem value="success">{t("payments.success")}</SelectItem>
+            <SelectItem value="pending">{t("payments.pending")}</SelectItem>
+            <SelectItem value="failed">{t("payments.failed")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -159,8 +165,8 @@ export default function PaymentsList() {
             <TableRow>
               <TableHead>{t("payments.date")}</TableHead>
               <TableHead>{t("payments.amount")}</TableHead>
-              <TableHead>Provider</TableHead>
-              <TableHead>User ID</TableHead>
+              <TableHead>{t("payments.provider")}</TableHead>
+              <TableHead>{t("payments.user")}</TableHead>
               <TableHead className="text-right">
                 {t("payments.status")}
               </TableHead>
@@ -184,13 +190,18 @@ export default function PaymentsList() {
                 <TableRow key={payment.id}>
                   <TableCell className="text-sm">
                     {payment.createdAt
-                      ? new Date(payment.createdAt).toLocaleString()
+                      ? formatDate(payment.createdAt, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
                       : "-"}
                   </TableCell>
                   <TableCell className="font-bold">
-                    {payment.amount ? payment.amount.toLocaleString() : "-"}{" "}
+                    {payment.amount ? formatNumber(payment.amount) : "-"}{" "}
                     <span className="text-muted-foreground text-xs">
-                      {payment.currency || ""}
+                      {payment.currency === "UZS"
+                        ? t("common.currency.uzs")
+                        : payment.currency || ""}
                     </span>
                   </TableCell>
                   <TableCell className="capitalize">
@@ -201,13 +212,17 @@ export default function PaymentsList() {
                   </TableCell>
                   <TableCell className="text-right">
                     {payment.status === "success" && (
-                      <Badge className="bg-green-600">Success</Badge>
+                      <Badge className="bg-green-600">
+                        {t("payments.success")}
+                      </Badge>
                     )}
                     {payment.status === "pending" && (
-                      <Badge variant="secondary">Pending</Badge>
+                      <Badge variant="secondary">{t("payments.pending")}</Badge>
                     )}
                     {payment.status === "failed" && (
-                      <Badge variant="destructive">Failed</Badge>
+                      <Badge variant="destructive">
+                        {t("payments.failed")}
+                      </Badge>
                     )}
                   </TableCell>
                 </TableRow>
@@ -220,11 +235,11 @@ export default function PaymentsList() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-125">
           <DialogHeader>
-            <DialogTitle>Create Payment</DialogTitle>
+            <DialogTitle>{t("payments.createTitle")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>Payment Provider</Label>
+              <Label>{t("payments.paymentProvider")}</Label>
               <Select value={provider} onValueChange={setProvider}>
                 <SelectTrigger>
                   <SelectValue />
@@ -239,19 +254,21 @@ export default function PaymentsList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Invoice ID</Label>
+              <Label>{t("payments.invoiceId")}</Label>
               <Input
                 value={invoiceId}
                 onChange={(e) => setInvoiceId(e.target.value)}
-                placeholder="Enter invoice ID"
+                placeholder={t("payments.invoiceIdPlaceholder")}
               />
             </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button onClick={handleCreatePayment}>Create Payment</Button>
+            <Button onClick={handleCreatePayment}>
+              {t("payments.create")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
