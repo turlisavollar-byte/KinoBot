@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertTriangle, Copy, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const roleOptions = ["admin", "moderator"];
 
@@ -117,28 +117,57 @@ export function AddAdminModal({
   };
 
   const handleCopy = async () => {
-    if (!password) return;
-    if (await copyToClipboard(password)) {
-      toast.success("Password copied to clipboard");
+    console.log(
+      "[Copy] Handler triggered, password:",
+      password ? "exists" : "missing",
+    );
+    if (!password) {
+      toast({
+        title: "Copy failed",
+        description: "No password is available to copy.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const passwordInput = document.getElementById(
-      "admin-password",
+    const success = await copyToClipboard(password);
+    console.log("[Copy] Result:", success);
+    if (success) {
+      toast({
+        title: "Password copied",
+        description: "Password copied to clipboard.",
+      });
+      return;
+    }
+
+    const passwordInput = document.querySelector(
+      'input[name="password"]',
     ) as HTMLInputElement | null;
     passwordInput?.focus();
     passwordInput?.select();
-    toast.error("Copy failed. Password selected; press Ctrl+C to copy it.");
+    toast({
+      title: "Copy failed",
+      description: "Password selected; press Ctrl+C to copy it.",
+      variant: "destructive",
+    });
   };
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      toast.error("Please enter an email address");
+      toast({
+        title: "Could not create admin",
+        description: "Please enter an email address.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!password) {
-      toast.error("Generate a password before submitting");
+      toast({
+        title: "Could not create admin",
+        description: "Generate a password before submitting.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -155,13 +184,20 @@ export function AddAdminModal({
       setPassword("");
       setEmail("");
       setRole("admin");
-      toast.success(`Admin created. Password: ${responsePassword}`);
+      toast({
+        title: "Admin created",
+        description: `Password: ${responsePassword}`,
+      });
       onSuccess?.();
       if (result?.data?.email) {
         // keep the generated password visible once for the user to copy
       }
     } catch (error) {
-      toast.error("Could not create admin account");
+      toast({
+        title: "Could not create admin",
+        description: "Could not create admin account.",
+        variant: "destructive",
+      });
       console.error(error);
     }
   };
@@ -230,6 +266,7 @@ export function AddAdminModal({
               <div className="flex gap-2">
                 <Input
                   id="admin-password"
+                  name="password"
                   type="text"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

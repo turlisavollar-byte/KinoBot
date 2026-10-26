@@ -5,20 +5,19 @@ import { AddAdminModal } from "./add-admin-modal";
 
 const { mutateAsync, toastMock } = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
-  toastMock: { success: vi.fn(), error: vi.fn() },
+  toastMock: vi.fn(),
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
   useCreateAdminUser: () => ({ mutateAsync, isPending: false }),
 }));
-vi.mock("sonner", () => ({ toast: toastMock }));
+vi.mock("@/hooks/use-toast", () => ({ toast: toastMock }));
 
 describe("AddAdminModal", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ data: { email: "new-admin@example.com" } });
-    toastMock.success.mockReset();
-    toastMock.error.mockReset();
+    toastMock.mockReset();
   });
 
   it("requires an email before creating an admin", async () => {
@@ -60,7 +59,7 @@ describe("AddAdminModal", () => {
         },
       }),
     );
-    expect(onSuccess).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
     expect(screen.getByText(password)).toBeInTheDocument();
     expect(screen.getByText(/will not be shown again/i)).toBeInTheDocument();
   });
@@ -94,9 +93,10 @@ describe("AddAdminModal", () => {
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(copiedValue).toBe(password);
     expect(document.querySelector("textarea")).toBeNull();
-    expect(toastMock.success).toHaveBeenCalledWith(
-      "Password copied to clipboard",
-    );
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "Password copied",
+      description: "Password copied to clipboard.",
+    });
   });
 
   it("falls back when the secure clipboard API rejects", async () => {
@@ -123,7 +123,10 @@ describe("AddAdminModal", () => {
 
     expect(writeText).toHaveBeenCalledOnce();
     expect(execCommand).toHaveBeenCalledWith("copy");
-    expect(toastMock.success).toHaveBeenCalledOnce();
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "Password copied",
+      description: "Password copied to clipboard.",
+    });
   });
 
   it("selects the password for manual copying when clipboard fallbacks fail", async () => {
@@ -150,8 +153,10 @@ describe("AddAdminModal", () => {
     expect(passwordInput).toHaveFocus();
     expect(passwordInput.selectionStart).toBe(0);
     expect(passwordInput.selectionEnd).toBe(password.length);
-    expect(toastMock.error).toHaveBeenCalledWith(
-      "Copy failed. Password selected; press Ctrl+C to copy it.",
-    );
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "Copy failed",
+      description: "Password selected; press Ctrl+C to copy it.",
+      variant: "destructive",
+    });
   });
 });
