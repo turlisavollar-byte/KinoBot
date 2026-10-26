@@ -58,7 +58,7 @@ type UserDetailWithLimits = UserDetail & {
 };
 
 export default function UserDetail() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const params = useParams<{ id: string }>();
   const userId = params.id as string;
   const queryClient = useQueryClient();
@@ -328,7 +328,7 @@ export default function UserDetail() {
             />
             <Info
               label={t("users.joined")}
-              value={new Date(user.createdAt).toLocaleDateString()}
+              value={formatDate(user.createdAt, { dateStyle: "medium" })}
             />
             <Info
               label={t("users.watchSessions")}
@@ -370,7 +370,7 @@ export default function UserDetail() {
                 >
                   {user.activeSubscription.planName ||
                     activePlan?.name ||
-                    "Premium"}
+                    t("users.premium")}
                 </Badge>
                 <div>
                   <div className="text-sm text-muted-foreground">
@@ -378,10 +378,10 @@ export default function UserDetail() {
                   </div>
                   <div className="font-medium">
                     {user.activeSubscription.endDate
-                      ? new Date(
-                          user.activeSubscription.endDate,
-                        ).toLocaleDateString()
-                      : "N/A"}
+                      ? formatDate(user.activeSubscription.endDate, {
+                          dateStyle: "medium",
+                        })
+                      : t("common.unknown")}
                   </div>
                 </div>
                 <div>
@@ -435,7 +435,9 @@ export default function UserDetail() {
             {user.subscriptions && user.subscriptions.length > 0 && (
               <div className="mt-5 space-y-3 border-t pt-4">
                 <div className="text-sm font-medium">
-                  All active subscriptions ({user.subscriptions.length})
+                  {t("users.allActiveSubscriptions", {
+                    count: user.subscriptions.length,
+                  })}
                 </div>
                 {user.subscriptions.map((subscription) => (
                   <div
@@ -444,13 +446,15 @@ export default function UserDetail() {
                   >
                     <div>
                       <div className="font-medium">
-                        {subscription.planName || "Subscription"}
+                        {subscription.planName || t("users.subscription")}
                       </div>
                       <div className="text-muted-foreground">
-                        Until{" "}
+                        {t("users.until")}{" "}
                         {subscription.endDate
-                          ? new Date(subscription.endDate).toLocaleDateString()
-                          : "N/A"}
+                          ? formatDate(subscription.endDate, {
+                              dateStyle: "medium",
+                            })
+                          : t("common.unknown")}
                       </div>
                     </div>
                   </div>
@@ -487,7 +491,7 @@ export default function UserDetail() {
                 onChange={(event) =>
                   setLanguageCode(event.target.value.toLowerCase())
                 }
-                placeholder="en"
+                placeholder={t("users.languageCodePlaceholder")}
                 maxLength={2}
               />
             </div>
@@ -608,7 +612,9 @@ export default function UserDetail() {
         <CardContent className="flex flex-wrap gap-8 text-sm">
           <Info
             label={t("users.rewardTier")}
-            value={`Tier ${user.referralRewardTier ?? 0}`}
+            value={t("users.referralTierValue", {
+              tier: user.referralRewardTier ?? 0,
+            })}
           />
           <Info
             label={t("users.referralCode")}

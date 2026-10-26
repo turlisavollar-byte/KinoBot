@@ -1,13 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Database, Bot, HardDrive, Search, Layers, Zap, Clock, Server } from "lucide-react";
+import {
+  RefreshCw,
+  Database,
+  Bot,
+  HardDrive,
+  Search,
+  Layers,
+  Zap,
+  Clock,
+  Server,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 interface HealthResponse {
   status: "ok" | "degraded" | "down";
@@ -24,46 +40,66 @@ interface HealthResponse {
   };
 }
 
-const SERVICE_META: Record<string, { icon: React.ElementType; label: string }> = {
-  database:  { icon: Database, label: "PostgreSQL" },
-  bot:       { icon: Bot,      label: "Telegram Bot" },
-  cache:     { icon: Zap,      label: "Redis Cache" },
-  queue:     { icon: Layers,   label: "Job Queue" },
-  storage:   { icon: HardDrive, label: "Object Storage" },
-  search:    { icon: Search,   label: "Elasticsearch" },
-};
+const SERVICE_META: Record<string, { icon: React.ElementType; label: string }> =
+  {
+    database: { icon: Database, label: "PostgreSQL" },
+    bot: { icon: Bot, label: "" },
+    cache: { icon: Zap, label: "" },
+    queue: { icon: Layers, label: "" },
+    storage: { icon: HardDrive, label: "" },
+    search: { icon: Search, label: "Elasticsearch" },
+  };
 
 function statusColor(s: string) {
-  if (s === "ok" || s === "running") return "text-emerald-700 dark:text-emerald-400";
+  if (s === "ok" || s === "running")
+    return "text-emerald-700 dark:text-emerald-400";
   if (s === "error" || s === "down") return "text-red-700 dark:text-red-400";
   return "text-amber-700 dark:text-amber-400";
 }
 
-function statusLabel(s: string) {
-  if (s === "ok")      return { text: "Operational", variant: "default" } as const;
-  if (s === "running") return { text: "Running",     variant: "default" } as const;
-  if (s === "error")   return { text: "Error",       variant: "destructive" } as const;
-  if (s === "stub")    return { text: "Stub (dev)",  variant: "secondary" } as const;
+function statusLabel(
+  s: string,
+  t: (key: import("@/lib/i18n").TranslationKey) => string,
+) {
+  if (s === "ok")
+    return {
+      text: t("system.health.operational"),
+      variant: "default",
+    } as const;
+  if (s === "running")
+    return { text: t("system.health.running"), variant: "default" } as const;
+  if (s === "stopped")
+    return { text: t("system.health.stopped"), variant: "secondary" } as const;
+  if (s === "error")
+    return { text: t("system.health.error"), variant: "destructive" } as const;
+  if (s === "stub")
+    return { text: t("system.health.stub"), variant: "secondary" } as const;
   return { text: s, variant: "secondary" } as const;
 }
 
-function formatUptime(seconds: number) {
+function formatUptime(
+  seconds: number,
+  t: (key: import("@/lib/i18n").TranslationKey) => string,
+) {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  return `${m}m ${s}s`;
+  if (d > 0)
+    return `${d}${t("system.health.daysShort")} ${h}${t("system.health.hoursShort")} ${m}${t("system.health.minutesShort")}`;
+  if (h > 0)
+    return `${h}${t("system.health.hoursShort")} ${m}${t("system.health.minutesShort")} ${s}${t("system.health.secondsShort")}`;
+  return `${m}${t("system.health.minutesShort")} ${s}${t("system.health.secondsShort")}`;
 }
 
 export default function SystemHealth() {
-  const { t } = useI18n();
-  const { data, isLoading, dataUpdatedAt, refetch, isFetching } = useQuery<HealthResponse>({
-    queryKey: ["system-health"],
-    queryFn: () => apiFetch<HealthResponse>("/api/health"),
-    refetchInterval: 30_000,
-  });
+  const { t, formatDate } = useI18n();
+  const { data, isLoading, dataUpdatedAt, refetch, isFetching } =
+    useQuery<HealthResponse>({
+      queryKey: ["system-health"],
+      queryFn: () => apiFetch<HealthResponse>("/api/health"),
+      refetchInterval: 30_000,
+    });
 
   const overallOk = data?.status === "ok";
 
@@ -74,32 +110,63 @@ export default function SystemHealth() {
         subtitle={t("system.health.subtitle")}
       >
         <span className="text-xs text-muted-foreground">
-          {dataUpdatedAt ? `Updated ${new Date(dataUpdatedAt).toLocaleTimeString()}` : ""}
+          {dataUpdatedAt
+            ? t("system.health.updated", {
+                time: formatDate(new Date(dataUpdatedAt), {
+                  timeStyle: "short",
+                }),
+              })
+            : ""}
         </span>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isFetching && "animate-spin")} />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={cn("h-3.5 w-3.5 mr-1.5", isFetching && "animate-spin")}
+          />
           {t("common.refresh")}
         </Button>
       </PageHeader>
 
       {/* Overall Status Banner */}
-      <div className={cn(
-        "rounded-xl border p-4 mb-8 flex items-center gap-3",
-        overallOk
-          ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800/40"
-          : "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-800/40",
-      )}>
-        <div className={cn(
-          "h-3 w-3 rounded-full animate-pulse",
-          overallOk ? "bg-emerald-400" : "bg-red-400",
-        )} />
+      <div
+        className={cn(
+          "rounded-xl border p-4 mb-8 flex items-center gap-3",
+          overallOk
+            ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800/40"
+            : "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-800/40",
+        )}
+      >
+        <div
+          className={cn(
+            "h-3 w-3 rounded-full animate-pulse",
+            overallOk ? "bg-emerald-400" : "bg-red-400",
+          )}
+        />
         <div>
-          <p className={cn("font-semibold", overallOk ? "text-emerald-800 dark:text-emerald-300" : "text-red-800 dark:text-red-300")}>
-            {isLoading ? t("system.health.checking") : overallOk ? t("system.health.allOperational") : `System ${data?.status?.toUpperCase()}`}
+          <p
+            className={cn(
+              "font-semibold",
+              overallOk
+                ? "text-emerald-800 dark:text-emerald-300"
+                : "text-red-800 dark:text-red-300",
+            )}
+          >
+            {isLoading
+              ? t("system.health.checking")
+              : overallOk
+                ? t("system.health.allOperational")
+                : data?.status === "degraded"
+                  ? t("system.health.statusDegraded")
+                  : t("system.health.statusDown")}
           </p>
           {data && (
             <p className="text-xs text-muted-foreground">
-              {t("system.health.version")} {data.version} · {t("system.health.uptime")} {formatUptime(data.uptime)}
+              {t("system.health.version")} {data.version} ·{" "}
+              {t("system.health.uptime")} {formatUptime(data.uptime, t)}
             </p>
           )}
         </div>
@@ -109,21 +176,38 @@ export default function SystemHealth() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}><CardContent className="p-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <Skeleton className="h-16 w-full" />
+                </CardContent>
+              </Card>
             ))
           : Object.entries(data?.services ?? {}).map(([key, value]) => {
               const meta = SERVICE_META[key] ?? { icon: Server, label: key };
               const Icon = meta.icon;
-              const { text, variant } = statusLabel(value);
+              const serviceLabelKey =
+                `system.health.service${key[0].toUpperCase()}${key.slice(1)}` as TranslationKey;
+              const serviceLabel = meta.label || t(serviceLabelKey);
+              const { text, variant } = statusLabel(value, t);
               return (
-                <Card key={key} className="transition-all hover:border-border/80">
+                <Card
+                  key={key}
+                  className="transition-all hover:border-border/80"
+                >
                   <CardContent className="p-5 flex items-center gap-4">
-                    <div className={cn("p-2.5 rounded-lg bg-muted/60", statusColor(value))}>
+                    <div
+                      className={cn(
+                        "p-2.5 rounded-lg bg-muted/60",
+                        statusColor(value),
+                      )}
+                    >
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{meta.label}</p>
-                      <Badge variant={variant} className="mt-1 text-xs">{text}</Badge>
+                      <p className="font-medium text-sm">{serviceLabel}</p>
+                      <Badge variant={variant} className="mt-1 text-xs">
+                        {text}
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -142,14 +226,27 @@ export default function SystemHealth() {
           <CardContent>
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { label: t("system.health.status"),    value: data.status.toUpperCase() },
-                { label: t("system.health.version"),   value: data.version },
-                { label: t("system.health.uptime"),    value: formatUptime(data.uptime) },
-                { label: t("system.health.checked"),   value: new Date(data.timestamp).toLocaleTimeString() },
+                {
+                  label: t("system.health.status"),
+                  value: data.status.toUpperCase(),
+                },
+                { label: t("system.health.version"), value: data.version },
+                {
+                  label: t("system.health.uptime"),
+                  value: formatUptime(data.uptime, t),
+                },
+                {
+                  label: t("system.health.checked"),
+                  value: formatDate(data.timestamp, { timeStyle: "short" }),
+                },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <dt className="text-xs text-muted-foreground uppercase tracking-wide">{label}</dt>
-                  <dd className="font-mono text-sm font-medium mt-0.5">{value}</dd>
+                  <dt className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {label}
+                  </dt>
+                  <dd className="font-mono text-sm font-medium mt-0.5">
+                    {value}
+                  </dd>
                 </div>
               ))}
             </dl>

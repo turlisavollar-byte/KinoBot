@@ -77,7 +77,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 // ==================== Types ====================
 
@@ -450,35 +450,47 @@ const ACTOR_TYPE_COLORS: Record<AuditActorType, string> = {
 
 // ==================== Helper Functions ====================
 
-function timeAgo(dateStr: string): string {
+function timeAgo(
+  dateStr: string,
+  locale: string,
+  formatDate: (
+    date: string | Date,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string,
+): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
+  const relativeTime = new Intl.RelativeTimeFormat(locale, {
+    numeric: "auto",
+    style: "short",
+  });
 
-  if (seconds < 5) return "just now";
-  if (minutes < 1) return `${seconds}s ago`;
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return dateFormat(new Date(dateStr), "MMM d, yyyy");
+  if (seconds < 5) return relativeTime.format(0, "second");
+  if (minutes < 1) return relativeTime.format(-seconds, "second");
+  if (hours < 1) return relativeTime.format(-minutes, "minute");
+  if (days < 1) return relativeTime.format(-hours, "hour");
+  if (days < 7) return relativeTime.format(-days, "day");
+  return formatDate(dateStr, { dateStyle: "medium" });
 }
 
-function dateFormatFn(dateStr: string): string {
-  return dateFormat(new Date(dateStr), "MMM d, yyyy HH:mm:ss");
-}
-
-function getActionMeta(action: AuditAction) {
-  return (
-    ACTION_META[action] || {
-      icon: Shield,
-      color: "text-muted-foreground",
-      bgColor: "bg-muted/50",
-      label: action.replace(/_/g, " "),
-      category: "other" as const,
-    }
-  );
+function getActionMeta(
+  action: AuditAction,
+  t: (key: TranslationKey) => string,
+) {
+  const meta = ACTION_META[action] || {
+    icon: Shield,
+    color: "text-muted-foreground",
+    bgColor: "bg-muted/50",
+    label: action.replace(/_/g, " "),
+    category: "other" as const,
+  };
+  return {
+    ...meta,
+    label: t(`system.auditLogs.actionLabel.${action}` as TranslationKey),
+  };
 }
 
 // ==================== Components ====================
@@ -493,7 +505,7 @@ function LogDetailsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = async (text: string) => {
@@ -504,7 +516,7 @@ function LogDetailsDialog({
 
   if (!log) return null;
 
-  const meta = getActionMeta(log.action);
+  const meta = getActionMeta(log.action, t);
   const Icon = meta.icon;
 
   return (
@@ -528,11 +540,15 @@ function LogDetailsDialog({
             {/* Summary */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Action</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.action")}
+                </p>
                 <p className="font-medium">{meta.label}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Severity</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.filterSeverity")}
+                </p>
                 {log.severity ? (
                   <Badge
                     className={cn(
@@ -547,7 +563,9 @@ function LogDetailsDialog({
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Actor</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.actor")}
+                </p>
                 <div className="flex items-center gap-2">
                   <Badge className={ACTOR_TYPE_COLORS[log.actorType]}>
                     {log.actorType}
@@ -563,7 +581,9 @@ function LogDetailsDialog({
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Target</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.target")}
+                </p>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{log.targetType}</Badge>
                   {log.targetName && (
@@ -577,13 +597,20 @@ function LogDetailsDialog({
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Timestamp</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.timestamp")}
+                </p>
                 <p className="text-sm font-mono">
-                  {dateFormatFn(log.createdAt)}
+                  {formatDate(log.createdAt, {
+                    dateStyle: "medium",
+                    timeStyle: "medium",
+                  })}
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Request ID</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("system.auditLogs.requestId")}
+                </p>
                 {log.requestId ? (
                   <div className="flex items-center gap-2">
                     <code className="text-xs bg-muted px-1 rounded">
@@ -603,7 +630,9 @@ function LogDetailsDialog({
                     </Button>
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">N/A</span>
+                  <span className="text-muted-foreground">
+                    {t("common.unknown")}
+                  </span>
                 )}
               </div>
             </div>
@@ -611,11 +640,16 @@ function LogDetailsDialog({
             {/* Changes */}
             {(log.oldValue || log.newValue || log.diff) && (
               <div>
-                <h4 className="text-sm font-semibold mb-2">Changes</h4>
+                <h4 className="text-sm font-semibold mb-2">
+                  {t("system.auditLogs.changes")}
+                </h4>
                 <div className="bg-muted/30 rounded-lg p-4 space-y-2">
                   {log.diff &&
                     Object.entries(log.diff).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                      <div
+                        key={key}
+                        className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3"
+                      >
                         <span className="font-medium">{key}</span>
                         <span className="text-red-700 line-through dark:text-red-400">
                           {String(value.old)}
@@ -627,7 +661,9 @@ function LogDetailsDialog({
                     ))}
                   {!log.diff && log.oldValue && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Old Value</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("system.auditLogs.oldValue")}
+                      </p>
                       <pre className="text-xs bg-background p-2 rounded mt-1 overflow-x-auto">
                         {JSON.stringify(log.oldValue, null, 2)}
                       </pre>
@@ -635,7 +671,9 @@ function LogDetailsDialog({
                   )}
                   {!log.diff && log.newValue && (
                     <div>
-                      <p className="text-sm text-muted-foreground">New Value</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("system.auditLogs.newValue")}
+                      </p>
                       <pre className="text-xs bg-background p-2 rounded mt-1 overflow-x-auto">
                         {JSON.stringify(log.newValue, null, 2)}
                       </pre>
@@ -648,7 +686,9 @@ function LogDetailsDialog({
             {/* Metadata */}
             {log.metadata && Object.keys(log.metadata).length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold mb-2">Metadata</h4>
+                <h4 className="text-sm font-semibold mb-2">
+                  {t("system.auditLogs.metadata")}
+                </h4>
                 <div className="bg-muted/30 rounded-lg p-4">
                   <pre className="text-xs overflow-x-auto">
                     {JSON.stringify(log.metadata, null, 2)}
@@ -660,7 +700,9 @@ function LogDetailsDialog({
             {/* Tags */}
             {log.tags && log.tags.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold mb-2">Tags</h4>
+                <h4 className="text-sm font-semibold mb-2">
+                  {t("system.auditLogs.tags")}
+                </h4>
                 <div className="flex flex-wrap gap-2">
                   {log.tags.map((tag) => (
                     <Badge key={tag} variant="secondary">
@@ -673,17 +715,23 @@ function LogDetailsDialog({
 
             {/* Context */}
             <div>
-              <h4 className="text-sm font-semibold mb-2">Context</h4>
+              <h4 className="text-sm font-semibold mb-2">
+                {t("system.auditLogs.context")}
+              </h4>
               <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 {log.ipAddress && (
                   <div>
-                    <p className="text-muted-foreground">IP Address</p>
+                    <p className="text-muted-foreground">
+                      {t("security.ipAddress")}
+                    </p>
                     <p className="font-mono">{log.ipAddress}</p>
                   </div>
                 )}
                 {log.userAgent && (
                   <div className="col-span-2">
-                    <p className="text-muted-foreground">User Agent</p>
+                    <p className="text-muted-foreground">
+                      {t("system.auditLogs.userAgent")}
+                    </p>
                     <p className="text-xs text-muted-foreground break-all">
                       {log.userAgent}
                     </p>
@@ -691,7 +739,9 @@ function LogDetailsDialog({
                 )}
                 {log.sessionId && (
                   <div>
-                    <p className="text-muted-foreground">Session ID</p>
+                    <p className="text-muted-foreground">
+                      {t("system.auditLogs.sessionId")}
+                    </p>
                     <p className="font-mono text-xs">{log.sessionId}</p>
                   </div>
                 )}
@@ -713,7 +763,9 @@ function StatisticsCard({ stats }: { stats: AuditStatistics }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">{t("system.auditLogs.totalLogs")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("system.auditLogs.totalLogs")}
+              </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
             <Shield className="h-8 w-8 text-muted-foreground/50" />
@@ -725,12 +777,17 @@ function StatisticsCard({ stats }: { stats: AuditStatistics }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">{t("system.auditLogs.topAction")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("system.auditLogs.topAction")}
+              </p>
               <p className="text-lg font-semibold">
-                {stats.insights?.topActions[0]?.action || "N/A"}
+                {stats.insights?.topActions[0]?.action
+                  ? getActionMeta(stats.insights.topActions[0].action, t).label
+                  : t("common.unknown")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.insights?.topActions[0]?.count || 0} {t("system.auditLogs.events")}
+                {stats.insights?.topActions[0]?.count || 0}{" "}
+                {t("system.auditLogs.events")}
               </p>
             </div>
             <LogIn className="h-8 w-8 text-muted-foreground/50" />
@@ -742,12 +799,16 @@ function StatisticsCard({ stats }: { stats: AuditStatistics }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">{t("system.auditLogs.topActor")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("system.auditLogs.topActor")}
+              </p>
               <p className="text-lg font-semibold">
-                {stats.insights?.topActors[0]?.actorId?.slice(0, 8) || "N/A"}
+                {stats.insights?.topActors[0]?.actorId?.slice(0, 8) ||
+                  t("common.unknown")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.insights?.topActors[0]?.count || 0} {t("system.auditLogs.events")}
+                {stats.insights?.topActors[0]?.count || 0}{" "}
+                {t("system.auditLogs.events")}
               </p>
             </div>
             <User className="h-8 w-8 text-muted-foreground/50" />
@@ -759,12 +820,16 @@ function StatisticsCard({ stats }: { stats: AuditStatistics }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">{t("system.auditLogs.anomalies")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("system.auditLogs.anomalies")}
+              </p>
               <p className="text-lg font-semibold">
                 {stats.insights?.anomalyDetected ? "⚠️" : "✅"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.insights?.anomalyDetected ? t("system.auditLogs.detected") : t("system.auditLogs.noneDetected")}
+                {stats.insights?.anomalyDetected
+                  ? t("system.auditLogs.detected")
+                  : t("system.auditLogs.noneDetected")}
               </p>
             </div>
             <AlertCircle className="h-8 w-8 text-muted-foreground/50" />
@@ -778,7 +843,7 @@ function StatisticsCard({ stats }: { stats: AuditStatistics }) {
 // ==================== Main Component ====================
 
 export default function AuditLogs() {
-  const { t } = useI18n();
+  const { t, formatDate, locale } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -861,7 +926,9 @@ export default function AuditLogs() {
 
       toast({
         title: t("system.auditLogs.exportSuccess"),
-        description: t("system.auditLogs.exportedAs", { format: exportFormat.toUpperCase() }),
+        description: t("system.auditLogs.exportedAs", {
+          format: exportFormat.toUpperCase(),
+        }),
       });
     },
     onError: () => {
@@ -940,7 +1007,9 @@ export default function AuditLogs() {
             className="gap-2"
           >
             <BarChart3 className="h-4 w-4" />
-            {showStats ? t("system.auditLogs.hideStats") : t("system.auditLogs.showStats")}
+            {showStats
+              ? t("system.auditLogs.hideStats")
+              : t("system.auditLogs.showStats")}
           </Button>
 
           <DropdownMenu>
@@ -998,10 +1067,12 @@ export default function AuditLogs() {
                 <SelectValue placeholder={t("system.auditLogs.action")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">{t("system.auditLogs.allActions")}</SelectItem>
+                <SelectItem value="ALL">
+                  {t("system.auditLogs.allActions")}
+                </SelectItem>
                 {Object.keys(ACTION_META).map((action) => (
                   <SelectItem key={action} value={action}>
-                    {ACTION_META[action as AuditAction].label}
+                    {getActionMeta(action as AuditAction, t).label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1009,28 +1080,52 @@ export default function AuditLogs() {
 
             <Select value={actorTypeFilter} onValueChange={setActorTypeFilter}>
               <SelectTrigger className="w-36 h-9">
-                <SelectValue placeholder="Actor" />
+                <SelectValue placeholder={t("system.auditLogs.actor")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Actors</SelectItem>
-                <SelectItem value="USER">User</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="SYSTEM">System</SelectItem>
-                <SelectItem value="BOT">Bot</SelectItem>
-                <SelectItem value="API">API</SelectItem>
+                <SelectItem value="ALL">
+                  {t("system.auditLogs.allActors")}
+                </SelectItem>
+                <SelectItem value="USER">
+                  {t("system.auditLogs.actorUser")}
+                </SelectItem>
+                <SelectItem value="ADMIN">
+                  {t("system.auditLogs.actorAdmin")}
+                </SelectItem>
+                <SelectItem value="SYSTEM">
+                  {t("system.auditLogs.actorSystem")}
+                </SelectItem>
+                <SelectItem value="BOT">
+                  {t("system.auditLogs.actorBot")}
+                </SelectItem>
+                <SelectItem value="API">
+                  {t("system.auditLogs.actorApi")}
+                </SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
               <SelectTrigger className="w-32 h-9">
-                <SelectValue placeholder="Severity" />
+                <SelectValue
+                  placeholder={t("system.auditLogs.filterSeverity")}
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Severity</SelectItem>
-                <SelectItem value="LOW">Low</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
-                <SelectItem value="CRITICAL">Critical</SelectItem>
+                <SelectItem value="ALL">
+                  {t("system.auditLogs.allSeverity")}
+                </SelectItem>
+                <SelectItem value="LOW">
+                  {t("system.auditLogs.severityLow")}
+                </SelectItem>
+                <SelectItem value="MEDIUM">
+                  {t("system.auditLogs.severityMedium")}
+                </SelectItem>
+                <SelectItem value="HIGH">
+                  {t("system.auditLogs.severityHigh")}
+                </SelectItem>
+                <SelectItem value="CRITICAL">
+                  {t("system.auditLogs.severityCritical")}
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -1073,7 +1168,7 @@ export default function AuditLogs() {
           <div className="flex flex-wrap gap-2 mt-3">
             {actionFilter !== "ALL" && (
               <Badge variant="secondary" className="gap-1">
-                Action:{" "}
+                {t("system.auditLogs.filterAction")}:{" "}
                 {ACTION_META[actionFilter as AuditAction]?.label ||
                   actionFilter}
                 <X
@@ -1084,7 +1179,7 @@ export default function AuditLogs() {
             )}
             {actorTypeFilter !== "ALL" && (
               <Badge variant="secondary" className="gap-1">
-                Actor: {actorTypeFilter}
+                {t("system.auditLogs.filterActor")}: {actorTypeFilter}
                 <X
                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                   onClick={() => setActorTypeFilter("ALL")}
@@ -1093,7 +1188,7 @@ export default function AuditLogs() {
             )}
             {severityFilter !== "ALL" && (
               <Badge variant="secondary" className="gap-1">
-                Severity: {severityFilter}
+                {t("system.auditLogs.filterSeverity")}: {severityFilter}
                 <X
                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                   onClick={() => setSeverityFilter("ALL")}
@@ -1102,8 +1197,11 @@ export default function AuditLogs() {
             )}
             {dateRange.from && (
               <Badge variant="secondary" className="gap-1">
-                {dateFormat(dateRange.from, "MMM d")} -{" "}
-                {dateRange.to ? dateFormat(dateRange.to, "MMM d") : "now"}
+                {formatDate(dateRange.from, { month: "short", day: "numeric" })}{" "}
+                -{" "}
+                {dateRange.to
+                  ? formatDate(dateRange.to, { month: "short", day: "numeric" })
+                  : t("system.auditLogs.now")}
                 <X
                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                   onClick={() => setDateRange({})}
@@ -1112,7 +1210,7 @@ export default function AuditLogs() {
             )}
             {searchQuery && (
               <Badge variant="secondary" className="gap-1">
-                Search: {searchQuery}
+                {t("system.auditLogs.searchLabel")}: {searchQuery}
                 <X
                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                   onClick={() => setSearchQuery("")}
@@ -1138,18 +1236,18 @@ export default function AuditLogs() {
         <Card className="border-destructive">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mb-3" />
-            <p className="font-semibold">Failed to load audit logs</p>
+            <p className="font-semibold">{t("system.auditLogs.loadError")}</p>
             <p className="text-sm text-muted-foreground mt-1">
               {error instanceof Error
                 ? error.message
-                : "Please try again later"}
+                : t("system.auditLogs.tryAgainLater")}
             </p>
             <Button
               variant="outline"
               className="mt-4"
               onClick={() => refetch()}
             >
-              Retry
+              {t("system.auditLogs.retry")}
             </Button>
           </CardContent>
         </Card>
@@ -1157,16 +1255,18 @@ export default function AuditLogs() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Shield className="h-12 w-12 text-muted-foreground mb-3" />
-            <p className="font-semibold text-lg">No audit logs found</p>
+            <p className="font-semibold text-lg">
+              {t("system.auditLogs.noLogs")}
+            </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Try adjusting your filters or wait for new events
+              {t("system.auditLogs.noLogsDescription")}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {logs.map((log) => {
-            const meta = getActionMeta(log.action);
+            const meta = getActionMeta(log.action, t);
             const Icon = meta.icon;
 
             return (
@@ -1250,13 +1350,13 @@ export default function AuditLogs() {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  {timeAgo(log.createdAt)}
+                                  {timeAgo(log.createdAt, locale, formatDate)}
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  {dateFormat(
-                                    log.createdAt,
-                                    "MMM d, yyyy HH:mm:ss",
-                                  )}
+                                  {formatDate(log.createdAt, {
+                                    dateStyle: "medium",
+                                    timeStyle: "medium",
+                                  })}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -1279,7 +1379,8 @@ export default function AuditLogs() {
                                 ))}
                               {Object.keys(log.metadata).length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                  +{Object.keys(log.metadata).length - 3} more
+                                  +{Object.keys(log.metadata).length - 3}{" "}
+                                  {t("system.auditLogs.more")}
                                 </Badge>
                               )}
                             </div>

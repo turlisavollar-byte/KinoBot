@@ -94,22 +94,23 @@ export default function AdminUsersList() {
         id: editingUser.id,
         data: { name, email, role },
       });
-      toast.success("Admin account updated");
+      toast.success(t("users.adminAccountUpdated"));
       setEditingUser(null);
       refresh();
     } catch {
-      toast.error("Admin account could not be updated");
+      toast.error(t("users.adminAccountUpdateFailed"));
     }
   };
 
   const removeUser = async (user: AdminUser) => {
-    if (!window.confirm(`Delete ${user.email}?`)) return;
+    if (!window.confirm(t("users.deleteAdminConfirm", { email: user.email })))
+      return;
     try {
       await deleteAdminUser.mutateAsync({ id: user.id });
-      toast.success("Admin account deleted");
+      toast.success(t("users.adminAccountDeleted"));
       refresh();
     } catch {
-      toast.error("Admin account could not be deleted");
+      toast.error(t("users.adminAccountDeleteFailed"));
     }
   };
 
@@ -136,7 +137,7 @@ export default function AdminUsersList() {
         {actorRole === "superadmin" && (
           <Button onClick={() => setAddModalOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Admin
+            {t("users.addAdmin")}
           </Button>
         )}
       </div>
@@ -148,7 +149,9 @@ export default function AdminUsersList() {
               <TableHead>{t("users.tableEmail")}</TableHead>
               <TableHead>{t("users.tableRole")}</TableHead>
               <TableHead>{t("users.tableStatus")}</TableHead>
-              <TableHead className="w-28 text-right">Actions</TableHead>
+              <TableHead className="w-28 text-right">
+                {t("users.adminActions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -201,7 +204,7 @@ export default function AdminUsersList() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEdit(user)}
-                          title="Edit admin account"
+                          title={t("users.editAdminAccount")}
                         >
                           <Pencil />
                         </Button>
@@ -209,7 +212,7 @@ export default function AdminUsersList() {
                           variant="ghost"
                           size="icon"
                           onClick={() => void removeUser(user)}
-                          title="Delete admin account"
+                          title={t("users.deleteAdminAccount")}
                         >
                           <Trash2 />
                         </Button>
@@ -228,11 +231,11 @@ export default function AdminUsersList() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit administrative account</DialogTitle>
+            <DialogTitle>{t("users.editAdminAccount")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-name">Name</Label>
+              <Label htmlFor="admin-name">{t("users.name")}</Label>
               <Input
                 id="admin-name"
                 value={name}
@@ -240,7 +243,7 @@ export default function AdminUsersList() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Email</Label>
+              <Label htmlFor="admin-email">{t("users.tableEmail")}</Label>
               <Input
                 id="admin-email"
                 type="email"
@@ -249,7 +252,7 @@ export default function AdminUsersList() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label>{t("users.role")}</Label>
               <Select
                 value={role}
                 onValueChange={(value) =>
@@ -276,13 +279,13 @@ export default function AdminUsersList() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingUser(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={() => void saveEdit()}
               disabled={updateAdminUser.isPending}
             >
-              Save changes
+              {t("users.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
