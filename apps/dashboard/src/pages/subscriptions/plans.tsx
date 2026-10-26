@@ -83,7 +83,7 @@ export default function PlansList() {
     const payload = {
       name,
       tier,
-      price,
+      price: Number(price),
       currency,
       durationDays,
       maxDevices,
