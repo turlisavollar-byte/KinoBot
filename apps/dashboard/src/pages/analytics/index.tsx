@@ -50,11 +50,6 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-const SOURCE_LABELS: Record<string, string> = {
-  organic: "Organik (to'g'ridan-to'g'ri)",
-  instagram: "Instagram",
-};
-
 function InstagramDeeplinkCard() {
   const { t } = useI18n();
   const [code, setCode] = useState("");
@@ -144,21 +139,20 @@ function InstagramDeeplinkCard() {
   );
 }
 
-function formatUzs(amount: number) {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M so'm`;
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K so'm`;
-  return `${amount.toLocaleString()} so'm`;
-}
-
-function formatDate(v: string, period: string) {
-  const d = new Date(v);
-  if (period === "1y") return d.toLocaleDateString("uz-UZ", { month: "short" });
-  return d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" });
-}
-
 export default function Analytics() {
-  const { t } = useI18n();
+  const { t, formatDate, formatNumber, locale } = useI18n();
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "1y">("30d");
+  const formatUzs = (amount: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "UZS",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  const formatChartDate = (value: string) =>
+    formatDate(value, {
+      month: "short",
+      ...(period === "1y" ? {} : { day: "numeric" }),
+    });
 
   const { data: stats } = useGetAnalyticsOverview();
   const { data: revenueStats } = useGetRevenueTrend({ period });
@@ -173,7 +167,7 @@ export default function Analytics() {
   const overviewCards = [
     {
       label: t("analytics.totalUsers"),
-      value: statsData?.totalUsers?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalUsers ?? 0),
       sub: t("analytics.newUsersToday", {
         count: statsData?.newUsersToday ?? 0,
       }),
@@ -182,7 +176,7 @@ export default function Analytics() {
     },
     {
       label: t("analytics.activeSubscriptions"),
-      value: statsData?.activeSubscriptions?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.activeSubscriptions ?? 0),
       sub: t("analytics.activeUsers", { count: statsData?.activeUsers ?? 0 }),
       icon: <CreditCard className="w-4 h-4" />,
       color: "text-green-500",
@@ -198,14 +192,14 @@ export default function Analytics() {
     },
     {
       label: t("analytics.videoCodes"),
-      value: statsData?.activeVideoCodes?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.activeVideoCodes ?? 0),
       sub: t("analytics.totalViews", { count: statsData?.totalCodeViews ?? 0 }),
       icon: <Code2 className="w-4 h-4" />,
       color: "text-purple-500",
     },
     {
       label: t("analytics.movies"),
-      value: statsData?.totalMovies?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalMovies ?? 0),
       sub: t("analytics.seriesAndEpisodes", {
         series: statsData?.totalSeries ?? 0,
         episodes: statsData?.totalEpisodes ?? 0,
@@ -215,7 +209,7 @@ export default function Analytics() {
     },
     {
       label: t("analytics.watchSessions"),
-      value: statsData?.totalWatchSessions?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalWatchSessions ?? 0),
       sub: t("analytics.totalViewsLabel"),
       icon: <Eye className="w-4 h-4" />,
       color: "text-cyan-500",
@@ -234,7 +228,12 @@ export default function Analytics() {
         <Select
           value={period}
           onValueChange={(value) => {
-            if (value === "7d" || value === "30d" || value === "90d" || value === "1y") {
+            if (
+              value === "7d" ||
+              value === "30d" ||
+              value === "90d" ||
+              value === "1y"
+            ) {
               setPeriod(value);
             }
           }}
@@ -307,7 +306,7 @@ export default function Analytics() {
                   />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(v) => formatDate(v, period)}
+                    tickFormatter={formatChartDate}
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={11}
                     tickLine={false}
@@ -318,9 +317,7 @@ export default function Analytics() {
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(v) =>
-                      v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)
-                    }
+                    tickFormatter={(v: number) => formatNumber(v)}
                   />
                   <Tooltip
                     contentStyle={{
@@ -330,10 +327,10 @@ export default function Analytics() {
                     }}
                     itemStyle={{ color: "hsl(var(--foreground))" }}
                     formatter={(v: number) => [
-                      `${v.toLocaleString()} so'm`,
+                      formatUzs(v),
                       t("analytics.revenue"),
                     ]}
-                    labelFormatter={(l) => formatDate(l, period)}
+                    labelFormatter={formatChartDate}
                   />
                   <Area
                     type="monotone"
@@ -375,7 +372,7 @@ export default function Analytics() {
                   />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(v) => formatDate(v, period)}
+                    tickFormatter={formatChartDate}
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={11}
                     tickLine={false}
@@ -398,7 +395,7 @@ export default function Analytics() {
                       v,
                       t("analytics.newSubscription"),
                     ]}
-                    labelFormatter={(l) => formatDate(l, period)}
+                    labelFormatter={formatChartDate}
                   />
                   <Bar
                     dataKey="newSubscriptions"
@@ -466,7 +463,10 @@ export default function Analytics() {
                         return ratingNum > 0 ? (
                           <span className="flex items-center gap-0.5">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            {ratingNum.toFixed(1)}
+                            {new Intl.NumberFormat(locale, {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            }).format(ratingNum)}
                           </span>
                         ) : null;
                       })()}
@@ -474,7 +474,7 @@ export default function Analytics() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-bold text-sm">
-                      {(item.viewsCount || 0).toLocaleString()}
+                      {formatNumber(item.viewsCount || 0)}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {t("analytics.views")}

@@ -183,7 +183,7 @@ const QUICK_ACTIONS: QuickActionProps[] = [
 ];
 
 export default function Dashboard() {
-  const { t } = useI18n();
+  const { t, formatDate, formatNumber, locale } = useI18n();
   const [, navigate] = useLocation();
   const {
     data: stats,
@@ -211,12 +211,50 @@ export default function Dashboard() {
   const topItems = topContent?.data?.items || [];
   const maxViewCount = Math.max(...topItems.map((t) => t.viewsCount || 0), 1);
 
-  const today = new Date().toLocaleDateString("en-US", {
+  const today = formatDate(new Date(), {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+  const formatUsd = (value: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  const serviceLabel = (key: string) => {
+    const labels: Record<string, TranslationKey> = {
+      database: "dashboard.serviceDatabase",
+      bot: "dashboard.serviceBot",
+      cache: "dashboard.serviceCache",
+      queue: "dashboard.serviceQueue",
+      storage: "dashboard.serviceStorage",
+      search: "dashboard.serviceSearch",
+    };
+    return labels[key] ? t(labels[key]) : key;
+  };
+  const serviceStatusLabel = (status: string) => {
+    const labels: Record<string, TranslationKey> = {
+      ok: "dashboard.statusOperational",
+      running: "dashboard.statusRunning",
+      stopped: "dashboard.statusStopped",
+      stub: "dashboard.statusStub",
+      error: "dashboard.statusError",
+      degraded: "dashboard.statusDegraded",
+      down: "dashboard.statusDown",
+    };
+    return labels[status] ? t(labels[status]) : status;
+  };
+  const contentTypeLabel = (type?: string) => {
+    if (!type) return "";
+    const labels: Record<string, TranslationKey> = {
+      movie: "analytics.movie",
+      series: "analytics.series",
+      video_code: "analytics.videoCode",
+    };
+    return labels[type] ? t(labels[type]) : type;
+  };
 
   const healthOk = health?.status === "ok";
   const serviceCount = Object.values(health?.services ?? {}).length;
@@ -240,10 +278,12 @@ export default function Dashboard() {
             size="sm"
             onClick={() => navigate("/catalog/movies/new")}
           >
-            <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> {t("dashboard.addMovie")}
+            <PlusCircle className="h-3.5 w-3.5 mr-1.5" />{" "}
+            {t("dashboard.addMovie")}
           </Button>
           <Button size="sm" onClick={() => navigate("/catalog/series/new")}>
-            <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> {t("dashboard.addSeries")}
+            <PlusCircle className="h-3.5 w-3.5 mr-1.5" />{" "}
+            {t("dashboard.addSeries")}
           </Button>
         </div>
       </div>
@@ -252,7 +292,7 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t("dashboard.totalRevenue")}
-          value={`$${(statsData?.totalRevenue ?? 0).toLocaleString()}`}
+          value={formatUsd(statsData?.totalRevenue ?? 0)}
           icon={DollarSign}
           iconColor="text-emerald-700 dark:text-emerald-400"
           subtitle={t("dashboard.allTime")}
@@ -260,15 +300,15 @@ export default function Dashboard() {
         />
         <StatCard
           title={t("dashboard.activeUsers")}
-          value={(statsData?.activeUsers ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.activeUsers ?? 0)}
           icon={Users}
           iconColor="text-blue-700 dark:text-blue-400"
-          subtitle={`${(statsData?.totalUsers ?? 0).toLocaleString()} ${t("dashboard.total")}`}
+          subtitle={`${formatNumber(statsData?.totalUsers ?? 0)} ${t("dashboard.total")}`}
           loading={statsLoading}
         />
         <StatCard
           title={t("dashboard.newToday")}
-          value={(statsData?.newUsersToday ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.newUsersToday ?? 0)}
           icon={TrendingUp}
           iconColor="text-violet-400"
           subtitle={t("dashboard.newUsersRegistered")}
@@ -276,7 +316,7 @@ export default function Dashboard() {
         />
         <StatCard
           title={t("dashboard.subscribers")}
-          value={(statsData?.activeSubscriptions ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.activeSubscriptions ?? 0)}
           icon={CreditCard}
           iconColor="text-amber-700 dark:text-amber-400"
           subtitle={t("dashboard.activePlans")}
@@ -288,7 +328,7 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t("movies.title")}
-          value={(statsData?.totalMovies ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.totalMovies ?? 0)}
           icon={Film}
           iconColor="text-rose-700 dark:text-rose-400"
           subtitle={t("dashboard.inCatalog")}
@@ -296,7 +336,7 @@ export default function Dashboard() {
         />
         <StatCard
           title={t("series.title")}
-          value={(statsData?.totalSeries ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.totalSeries ?? 0)}
           icon={Tv}
           iconColor="text-cyan-700 dark:text-cyan-400"
           subtitle={t("dashboard.tvShows")}
@@ -304,7 +344,7 @@ export default function Dashboard() {
         />
         <StatCard
           title={t("dashboard.watchSessions")}
-          value={(statsData?.totalWatchSessions ?? 0).toLocaleString()}
+          value={formatNumber(statsData?.totalWatchSessions ?? 0)}
           icon={Play}
           iconColor="text-indigo-400"
           subtitle={t("dashboard.allTime")}
@@ -316,7 +356,7 @@ export default function Dashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                  Telegram Bot
+                  {t("dashboard.serviceBot")}
                 </p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <div
@@ -328,7 +368,9 @@ export default function Dashboard() {
                     )}
                   />
                   <p className="text-lg font-bold capitalize">
-                    {health?.services?.bot ?? "—"}
+                    {health?.services?.bot
+                      ? serviceStatusLabel(health.services.bot)
+                      : "—"}
                   </p>
                 </div>
                 <button
@@ -353,7 +395,9 @@ export default function Dashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base">{t("dashboard.revenueTrend")}</CardTitle>
+                <CardTitle className="text-base">
+                  {t("dashboard.revenueTrend")}
+                </CardTitle>
                 <CardDescription>{t("dashboard.last7Days")}</CardDescription>
               </div>
               <Button
@@ -362,7 +406,8 @@ export default function Dashboard() {
                 className="text-xs"
                 onClick={() => navigate("/analytics")}
               >
-                {t("dashboard.fullAnalytics")} <ArrowRight className="h-3 w-3 ml-1" />
+                {t("dashboard.fullAnalytics")}{" "}
+                <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </div>
           </CardHeader>
@@ -396,7 +441,7 @@ export default function Dashboard() {
                       fill: "hsl(var(--muted-foreground))",
                     }}
                     tickFormatter={(v: string) =>
-                      new Date(v).toLocaleDateString("en", {
+                      formatDate(v, {
                         month: "short",
                         day: "numeric",
                       })
@@ -409,7 +454,7 @@ export default function Dashboard() {
                       fontSize: 10,
                       fill: "hsl(var(--muted-foreground))",
                     }}
-                    tickFormatter={(v: number) => `$${v.toLocaleString()}`}
+                    tickFormatter={(v: number) => formatUsd(v)}
                     axisLine={false}
                     tickLine={false}
                     width={60}
@@ -422,14 +467,14 @@ export default function Dashboard() {
                       fontSize: 12,
                     }}
                     labelFormatter={(v: string) =>
-                      new Date(v).toLocaleDateString("en", {
+                      formatDate(v, {
                         weekday: "short",
                         month: "short",
                         day: "numeric",
                       })
                     }
                     formatter={(v: number) => [
-                      `$${v.toLocaleString()}`,
+                      formatUsd(v),
                       t("dashboard.revenue"),
                     ]}
                   />
@@ -453,7 +498,9 @@ export default function Dashboard() {
         {/* Top Content */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{t("dashboard.topContent")}</CardTitle>
+            <CardTitle className="text-base">
+              {t("dashboard.topContent")}
+            </CardTitle>
             <CardDescription>{t("dashboard.byViewCount")}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -473,11 +520,11 @@ export default function Dashboard() {
                           variant="secondary"
                           className="text-[10px] shrink-0 capitalize"
                         >
-                          {item.type}
+                          {contentTypeLabel(item.type)}
                         </Badge>
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                        {(item.viewsCount || 0).toLocaleString()}
+                        {formatNumber(item.viewsCount || 0)}
                       </span>
                     </div>
                     <Progress
@@ -504,7 +551,9 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{t("dashboard.quickActions")}</CardTitle>
+            <CardTitle className="text-base">
+              {t("dashboard.quickActions")}
+            </CardTitle>
             <CardDescription>{t("dashboard.frequentlyUsed")}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -521,8 +570,12 @@ export default function Dashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base">{t("dashboard.systemStatus")}</CardTitle>
-                <CardDescription>{t("dashboard.serviceHealth")}</CardDescription>
+                <CardTitle className="text-base">
+                  {t("dashboard.systemStatus")}
+                </CardTitle>
+                <CardDescription>
+                  {t("dashboard.serviceHealth")}
+                </CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -530,7 +583,8 @@ export default function Dashboard() {
                 className="text-xs h-6"
                 onClick={() => navigate("/system/health")}
               >
-                {t("dashboard.viewHealth")} <ArrowRight className="h-3 w-3 ml-1" />
+                {t("dashboard.viewHealth")}{" "}
+                <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </div>
           </CardHeader>
@@ -552,10 +606,11 @@ export default function Dashboard() {
                   )}
                   {healthOk
                     ? t("dashboard.allSystemsOperational")
-                    : `${t("dashboard.system")} ${health.status}`}
+                    : serviceStatusLabel(health.status)}
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  {serviceOkCount}/{serviceCount} {t("dashboard.servicesOperational")}
+                  {serviceOkCount}/{serviceCount}{" "}
+                  {t("dashboard.servicesOperational")}
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(health.services).map(([key, val]) => {
@@ -576,7 +631,7 @@ export default function Dashboard() {
                                 : "bg-red-400",
                           )}
                         />
-                        <span className="capitalize truncate">{key}</span>
+                        <span className="truncate">{serviceLabel(key)}</span>
                       </div>
                     );
                   })}
