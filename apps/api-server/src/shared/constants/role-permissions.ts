@@ -42,6 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     // System
     Permission.MANAGE_SYSTEM,
     Permission.VIEW_ANALYTICS,
+    Permission.VIEW_HEALTH,
 
     // Content
     Permission.READ_CONTENT,

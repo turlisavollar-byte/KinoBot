@@ -71,6 +71,13 @@
       "when": 1791270053338,
       "tag": "0009_admin_must_change_password",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792972800000,
+      "tag": "0010_admin_health_permission",
+      "breakpoints": true
     }
   ]
 }

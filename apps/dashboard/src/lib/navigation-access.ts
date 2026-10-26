@@ -3,15 +3,15 @@ const permissionByPath: Record<string, string> = {
   "/users": "read:users",
   "/admin-users": "read:admin_users",
   "/subscriptions": "read:subscriptions",
-  "/subscriptions/plans": "manage:plans",
+  "/subscriptions/plans": "refund:payments",
   "/billing/payments": "read:payments",
   "/notifications": "read:notifications",
   "/telegram": "manage:telegram",
-  "/telegram/video-codes": "read:video_codes",
+  "/telegram/video-codes": "read:content",
   "/system/health": "view:health",
   "/system/security-center": "manage:security",
-  "/system/session-management": "manage:sessions",
-  "/system/feature-flags": "manage:features",
+  "/system/session-management": "read:sessions",
+  "/system/feature-flags": "manage:security",
   "/system/audit-logs": "view:audit_logs",
 };
 
@@ -31,10 +31,15 @@ export function canAccessNavigationPath(
 ): boolean {
   const normalizedRole = normalizeRole(role);
   if (normalizedRole === "superadmin") return true;
-  if (normalizedRole === "moderator") return isModeratorPersonalPath(path);
+  if (normalizedRole === "moderator") {
+    const isModeratorContentPath =
+      path.startsWith("/catalog/") || path === "/telegram/video-codes";
+    if (!isModeratorPersonalPath(path) && !isModeratorContentPath) return false;
+  }
   if (isModeratorPersonalPath(path)) return true;
 
-  const requiredPermission = permissionByPath[path] ??
+  const requiredPermission =
+    permissionByPath[path] ??
     (path.startsWith("/catalog/") ? "read:content" : undefined);
   if (!requiredPermission) return false;
   return permissions?.includes(requiredPermission) ?? false;
@@ -48,7 +53,9 @@ export function canAccessDashboardPath(
   if (path === "/" || path === "/settings") return true;
 
   const matchedPath = Object.keys(permissionByPath)
-    .filter((candidate) => path === candidate || path.startsWith(`${candidate}/`))
+    .filter(
+      (candidate) => path === candidate || path.startsWith(`${candidate}/`),
+    )
     .sort((left, right) => right.length - left.length)[0];
 
   if (matchedPath) {

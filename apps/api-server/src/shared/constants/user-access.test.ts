@@ -15,7 +15,9 @@ describe("admin and customer access scopes", () => {
   it("gives superadmins unrestricted scopes", () => {
     expect(getCustomerUserScope("sa", "superadmin")).toEqual({});
     expect(getAdminAccountScope("sa", "superadmin")).toEqual({});
-    expect(canReadAdminAccount("sa", "superadmin", "a", "superadmin")).toBe(true);
+    expect(canReadAdminAccount("sa", "superadmin", "a", "superadmin")).toBe(
+      true,
+    );
   });
 
   it("limits admins to customers, moderators, and their own account", () => {
@@ -27,9 +29,15 @@ describe("admin and customer access scopes", () => {
       roles: ["moderator", "manager"],
       includeId: "admin-1",
     });
-    expect(canReadAdminAccount("admin-1", "admin", "admin-2", "admin")).toBe(false);
-    expect(canReadAdminAccount("admin-1", "admin", "mod-1", "moderator")).toBe(true);
-    expect(canManageAdminAccount("admin-1", "admin", "mod-1", "moderator")).toBe(true);
+    expect(canReadAdminAccount("admin-1", "admin", "admin-2", "admin")).toBe(
+      false,
+    );
+    expect(canReadAdminAccount("admin-1", "admin", "mod-1", "moderator")).toBe(
+      true,
+    );
+    expect(
+      canManageAdminAccount("admin-1", "admin", "mod-1", "moderator"),
+    ).toBe(true);
   });
 
   it("limits moderators to customer users and their own account", () => {
@@ -40,10 +48,16 @@ describe("admin and customer access scopes", () => {
     expect(getAdminAccountScope("mod-1", "moderator")).toEqual({
       selfOnly: true,
     });
-    expect(canReadAdminAccount("mod-1", "moderator", "admin-1", "admin")).toBe(false);
+    expect(canReadAdminAccount("mod-1", "moderator", "admin-1", "admin")).toBe(
+      false,
+    );
     expect(canListAdminAccounts("moderator")).toBe(false);
-    expect(canManageCustomerUser("mod-1", "moderator", "user-1", "user")).toBe(true);
-    expect(canManageCustomerUser("mod-1", "moderator", "mod-2", "moderator")).toBe(false);
+    expect(canManageCustomerUser("mod-1", "moderator", "user-1", "user")).toBe(
+      true,
+    );
+    expect(
+      canManageCustomerUser("mod-1", "moderator", "mod-2", "moderator"),
+    ).toBe(false);
   });
 
   it("limits users and viewers to themselves", () => {
@@ -68,8 +82,12 @@ describe("admin and customer access scopes", () => {
   });
 
   it("allows self-read but never self-management of admin accounts", () => {
-    expect(canReadAdminAccount("admin-1", "admin", "admin-1", "admin")).toBe(true);
-    expect(canManageAdminAccount("admin-1", "admin", "admin-1", "admin")).toBe(false);
+    expect(canReadAdminAccount("admin-1", "admin", "admin-1", "admin")).toBe(
+      true,
+    );
+    expect(canManageAdminAccount("admin-1", "admin", "admin-1", "admin")).toBe(
+      false,
+    );
     expect(canListAdminAccounts("admin")).toBe(true);
     expect(canListAdminAccounts("superadmin")).toBe(true);
     expect(canListAdminAccounts("viewer")).toBe(false);
@@ -78,8 +96,18 @@ describe("admin and customer access scopes", () => {
   it("limits customer audit detail permission to admin and superadmin roles", () => {
     expect(getPermissions("superadmin")).toContain(Permission.READ_USER_AUDIT);
     expect(getPermissions("admin")).toContain(Permission.READ_USER_AUDIT);
-    expect(getPermissions("moderator")).not.toContain(Permission.READ_USER_AUDIT);
+    expect(getPermissions("moderator")).not.toContain(
+      Permission.READ_USER_AUDIT,
+    );
     expect(getPermissions("manager")).not.toContain(Permission.READ_USER_AUDIT);
     expect(getPermissions("user")).not.toContain(Permission.READ_USER_AUDIT);
+  });
+
+  it("grants health visibility to admins without extending it to moderators", () => {
+    expect(getPermissions("admin")).toContain(Permission.VIEW_HEALTH);
+    expect(getPermissions("moderator")).not.toContain(Permission.VIEW_HEALTH);
+    expect(getPermissions("admin")).toContain(Permission.MANAGE_SYSTEM);
+    expect(getPermissions("admin")).toContain(Permission.READ_SESSIONS);
+    expect(getPermissions("admin")).toContain(Permission.MANAGE_BILLING);
   });
 });

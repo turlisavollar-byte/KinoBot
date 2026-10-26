@@ -54,47 +54,6 @@ function generatePassword(length = 16) {
   return characters.join("");
 }
 
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch (error) {
-    console.warn("navigator.clipboard failed, trying fallback", error);
-  }
-
-  try {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.style.position = "fixed";
-    textarea.style.top = "0";
-    textarea.style.left = "0";
-    textarea.style.width = "2em";
-    textarea.style.height = "2em";
-    textarea.style.padding = "0";
-    textarea.style.border = "none";
-    textarea.style.outline = "none";
-    textarea.style.boxShadow = "none";
-    textarea.style.background = "transparent";
-    textarea.style.opacity = "0";
-    textarea.setAttribute("readonly", "");
-    document.body.appendChild(textarea);
-    try {
-      textarea.focus();
-      textarea.select();
-      textarea.setSelectionRange(0, text.length);
-      if (document.execCommand("copy")) return true;
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  } catch (error) {
-    console.warn("execCommand fallback failed", error);
-  }
-
-  return false;
-}
-
 export function AddAdminModal({
   open,
   onClose,
@@ -116,39 +75,15 @@ export function AddAdminModal({
     setCreatedPassword(null);
   };
 
-  const handleCopy = async () => {
-    console.log(
-      "[Copy] Handler triggered, password:",
-      password ? "exists" : "missing",
-    );
-    if (!password) {
-      toast({
-        title: "Copy failed",
-        description: "No password is available to copy.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const success = await copyToClipboard(password);
-    console.log("[Copy] Result:", success);
-    if (success) {
-      toast({
-        title: "Password copied",
-        description: "Password copied to clipboard.",
-      });
-      return;
-    }
-
+  const handleCopy = () => {
     const passwordInput = document.querySelector(
       'input[name="password"]',
     ) as HTMLInputElement | null;
     passwordInput?.focus();
     passwordInput?.select();
     toast({
-      title: "Copy failed",
-      description: "Password selected; press Ctrl+C to copy it.",
-      variant: "destructive",
+      title: "Parol belgilandi",
+      description: "Nusxalash uchun Ctrl+C bosing.",
     });
   };
 
