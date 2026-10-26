@@ -24,14 +24,53 @@ import { toast } from "sonner";
 const roleOptions = ["admin", "moderator"];
 
 function generatePassword(length = 16) {
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
-  let value = "";
+  const groups = [
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "abcdefghijklmnopqrstuvwxyz",
+    "0123456789",
+    "!@#$%^&*",
+  ];
+  const charset = groups.join("");
+  const passwordLength = Math.max(length, groups.length);
+  const randomIndex = (max: number) => {
+    const randomValue = new Uint32Array(1);
+    window.crypto.getRandomValues(randomValue);
+    return randomValue[0] % max;
+  };
+  const characters = groups.map((group) => group[randomIndex(group.length)]);
 
-  for (let index = 0; index < length; index += 1) {
-    value += charset[Math.floor(Math.random() * charset.length)];
+  while (characters.length < passwordLength) {
+    characters.push(charset[randomIndex(charset.length)]);
   }
 
-  return value;
+  for (let index = characters.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [characters[index], characters[swapIndex]] = [
+      characters[swapIndex],
+      characters[index],
+    ];
+  }
+
+  return characters.join("");
+}
+
+function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+  return Promise.resolve();
 }
 
 export function AddAdminModal({
@@ -57,7 +96,7 @@ export function AddAdminModal({
 
   const handleCopy = async () => {
     if (!password) return;
-    await navigator.clipboard.writeText(password);
+    await copyToClipboard(password);
     toast.success("Password copied to clipboard");
   };
 
@@ -74,7 +113,11 @@ export function AddAdminModal({
 
     try {
       const result = await createAdminUser.mutateAsync({
-        data: { email: email.trim(), role: role as "admin" | "moderator", password },
+        data: {
+          email: email.trim(),
+          role: role as "admin" | "moderator",
+          password,
+        },
       });
       const responsePassword = password;
       setCreatedPassword(responsePassword);
@@ -105,7 +148,9 @@ export function AddAdminModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add admin</DialogTitle>
-          <DialogDescription>Invite a new administrator with a one-time password.</DialogDescription>
+          <DialogDescription>
+            Invite a new administrator with a one-time password.
+          </DialogDescription>
         </DialogHeader>
 
         {createdPassword ? (
@@ -125,7 +170,12 @@ export function AddAdminModal({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="admin-email">Email</Label>
-              <Input id="admin-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="admin-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -147,14 +197,30 @@ export function AddAdminModal({
             <div className="space-y-2">
               <Label htmlFor="admin-password">Password</Label>
               <div className="flex gap-2">
-                <Input id="admin-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <Button type="button" variant="outline" onClick={generatePasswordValue} className="whitespace-nowrap">
+                <Input
+                  id="admin-password"
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={generatePasswordValue}
+                  className="whitespace-nowrap"
+                >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Generate
                 </Button>
               </div>
               {password ? (
-                <Button type="button" variant="ghost" size="sm" onClick={handleCopy} className="mt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopy}
+                  className="mt-2"
+                >
                   <Copy className="mr-2 h-4 w-4" />
                   Copy password
                 </Button>
@@ -172,7 +238,10 @@ export function AddAdminModal({
             Cancel
           </Button>
           {!createdPassword ? (
-            <Button onClick={() => void handleSubmit()} disabled={createAdminUser.isPending}>
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={createAdminUser.isPending}
+            >
               {createAdminUser.isPending ? "Creating…" : "Create"}
             </Button>
           ) : (

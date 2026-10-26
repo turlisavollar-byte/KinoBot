@@ -57,7 +57,11 @@ const {
 vi.mock("@workspace/db", () => ({
   db: dbMock,
   createDbClient: createDbClientMock,
-  auditLogsTable: { id: "audit_logs.id", createdAt: "audit_logs.created_at", archivedAt: "audit_logs.archived_at" },
+  auditLogsTable: {
+    id: "audit_logs.id",
+    createdAt: "audit_logs.created_at",
+    archivedAt: "audit_logs.archived_at",
+  },
   auditLogTagsTable: {},
 }));
 
@@ -107,17 +111,17 @@ describe("AuditService audit write controls", () => {
 
     const createdAt = new Date("2026-10-04T00:00:00.000Z");
     insertValuesMock.mockReturnValue({
-        returning: async () => [
-          {
-            id: "audit-production-test",
-            actorType: "ADMIN",
-            action: "LOGIN",
-            targetType: "USER",
-            severity: "info",
-            metadata: { severity: "LOW" },
-            createdAt,
-          },
-        ],
+      returning: async () => [
+        {
+          id: "audit-production-test",
+          actorType: "ADMIN",
+          action: "LOGIN",
+          targetType: "USER",
+          severity: "info",
+          metadata: { severity: "LOW" },
+          createdAt,
+        },
+      ],
     });
     dbMock.insert.mockReturnValue({ values: insertValuesMock });
   });
@@ -168,6 +172,39 @@ describe("AuditService audit write controls", () => {
         }),
       }),
     );
+  });
+
+  it("removes null values from the audit row before inserting", async () => {
+    await service.log({
+      actorType: "ADMIN",
+      action: "UPDATE",
+      targetType: "USER",
+      oldValue: { absent: null, retained: "value" },
+      newValue: { entries: [null, { absent: null, retained: true }] },
+      metadata: { absent: null, retained: "value" },
+    });
+
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldValue: { retained: "value" },
+        newValue: { entries: [{ retained: true }] },
+        metadata: expect.objectContaining({ retained: "value" }),
+      }),
+    );
+  });
+
+  it("returns a fallback audit log when persistence fails", async () => {
+    insertValuesMock.mockImplementation(() => {
+      throw new Error("audit database unavailable");
+    });
+
+    await expect(
+      service.log({
+        actorType: "ADMIN",
+        action: "CREATE",
+        targetType: "ADMIN",
+      }),
+    ).resolves.toMatchObject({ id: expect.stringMatching(/^fallback_/) });
   });
 
   it("stores warning severity using the new database enum", async () => {
@@ -270,7 +307,8 @@ describe("AuditService retention", () => {
     vi.useFakeTimers();
     vi.setSystemTime(now);
     process.env.AUDIT_RETENTION_ENABLED = "true";
-    process.env.DATABASE_URL_ARCHIVER = "postgresql://archiver:test@localhost/staging";
+    process.env.DATABASE_URL_ARCHIVER =
+      "postgresql://archiver:test@localhost/staging";
     archiveReturningMock.mockImplementation(async () => {
       calls.push("archive");
       return [{ id: "archive-id" }];

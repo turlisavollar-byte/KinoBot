@@ -56,6 +56,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 type AuditArchiverClient = ReturnType<typeof createDbClient>;
 let auditArchiverClient: AuditArchiverClient | undefined;
 
+function removeNullValues<T>(value: T): T {
+  if (value instanceof Date) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== null)
+      .map((item) => removeNullValues(item)) as T;
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, child]) => child !== null)
+        .map(([key, child]) => [key, removeNullValues(child)]),
+    ) as T;
+  }
+
+  return value;
+}
+
 function getArchiverDb() {
   const connectionString = process.env.DATABASE_URL_ARCHIVER;
   if (!connectionString) {
@@ -93,16 +113,16 @@ export function getRetentionCutoffs(
   }
 
   return {
-    archiveDate: new Date(
-      now.getTime() - policy.archiveAfterDays * DAY_MS,
-    ),
+    archiveDate: new Date(now.getTime() - policy.archiveAfterDays * DAY_MS),
     deleteDate: new Date(now.getTime() - policy.deleteAfterDays * DAY_MS),
   };
 }
 
 type StoredAuditSeverity = "info" | "warning" | "critical";
 
-function toStoredSeverity(severity: AuditSeverity | undefined): StoredAuditSeverity {
+function toStoredSeverity(
+  severity: AuditSeverity | undefined,
+): StoredAuditSeverity {
   if (severity === "CRITICAL") return "critical";
   if (severity === "HIGH" || severity === "MEDIUM") return "warning";
   return "info";
@@ -232,7 +252,7 @@ export class AuditService {
       this.validateLogDTO(safeDto);
 
       // Prepare row
-      const row: NewAuditLogRow = {
+      const row = removeNullValues({
         id: generateAuditId(),
 
         // Actor
@@ -275,7 +295,7 @@ export class AuditService {
 
         // Timestamps
         createdAt: new Date(),
-      };
+      }) as NewAuditLogRow;
 
       // Insert main log
       const [inserted] = await db
@@ -305,18 +325,7 @@ export class AuditService {
         dto: safeDto,
       });
 
-      if (this.shouldSkipAuditWrites()) {
-        console.error("[AUDIT_FALLBACK] Failed to create audit log:", {
-          timestamp: new Date().toISOString(),
-          dto: safeDto,
-          error: error instanceof Error ? error.message : String(error),
-        });
-
-        return this.createFallbackAuditLog(safeDto, error);
-      }
-
-      // In development, throw to surface issues early
-      throw error;
+      return this.createFallbackAuditLog(safeDto, error);
     }
   }
 
@@ -673,16 +682,10 @@ export class AuditService {
     deleted: number;
   }> {
     if (process.env.AUDIT_RETENTION_ENABLED !== "true") {
-      throw new AuditError(
-        "Audit retention is disabled",
-        "RETENTION_DISABLED",
-      );
+      throw new AuditError("Audit retention is disabled", "RETENTION_DISABLED");
     }
 
-    const { archiveDate, deleteDate } = getRetentionCutoffs(
-      new Date(),
-      policy,
-    );
+    const { archiveDate, deleteDate } = getRetentionCutoffs(new Date(), policy);
     const archiverDb = getArchiverDb();
 
     try {
