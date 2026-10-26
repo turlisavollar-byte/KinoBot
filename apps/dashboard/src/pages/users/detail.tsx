@@ -58,7 +58,7 @@ type UserDetailWithLimits = UserDetail & {
 };
 
 export default function UserDetail() {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, formatNumber } = useI18n();
   const params = useParams<{ id: string }>();
   const userId = params.id as string;
   const queryClient = useQueryClient();
@@ -130,7 +130,7 @@ export default function UserDetail() {
         onSuccess: () => {
           refreshUser();
           toast.success(
-            user.isBlocked ? t("users.unblocked") : t("users.blocked"),
+            user.isBlocked ? t("users.unblocked") : t("users.blockedToast"),
           );
         },
         onError: () => toast.error(t("users.statusUpdateFailed")),
@@ -236,7 +236,9 @@ export default function UserDetail() {
         onSuccess: () => {
           refreshUser();
           setDialogMode(null);
-          toast.success(t("users.subscriptionExtended", { days }));
+          toast.success(
+            t("users.subscriptionExtended", { days: formatNumber(days) }),
+          );
         },
         onError: () => toast.error(t("users.extendFailed")),
       },
@@ -296,7 +298,7 @@ export default function UserDetail() {
             <p className="text-muted-foreground font-mono">
               {user.username
                 ? `@${user.username}`
-                : `Telegram ID: ${user.telegramId}`}
+                : t("users.telegramIdValue", { id: user.telegramId })}
             </p>
           </div>
         </div>
@@ -332,11 +334,11 @@ export default function UserDetail() {
             />
             <Info
               label={t("users.watchSessions")}
-              value={String(user.watchCount || 0)}
+              value={formatNumber(user.watchCount || 0)}
             />
             <Info
               label={t("users.watchTime")}
-              value={`${user.totalWatchMinutes || 0} ${t("users.minutes")}`}
+              value={`${formatNumber(user.totalWatchMinutes || 0)} ${t("users.minutes")}`}
             />
             <Info
               label={t("users.referralCode")}
@@ -436,7 +438,7 @@ export default function UserDetail() {
               <div className="mt-5 space-y-3 border-t pt-4">
                 <div className="text-sm font-medium">
                   {t("users.allActiveSubscriptions", {
-                    count: user.subscriptions.length,
+                    count: formatNumber(user.subscriptions.length),
                   })}
                 </div>
                 {user.subscriptions.map((subscription) => (
@@ -543,7 +545,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedToday", { count: user.dailyCodeUsed ?? 0 })}
+                {t("users.usedToday", {
+                  count: formatNumber(user.dailyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -559,7 +563,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedThisWeek", { count: user.weeklyCodeUsed ?? 0 })}
+                {t("users.usedThisWeek", {
+                  count: formatNumber(user.weeklyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -575,7 +581,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedThisMonth", { count: user.monthlyCodeUsed ?? 0 })}
+                {t("users.usedThisMonth", {
+                  count: formatNumber(user.monthlyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -613,7 +621,7 @@ export default function UserDetail() {
           <Info
             label={t("users.rewardTier")}
             value={t("users.referralTierValue", {
-              tier: user.referralRewardTier ?? 0,
+              tier: formatNumber(user.referralRewardTier ?? 0),
             })}
           />
           <Info
@@ -661,8 +669,9 @@ export default function UserDetail() {
                         {plan.name} ·{" "}
                         {plan.price === 0 || plan.price === undefined
                           ? t("users.free")
-                          : `${plan.price.toLocaleString()} ${plan.currency}`}{" "}
-                        · {plan.durationDays} {t("users.days")}
+                          : `${formatNumber(plan.price)} ${plan.currency}`}{" "}
+                        · {formatNumber(plan.durationDays ?? 0)}{" "}
+                        {t("users.days")}
                       </SelectItem>
                     ))}
                   </SelectContent>

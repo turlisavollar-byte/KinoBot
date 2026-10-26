@@ -33,7 +33,7 @@ type UserWithSubscription = User & {
 };
 
 export default function UsersList() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const [search, setSearch] = useState("");
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -50,9 +50,11 @@ export default function UsersList() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
-          toast.success(isBlocked ? "User unblocked" : "User blocked");
+          toast.success(
+            isBlocked ? t("users.unblocked") : t("users.blockedToast"),
+          );
         },
-        onError: () => toast.error("Could not update user status"),
+        onError: () => toast.error(t("users.statusUpdateFailed")),
       },
     );
   };
@@ -61,7 +63,9 @@ export default function UsersList() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("nav.users")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t("nav.users")}
+          </h1>
           <p className="text-muted-foreground">{t("users.manageAccounts")}</p>
         </div>
       </div>
@@ -86,7 +90,9 @@ export default function UsersList() {
               <TableHead>{t("users.tableTelegramId")}</TableHead>
               <TableHead>{t("users.tableStatus")}</TableHead>
               <TableHead>{t("users.tableSubscription")}</TableHead>
-              <TableHead className="text-right">{t("users.tableActions")}</TableHead>
+              <TableHead className="text-right">
+                {t("users.tableActions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,14 +146,15 @@ export default function UsersList() {
                           variant="outline"
                           className="border-primary text-primary"
                         >
-                          {user.activeSubscription.planName || t("users.active")}
+                          {user.activeSubscription.planName ||
+                            t("users.active")}
                         </Badge>
                         {user.activeSubscription.endDate && (
                           <div className="text-xs text-muted-foreground">
                             {t("users.until")}{" "}
-                            {new Date(
-                              user.activeSubscription.endDate,
-                            ).toLocaleDateString()}
+                            {formatDate(user.activeSubscription.endDate, {
+                              dateStyle: "medium",
+                            })}
                           </div>
                         )}
                       </div>

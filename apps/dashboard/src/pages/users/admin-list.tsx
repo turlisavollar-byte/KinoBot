@@ -73,6 +73,19 @@ export default function AdminUsersList() {
     actorRole !== "viewer" &&
     actorRole !== targetRole &&
     (roleLevel[actorRole] ?? 0) > (roleLevel[targetRole] ?? 0);
+  const roleLabel = (value: string) => {
+    const roleKeys = {
+      viewer: "users.roleName.viewer",
+      user: "users.roleName.user",
+      moderator: "users.roleName.moderator",
+      manager: "users.roleName.manager",
+      admin: "users.roleName.admin",
+      superadmin: "users.roleName.superadmin",
+    } as const;
+    return value in roleKeys
+      ? t(roleKeys[value as keyof typeof roleKeys])
+      : value;
+  };
 
   const openEdit = (user: AdminUser) => {
     setEditingUser(user);
@@ -186,7 +199,7 @@ export default function AdminUsersList() {
                     {user.email}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{user.role}</Badge>
+                    <Badge variant="outline">{roleLabel(user.role)}</Badge>
                   </TableCell>
                   <TableCell>
                     {user.isActive ? (
@@ -205,6 +218,7 @@ export default function AdminUsersList() {
                           size="icon"
                           onClick={() => openEdit(user)}
                           title={t("users.editAdminAccount")}
+                          aria-label={t("users.editAdminAccount")}
                         >
                           <Pencil />
                         </Button>
@@ -213,6 +227,7 @@ export default function AdminUsersList() {
                           size="icon"
                           onClick={() => void removeUser(user)}
                           title={t("users.deleteAdminAccount")}
+                          aria-label={t("users.deleteAdminAccount")}
                         >
                           <Trash2 />
                         </Button>
@@ -270,7 +285,7 @@ export default function AdminUsersList() {
                     )
                     .map((candidate) => (
                       <SelectItem key={candidate} value={candidate}>
-                        {candidate}
+                        {roleLabel(candidate)}
                       </SelectItem>
                     ))}
                 </SelectContent>
