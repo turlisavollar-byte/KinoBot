@@ -1,5 +1,16 @@
-import { useListMovies, usePublishMovie, getListMoviesQueryKey } from "@workspace/api-client-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  useListMovies,
+  usePublishMovie,
+  getListMoviesQueryKey,
+} from "@workspace/api-client-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit } from "lucide-react";
@@ -10,18 +21,21 @@ import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n";
 
 export default function MoviesList() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const [search, setSearch] = useState("");
   const { data: movies, isLoading, error } = useListMovies({ search });
   const publishMovie = usePublishMovie();
   const queryClient = useQueryClient();
 
   const handlePublishToggle = (id: string, currentStatus: boolean) => {
-    publishMovie.mutate({ id, data: { published: !currentStatus } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() });
-      }
-    });
+    publishMovie.mutate(
+      { id, data: { published: !currentStatus } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() });
+        },
+      },
+    );
   };
 
   if (error) {
@@ -29,17 +43,24 @@ export default function MoviesList() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("movies.title")}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t("movies.title")}
+            </h1>
             <p className="text-muted-foreground">{t("movies.list")}</p>
           </div>
-          <Link href="/catalog/movies/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+          <Link
+            href="/catalog/movies/new"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+          >
             <Plus className="mr-2 h-4 w-4" />
             {t("movies.add")}
           </Link>
         </div>
         <div className="border rounded-md p-8 text-center">
           <p className="text-destructive mb-2">{t("error.server")}</p>
-          <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : t("error.unknown")}</p>
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : t("error.unknown")}
+          </p>
         </div>
       </div>
     );
@@ -49,10 +70,15 @@ export default function MoviesList() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("movies.title")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t("movies.title")}
+          </h1>
           <p className="text-muted-foreground">{t("movies.list")}</p>
         </div>
-        <Link href="/catalog/movies/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+        <Link
+          href="/catalog/movies/new"
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+        >
           <Plus className="mr-2 h-4 w-4" />
           {t("movies.add")}
         </Link>
@@ -84,36 +110,69 @@ export default function MoviesList() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">{t("common.loading")}</TableCell>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  {t("common.loading")}
+                </TableCell>
               </TableRow>
             ) : movies?.data?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">{t("movies.noMovies")}</TableCell>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  {t("movies.noMovies")}
+                </TableCell>
               </TableRow>
             ) : (
               movies?.data?.map((movie: any) => (
                 <TableRow key={movie.id}>
                   <TableCell className="font-medium">
                     <div>{movie.title}</div>
-                    {movie.originalTitle && <div className="text-xs text-muted-foreground">{movie.originalTitle}</div>}
+                    {movie.originalTitle && (
+                      <div className="text-xs text-muted-foreground">
+                        {movie.originalTitle}
+                      </div>
+                    )}
                   </TableCell>
-                  <TableCell>{movie.releaseYear}</TableCell>
-                  <TableCell>{movie.duration}m</TableCell>
                   <TableCell>
-                    <Badge variant={movie.isPublished ? "default" : "secondary"}>
-                      {movie.isPublished ? t("movies.published") : t("movies.draft")}
+                    {movie.releaseYear ? formatNumber(movie.releaseYear) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {movie.duration
+                      ? t("movies.durationValue", {
+                          duration: formatNumber(movie.duration),
+                        })
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={movie.isPublished ? "default" : "secondary"}
+                    >
+                      {movie.isPublished
+                        ? t("movies.published")
+                        : t("movies.draft")}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => handlePublishToggle(movie.id, movie.isPublished)}
+                      onClick={() =>
+                        handlePublishToggle(movie.id, movie.isPublished)
+                      }
                       disabled={publishMovie.isPending}
                     >
-                      {movie.isPublished ? t("movies.unpublish") : t("movies.publish")}
+                      {movie.isPublished
+                        ? t("movies.unpublish")
+                        : t("movies.publish")}
                     </Button>
-                    <Link href={`/catalog/movies/${movie.id}`} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                    <Link
+                      href={`/catalog/movies/${movie.id}`}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                    >
                       <Edit className="h-4 w-4 mr-2" />
                       {t("common.edit")}
                     </Link>

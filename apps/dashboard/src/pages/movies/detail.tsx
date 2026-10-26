@@ -35,23 +35,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 
-const formSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  duration: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-  posterUrl: z.string().optional(),
-  backgroundUrl: z.string().optional(),
-  trailerUrl: z.string().optional(),
-  telegramFileId: z.string().optional(),
-  storageKey: z.string().optional(),
-  sourceType: z.string().optional(),
-});
-
 export default function MovieDetail() {
   const { t } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("movies.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    duration: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+    posterUrl: z.string().optional(),
+    backgroundUrl: z.string().optional(),
+    trailerUrl: z.string().optional(),
+    telegramFileId: z.string().optional(),
+    storageKey: z.string().optional(),
+    sourceType: z.string().optional(),
+  });
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -140,6 +139,7 @@ export default function MovieDetail() {
             });
             setLocation("/catalog/movies");
           },
+          onError: () => toast.error(t("movies.deleteError")),
         },
       );
     }
