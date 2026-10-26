@@ -69,7 +69,7 @@ type AdminChannelsResponse = {
 };
 
 export default function TelegramConfig() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const { data: rawConfig, isLoading: confLoading } = useGetTelegramConfig();
   const config = rawConfig as TelegramConfigWithAccessPolicy | undefined;
@@ -186,8 +186,7 @@ export default function TelegramConfig() {
           });
           setToken(""); // clear — token is now stored
         },
-        onError: (e: Error) =>
-          toast.error(e.message ?? t("telegram.config.saveError")),
+        onError: () => toast.error(t("telegram.config.saveError")),
       },
     );
   };
@@ -209,7 +208,7 @@ export default function TelegramConfig() {
       });
       refetchStatus();
     } catch (e) {
-      toast.error((e as Error).message ?? t("telegram.config.startBotError"));
+      toast.error(t("telegram.config.startBotError"));
     } finally {
       setBotStarting(false);
     }
@@ -225,7 +224,7 @@ export default function TelegramConfig() {
       });
       refetchStatus();
     } catch (e) {
-      toast.error((e as Error).message ?? t("telegram.config.stopBotError"));
+      toast.error(t("telegram.config.stopBotError"));
     } finally {
       setBotStopping(false);
     }
@@ -244,7 +243,7 @@ export default function TelegramConfig() {
             queryKey: getListTelegramChannelsQueryKey(),
           });
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("telegram.config.channelAddError")),
       },
     );
   };
@@ -263,17 +262,13 @@ export default function TelegramConfig() {
 
       setAdminChannels(result.adminChannels);
 
-      if (result.message) {
-        toast.info(result.message);
-      } else {
-        toast.success(
-          t("telegram.foundAdminChannels", { count: result.totalChannels }),
-        );
-      }
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("telegram.failedDetectChannels"),
+      toast.success(
+        t("telegram.foundAdminChannels", {
+          count: formatNumber(result.totalChannels),
+        }),
       );
+    } catch (e) {
+      toast.error(t("telegram.failedDetectChannels"));
     } finally {
       setDetectingChannels(false);
     }
@@ -298,7 +293,7 @@ export default function TelegramConfig() {
             adminChannels.filter((c) => c.channelId !== channel.channelId),
           );
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("telegram.config.channelAddError")),
       },
     );
   };
@@ -342,9 +337,7 @@ export default function TelegramConfig() {
         toast.error(t("telegram.botNotAdmin"));
       }
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("telegram.failedCheckChannel"),
-      );
+      toast.error(t("telegram.failedCheckChannel"));
     } finally {
       setCheckingChannel(false);
     }
@@ -377,6 +370,8 @@ export default function TelegramConfig() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
+            aria-label={t("telegram.refreshStatus")}
+            title={t("telegram.refreshStatus")}
             onClick={() => {
               refetchStatus();
             }}
@@ -404,7 +399,8 @@ export default function TelegramConfig() {
         <Alert className="border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/20">
           <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           <AlertDescription className="text-sm text-amber-900 dark:text-amber-200">
-            <strong>{t("telegram.setupRequired")}</strong> {t("telegram.setupRequiredText")}
+            <strong>{t("telegram.setupRequired")}</strong>{" "}
+            {t("telegram.setupRequiredText")}
           </AlertDescription>
         </Alert>
       )}
@@ -439,7 +435,8 @@ export default function TelegramConfig() {
                 />
                 {tokenIsConfigured && (
                   <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
-                    <CheckCircle className="h-3 w-3" /> {t("telegram.configured")}
+                    <CheckCircle className="h-3 w-3" />{" "}
+                    {t("telegram.configured")}
                   </div>
                 )}
               </div>
@@ -525,7 +522,7 @@ export default function TelegramConfig() {
                   value={defaultDailyLimit}
                   onChange={(event) => setDefaultDailyLimit(event.target.value)}
                   placeholder={t("telegram.dailyCodes")}
-                  aria-label="Default daily code limit"
+                  aria-label={t("telegram.defaultDailyCodeLimit")}
                 />
                 <Input
                   type="number"
@@ -535,7 +532,7 @@ export default function TelegramConfig() {
                     setDefaultWeeklyLimit(event.target.value)
                   }
                   placeholder={t("telegram.weeklyCodes")}
-                  aria-label="Default weekly code limit"
+                  aria-label={t("telegram.defaultWeeklyCodeLimit")}
                 />
                 <Input
                   type="number"
@@ -545,7 +542,7 @@ export default function TelegramConfig() {
                     setDefaultMonthlyLimit(event.target.value)
                   }
                   placeholder={t("telegram.monthlyCodes")}
-                  aria-label="Default monthly code limit"
+                  aria-label={t("telegram.defaultMonthlyCodeLimit")}
                 />
               </div>
             </div>
@@ -588,12 +585,14 @@ export default function TelegramConfig() {
                 </Button>
                 {!tokenIsConfigured && (
                   <p className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                    <AlertCircle className="h-3 w-3" /> {t("telegram.saveTokenFirst")}
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {t("telegram.saveTokenFirst")}
                   </p>
                 )}
                 {tokenIsConfigured && !isActive && (
                   <p className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                    <AlertCircle className="h-3 w-3" /> {t("telegram.enableSwitchFirst")}
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {t("telegram.enableSwitchFirst")}
                   </p>
                 )}
               </div>
@@ -638,15 +637,15 @@ export default function TelegramConfig() {
               },
               {
                 label: t("telegram.totalUsers"),
-                value: (status?.totalUsers ?? 0).toLocaleString(),
+                value: formatNumber(status?.totalUsers ?? 0),
               },
               {
                 label: t("telegram.messagesProcessed"),
-                value: (status?.totalMessages ?? 0).toLocaleString(),
+                value: formatNumber(status?.totalMessages ?? 0),
               },
               {
                 label: t("telegram.storedFiles"),
-                value: (status?.storageFilesCount ?? 0).toLocaleString(),
+                value: formatNumber(status?.storageFilesCount ?? 0),
               },
             ].map(({ label, value }) => (
               <div key={label}>
@@ -779,8 +778,9 @@ export default function TelegramConfig() {
           {adminChannels.length > 0 && (
             <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-950/20">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-400">
-                <CheckCircle className="h-4 w-4" /> {t("telegram.detectedAdminChannels")} (
-                {adminChannels.length})
+                <CheckCircle className="h-4 w-4" />{" "}
+                {t("telegram.detectedAdminChannels")} (
+                {formatNumber(adminChannels.length)})
               </div>
               <div className="space-y-2">
                 {adminChannels.map((channel) => (
@@ -884,7 +884,9 @@ export default function TelegramConfig() {
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {ch.channelId}
                       </td>
-                      <td className="px-4 py-3">{ch.filesCount ?? 0}</td>
+                      <td className="px-4 py-3">
+                        {formatNumber(ch.filesCount ?? 0)}
+                      </td>
                       <td className="px-4 py-3">
                         {ch.isActive ? (
                           <Badge className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-600/20 dark:text-emerald-400">

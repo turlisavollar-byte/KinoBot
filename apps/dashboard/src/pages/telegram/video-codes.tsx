@@ -70,24 +70,26 @@ import type { VideoCode } from "@workspace/api-client-react";
 
 type VideoCodeAccessPolicy = "free" | "subscription" | "channels";
 
-function isVideoCodeAccessPolicy(value: string): value is VideoCodeAccessPolicy {
+function isVideoCodeAccessPolicy(
+  value: string,
+): value is VideoCodeAccessPolicy {
   return value === "free" || value === "subscription" || value === "channels";
 }
 
 const STATUS_CONFIG = {
   pending: {
-    label: "Pending",
-    color: "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-600/20 dark:text-amber-400 dark:border-amber-500/30",
+    color:
+      "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-600/20 dark:text-amber-400 dark:border-amber-500/30",
     icon: Clock,
   },
   active: {
-    label: "Active",
-    color: "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-600/20 dark:text-emerald-400 dark:border-emerald-500/30",
+    color:
+      "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-600/20 dark:text-emerald-400 dark:border-emerald-500/30",
     icon: CheckCircle,
   },
   inactive: {
-    label: "Inactive",
-    color: "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-600/30 dark:bg-zinc-700/30 dark:text-zinc-400",
+    color:
+      "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-600/30 dark:bg-zinc-700/30 dark:text-zinc-400",
     icon: EyeOff,
   },
 } as const;
@@ -122,7 +124,7 @@ function CodeBadge({ code }: { code: string }) {
 }
 
 export default function VideoCodes() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const { data: codesPage, isLoading } = useListVideoCodes();
   const codes = codesPage || [];
@@ -232,7 +234,7 @@ export default function VideoCodes() {
       setUploadRequiredChannels("");
       invalidate();
     } catch (e) {
-      toast.error((e as Error).message ?? t("videoCodes.uploadError"));
+      toast.error(t("videoCodes.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -275,7 +277,7 @@ export default function VideoCodes() {
           setImportRequiredChannels("");
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.importError")),
       },
     );
   };
@@ -295,7 +297,7 @@ export default function VideoCodes() {
           toast.success(t("videoCodes.statusUpdated"));
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.statusUpdateError")),
       },
     );
   };
@@ -311,10 +313,7 @@ export default function VideoCodes() {
           await queryClient.invalidateQueries({ queryKey: ["/api/actors"] });
           toast.success(t("videoCodes.movieLinked"));
         },
-        onError: (error) =>
-          toast.error(
-            error instanceof Error ? error.message : t("videoCodes.movieLinkFailed"),
-          ),
+        onError: () => toast.error(t("videoCodes.movieLinkFailed")),
       },
     );
   };
@@ -333,7 +332,7 @@ export default function VideoCodes() {
           setDeleteTarget(null);
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.deleteError")),
       },
     );
   };
@@ -390,17 +389,17 @@ export default function VideoCodes() {
           {
             label: t("videoCodes.totalViews"),
             count:
-              codes?.reduce(
-                (sum, code) => sum + (code.viewsCount ?? 0),
-                0,
-              ) ?? 0,
+              codes?.reduce((sum, code) => sum + (code.viewsCount ?? 0), 0) ??
+              0,
             color: "text-blue-700 dark:text-blue-400",
           },
         ].map(({ label, count, color }) => (
           <Card key={label} className="border-border/60">
             <CardContent className="pt-4 pb-3">
               <p className="text-xs text-muted-foreground">{label}</p>
-              <p className={cn("text-3xl font-bold mt-0.5", color)}>{count}</p>
+              <p className={cn("text-3xl font-bold mt-0.5", color)}>
+                {formatNumber(count)}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -412,7 +411,8 @@ export default function VideoCodes() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
               <AlertCircle className="h-4 w-4" />{" "}
-              {t("videoCodes.awaitingApproval")} ({pending.length})
+              {t("videoCodes.awaitingApproval")} ({formatNumber(pending.length)}
+              )
             </CardTitle>
             <CardDescription className="text-amber-800/80 dark:text-amber-400/70 text-xs">
               {t("videoCodes.awaitingApprovalDesc")}
@@ -449,6 +449,8 @@ export default function VideoCodes() {
                       variant="ghost"
                       className="h-7 text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                       onClick={() => handleDelete(c)}
+                      aria-label={t("videoCodes.deleteTooltip")}
+                      title={t("videoCodes.deleteTooltip")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -529,32 +531,41 @@ export default function VideoCodes() {
                           disabled={updateCode.isPending}
                         >
                           <SelectTrigger className="h-8 min-w-44 text-xs">
-                            <SelectValue placeholder={t("videoCodes.unlinkedMovie")} />
+                            <SelectValue
+                              placeholder={t("videoCodes.unlinkedMovie")}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="unlinked">{t("videoCodes.unlinkedMovie")}</SelectItem>
-                            {movieOptions.map((movie) => movie.id ? (
-                              <SelectItem key={movie.id} value={movie.id}>
-                                {movie.title ?? movie.id}{movie.releaseYear ? ` (${movie.releaseYear})` : ""}
-                              </SelectItem>
-                            ) : null)}
+                            <SelectItem value="unlinked">
+                              {t("videoCodes.unlinkedMovie")}
+                            </SelectItem>
+                            {movieOptions.map((movie) =>
+                              movie.id ? (
+                                <SelectItem key={movie.id} value={movie.id}>
+                                  {movie.title ?? movie.id}
+                                  {movie.releaseYear
+                                    ? ` (${formatNumber(movie.releaseYear)})`
+                                    : ""}
+                                </SelectItem>
+                              ) : null,
+                            )}
                           </SelectContent>
                         </Select>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {c.fileSize
-                          ? `${(c.fileSize / 1024 / 1024).toFixed(1)} MB`
+                          ? `${formatNumber(Math.round((c.fileSize / 1024 / 1024) * 10) / 10)} ${t("videoCodes.megabytes")}`
                           : "—"}
                         {c.duration ? (
                           <>
                             <br />
-                            {Math.floor(c.duration / 60)}:
-                            {String(c.duration % 60).padStart(2, "0")}
+                            {formatNumber(Math.floor(c.duration / 60))}:
+                            {formatNumber(c.duration % 60).padStart(2, "0")}
                           </>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 font-semibold">
-                        {(c.viewsCount ?? 0).toLocaleString()}
+                        {formatNumber(c.viewsCount ?? 0)}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={c.status ?? "pending"} />
@@ -567,6 +578,7 @@ export default function VideoCodes() {
                               variant="ghost"
                               className="h-7 w-7 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                               title={t("videoCodes.activateTooltip")}
+                              aria-label={t("videoCodes.activateTooltip")}
                               onClick={() => handleStatusChange(c, "active")}
                               disabled={updateCode.isPending}
                             >
@@ -579,6 +591,7 @@ export default function VideoCodes() {
                               variant="ghost"
                               className="h-7 w-7 text-zinc-400 hover:bg-zinc-800"
                               title={t("videoCodes.deactivateTooltip")}
+                              aria-label={t("videoCodes.deactivateTooltip")}
                               onClick={() => handleStatusChange(c, "inactive")}
                               disabled={updateCode.isPending}
                             >
@@ -590,6 +603,7 @@ export default function VideoCodes() {
                             variant="ghost"
                             className="h-7 w-7 text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             title={t("videoCodes.deleteTooltip")}
+                            aria-label={t("videoCodes.deleteTooltip")}
                             onClick={() => handleDelete(c)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -647,7 +661,7 @@ export default function VideoCodes() {
               <Input
                 value={importFileId}
                 onChange={(e) => setImportFileId(e.target.value)}
-                placeholder="BQACAgIAAxkBAAI..."
+                placeholder={t("videoCodes.fileIdPlaceholder")}
                 className="font-mono text-xs"
               />
             </div>
@@ -717,7 +731,7 @@ export default function VideoCodes() {
                 <Input
                   value={importRequiredChannels}
                   onChange={(e) => setImportRequiredChannels(e.target.value)}
-                  placeholder="@streamxuz, @channel2"
+                  placeholder={t("videoCodes.requiredChannelsPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("videoCodes.requiredChannelsHint")}
@@ -796,7 +810,8 @@ export default function VideoCodes() {
                 dragOver
                   ? "border-primary bg-primary/5"
                   : "border-border/60 hover:border-primary/50",
-                selectedFile && "border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/10",
+                selectedFile &&
+                  "border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/10",
               )}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => {
@@ -818,7 +833,10 @@ export default function VideoCodes() {
                     {selectedFile.name}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                    {formatNumber(
+                      Math.round((selectedFile.size / 1024 / 1024) * 10) / 10,
+                    )}{" "}
+                    {t("videoCodes.megabytes")}
                   </p>
                 </>
               ) : (
@@ -898,7 +916,7 @@ export default function VideoCodes() {
                 <Input
                   value={uploadRequiredChannels}
                   onChange={(e) => setUploadRequiredChannels(e.target.value)}
-                  placeholder="@streamxuz, @channel2"
+                  placeholder={t("videoCodes.requiredChannelsPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("videoCodes.requiredChannelsHint")}
