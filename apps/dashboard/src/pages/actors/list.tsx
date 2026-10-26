@@ -77,7 +77,9 @@ export default function ActorsList() {
               queryKey: getListActorsQueryKey(),
             });
             setIsOpen(false);
+            toast.success(t("actors.updated"));
           },
+          onError: () => toast.error(t("actors.updateError")),
         },
       );
     } else {
@@ -89,7 +91,9 @@ export default function ActorsList() {
               queryKey: getListActorsQueryKey(),
             });
             setIsOpen(false);
+            toast.success(t("actors.created"));
           },
+          onError: () => toast.error(t("actors.createError")),
         },
       );
     }
@@ -135,7 +139,7 @@ export default function ActorsList() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={t("actors.list")}
+            placeholder={t("actors.searchPlaceholder")}
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -150,7 +154,7 @@ export default function ActorsList() {
               <TableHead className="w-20">{t("actors.photo")}</TableHead>
               <TableHead>{t("actors.name")}</TableHead>
               <TableHead>{t("actors.bio")}</TableHead>
-                  <TableHead className="text-right">{t("common.edit")}</TableHead>
+              <TableHead className="text-right">{t("common.edit")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -201,6 +205,8 @@ export default function ActorsList() {
                       <Button
                         size="sm"
                         variant="outline"
+                        aria-label={t("actors.edit")}
+                        title={t("actors.edit")}
                         onClick={() => openEdit(actor)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
@@ -246,7 +252,7 @@ export default function ActorsList() {
               <Input
                 value={photoUrl}
                 onChange={(e) => setPhotoUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder={t("actors.photoPlaceholder")}
               />
             </div>
             <div className="space-y-2">

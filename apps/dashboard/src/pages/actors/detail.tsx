@@ -30,12 +30,7 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -71,11 +66,11 @@ export default function ActorDetail() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: getGetActorQueryKey(id) }),
       queryClient.invalidateQueries({ queryKey: getListActorsQueryKey() }),
-      ...((actor?.movies ?? []).map((movie) =>
+      ...(actor?.movies ?? []).map((movie) =>
         queryClient.invalidateQueries({
           queryKey: getGetMovieVideoCodesQueryKey(movie.movieId),
         }),
-      )),
+      ),
     ]);
 
   const removeActor = () => {
@@ -105,7 +100,9 @@ export default function ActorDetail() {
       {
         id,
         movieId: movie.movieId,
-        data: { role: (roles[movie.movieId] ?? movie.role ?? "").trim() || null },
+        data: {
+          role: (roles[movie.movieId] ?? movie.role ?? "").trim() || null,
+        },
       },
       {
         onSuccess: async () => {
@@ -142,13 +139,20 @@ export default function ActorDetail() {
   };
 
   if (isLoading) {
-    return <div className="py-12 text-center text-muted-foreground">{t("common.loading")}</div>;
+    return (
+      <div className="py-12 text-center text-muted-foreground">
+        {t("common.loading")}
+      </div>
+    );
   }
   if (error || !actor) {
     return (
       <div className="space-y-4 py-12 text-center">
         <p className="text-destructive">{t("actors.detail.notFound")}</p>
-        <Button variant="outline" onClick={() => setLocation("/catalog/actors")}>
+        <Button
+          variant="outline"
+          onClick={() => setLocation("/catalog/actors")}
+        >
           <ArrowLeft className="mr-2 h-4 w-4" /> {t("actors.detail.back")}
         </Button>
       </div>
@@ -191,7 +195,9 @@ export default function ActorDetail() {
         </div>
         <div className="flex flex-col justify-center gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">{t("actors.detail.title")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("actors.detail.title")}
+            </p>
             <h1 className="mt-1 text-3xl font-bold">{actor.name}</h1>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -208,14 +214,22 @@ export default function ActorDetail() {
             )}
           </div>
           <div className="flex gap-6 border-y py-3 text-sm">
-            <span><strong>{formatNumber(actor.stats.moviesCount)}</strong> {t("actors.detail.moviesCount")}</span>
-            <span><strong>{formatNumber(actor.stats.totalViews)}</strong> {t("actors.detail.totalViews")}</span>
+            <span>
+              <strong>{formatNumber(actor.stats.moviesCount)}</strong>{" "}
+              {t("actors.detail.moviesCount")}
+            </span>
+            <span>
+              <strong>{formatNumber(actor.stats.totalViews)}</strong>{" "}
+              {t("actors.detail.totalViews")}
+            </span>
           </div>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t("actors.detail.biography")}</h2>
+        <h2 className="text-lg font-semibold">
+          {t("actors.detail.biography")}
+        </h2>
         <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
           {actor.bio || t("actors.noBiography")}
         </p>
@@ -226,7 +240,8 @@ export default function ActorDetail() {
           <div className="flex items-center gap-2">
             <Clapperboard className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">
-              {t("actors.detail.filmography")} ({formatNumber(actor.movies.length)})
+              {t("actors.detail.filmography")} (
+              {formatNumber(actor.movies.length)})
             </h2>
           </div>
           <Button onClick={() => setAddMovieOpen(true)}>
@@ -245,27 +260,52 @@ export default function ActorDetail() {
                 <CardContent className="grid gap-4 p-4 md:grid-cols-[72px_minmax(0,1fr)_minmax(220px,0.8fr)_auto] md:items-center">
                   <div className="aspect-[2/3] overflow-hidden rounded bg-muted">
                     {movie.posterUrl ? (
-                      <img src={movie.posterUrl} alt={movie.title} className="h-full w-full object-cover" />
-                    ) : <div className="flex h-full items-center justify-center"><Clapperboard className="h-5 w-5 text-muted-foreground" /></div>}
+                      <img
+                        src={movie.posterUrl}
+                        alt={movie.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Clapperboard className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <Link href={`/catalog/movies/${movie.movieId}`} className="font-semibold hover:underline">
+                    <Link
+                      href={`/catalog/movies/${movie.movieId}`}
+                      className="font-semibold hover:underline"
+                    >
                       {movie.title}
                     </Link>
-                    {movie.releaseYear && <p className="text-sm text-muted-foreground">{movie.releaseYear}</p>}
-                    <Label htmlFor={`role-${movie.movieId}`} className="mt-3 block text-xs text-muted-foreground">
+                    {movie.releaseYear && (
+                      <p className="text-sm text-muted-foreground">
+                        {formatNumber(movie.releaseYear)}
+                      </p>
+                    )}
+                    <Label
+                      htmlFor={`role-${movie.movieId}`}
+                      className="mt-3 block text-xs text-muted-foreground"
+                    >
                       {t("actors.detail.role")}
                     </Label>
                     <Input
                       id={`role-${movie.movieId}`}
                       value={roles[movie.movieId] ?? movie.role ?? ""}
-                      onChange={(event) => setRoles((current) => ({ ...current, [movie.movieId]: event.target.value }))}
+                      onChange={(event) =>
+                        setRoles((current) => ({
+                          ...current,
+                          [movie.movieId]: event.target.value,
+                        }))
+                      }
                       placeholder={t("actors.detail.noRole")}
                       className="mt-1 h-8"
                     />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">{t("actors.detail.videoCodes")}</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t("actors.detail.videoCodes")}
+                    </p>
                     {movie.videoCodes.length ? (
                       <div className="flex flex-wrap gap-2">
                         {movie.videoCodes.map((code) => {
@@ -287,14 +327,25 @@ export default function ActorDetail() {
                               }}
                             >
                               <Copy className="h-3 w-3" /> {code.code}
-                              <Badge variant={code.status === "active" ? "default" : "secondary"} className="ml-1 px-1 py-0 text-[10px]">
+                              <Badge
+                                variant={
+                                  code.status === "active"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="ml-1 px-1 py-0 text-[10px]"
+                              >
                                 {statusLabel}
                               </Badge>
                             </button>
                           );
                         })}
                       </div>
-                    ) : <p className="text-xs text-muted-foreground">{t("actors.detail.noVideoCodes")}</p>}
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t("actors.detail.noVideoCodes")}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2 md:flex-col">
                     <Button
@@ -394,17 +445,58 @@ function EditActorDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{t("actors.edit")}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t("actors.edit")}</DialogTitle>
+        </DialogHeader>
         <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="space-y-2"><Label>{t("actors.name")}</Label><Input value={name} onChange={(event) => setName(event.target.value)} /></div>
-          <div className="space-y-2"><Label>{t("actors.photo")}</Label><Input value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} /></div>
-          <div className="space-y-2"><Label>{t("actors.detail.birthDate")}</Label><Input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></div>
-          <div className="space-y-2"><Label>{t("actors.detail.birthPlace")}</Label><Input value={birthPlace} onChange={(event) => setBirthPlace(event.target.value)} /></div>
-          <div className="space-y-2 sm:col-span-2"><Label>{t("actors.bio")}</Label><Textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={6} /></div>
+          <div className="space-y-2">
+            <Label>{t("actors.name")}</Label>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("actors.photo")}</Label>
+            <Input
+              value={photoUrl}
+              onChange={(event) => setPhotoUrl(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("actors.detail.birthDate")}</Label>
+            <Input
+              type="date"
+              value={birthDate}
+              onChange={(event) => setBirthDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("actors.detail.birthPlace")}</Label>
+            <Input
+              value={birthPlace}
+              onChange={(event) => setBirthPlace(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>{t("actors.bio")}</Label>
+            <Textarea
+              value={bio}
+              onChange={(event) => setBio(event.target.value)}
+              rows={6}
+            />
+          </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button onClick={save} disabled={updateActor.isPending || !name.trim()}>{t("common.save")}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            onClick={save}
+            disabled={updateActor.isPending || !name.trim()}
+          >
+            {t("common.save")}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -422,7 +514,7 @@ function AddMovieDialog({
   onOpenChange: (open: boolean) => void;
   onAdded: () => Promise<unknown>;
 }) {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [movieId, setMovieId] = useState("");
@@ -438,7 +530,9 @@ function AddMovieDialog({
       {
         onSuccess: async () => {
           await onAdded();
-          await queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() });
+          await queryClient.invalidateQueries({
+            queryKey: getListMoviesQueryKey(),
+          });
           setSearch("");
           setMovieId("");
           setRole("");
@@ -453,34 +547,69 @@ function AddMovieDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader><DialogTitle>{t("actors.movieSelector.title")}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t("actors.movieSelector.title")}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>{t("actors.movieSelector.search")}</Label>
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("actors.movieSelector.searchPlaceholder")} />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("actors.movieSelector.searchPlaceholder")}
+            />
           </div>
           <div className="space-y-2">
             <Label>{t("actors.movieSelector.movie")}</Label>
-            <Select value={movieId || "none"} onValueChange={(value) => setMovieId(value === "none" ? "" : value)}>
-              <SelectTrigger><SelectValue placeholder={t("actors.movieSelector.moviePlaceholder")} /></SelectTrigger>
+            <Select
+              value={movieId || "none"}
+              onValueChange={(value) =>
+                setMovieId(value === "none" ? "" : value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={t("actors.movieSelector.moviePlaceholder")}
+                />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">{t("actors.movieSelector.chooseMovie")}</SelectItem>
-                {movieList.map((movie) => movie.id ? (
-                  <SelectItem key={movie.id} value={movie.id}>
-                    {movie.title ?? movie.id}{movie.releaseYear ? ` (${movie.releaseYear})` : ""}
-                  </SelectItem>
-                ) : null)}
+                <SelectItem value="none">
+                  {t("actors.movieSelector.chooseMovie")}
+                </SelectItem>
+                {movieList.map((movie) =>
+                  movie.id ? (
+                    <SelectItem key={movie.id} value={movie.id}>
+                      {movie.title ?? movie.id}
+                      {movie.releaseYear
+                        ? ` (${formatNumber(movie.releaseYear)})`
+                        : ""}
+                    </SelectItem>
+                  ) : null,
+                )}
               </SelectContent>
             </Select>
-            {isLoading && <p className="text-xs text-muted-foreground">{t("common.loading")}</p>}
+            {isLoading && (
+              <p className="text-xs text-muted-foreground">
+                {t("common.loading")}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>{t("actors.detail.role")}</Label>
-            <Input value={role} onChange={(event) => setRole(event.target.value)} placeholder={t("actors.movieSelector.rolePlaceholder")} maxLength={255} />
+            <Input
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+              placeholder={t("actors.movieSelector.rolePlaceholder")}
+              maxLength={255}
+            />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-            <Button onClick={add} disabled={!movieId || attachMovie.isPending}>{t("actors.movieSelector.confirm")}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={add} disabled={!movieId || attachMovie.isPending}>
+              {t("actors.movieSelector.confirm")}
+            </Button>
           </div>
         </div>
       </DialogContent>
