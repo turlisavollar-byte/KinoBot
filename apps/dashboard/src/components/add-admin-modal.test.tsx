@@ -3,17 +3,22 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AddAdminModal } from "./add-admin-modal";
 
-const { mutateAsync } = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
+const { mutateAsync, toastMock } = vi.hoisted(() => ({
+  mutateAsync: vi.fn(),
+  toastMock: { success: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock("@workspace/api-client-react", () => ({
   useCreateAdminUser: () => ({ mutateAsync, isPending: false }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: toastMock }));
 
 describe("AddAdminModal", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ data: { email: "new-admin@example.com" } });
+    toastMock.success.mockReset();
+    toastMock.error.mockReset();
   });
 
   it("requires an email before creating an admin", async () => {
@@ -89,5 +94,64 @@ describe("AddAdminModal", () => {
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(copiedValue).toBe(password);
     expect(document.querySelector("textarea")).toBeNull();
+    expect(toastMock.success).toHaveBeenCalledWith(
+      "Password copied to clipboard",
+    );
+  });
+
+  it("falls back when the secure clipboard API rejects", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error("permission denied"));
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(<AddAdminModal open onClose={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /generate/i }));
+    await user.click(screen.getByRole("button", { name: /copy password/i }));
+
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    expect(toastMock.success).toHaveBeenCalledOnce();
+  });
+
+  it("selects the password for manual copying when clipboard fallbacks fail", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: false,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: vi.fn(() => false),
+    });
+
+    render(<AddAdminModal open onClose={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /generate/i }));
+    const passwordInput = screen.getByLabelText("Password") as HTMLInputElement;
+    const password = passwordInput.value;
+    await user.click(screen.getByRole("button", { name: /copy password/i }));
+
+    expect(passwordInput).toHaveFocus();
+    expect(passwordInput.selectionStart).toBe(0);
+    expect(passwordInput.selectionEnd).toBe(password.length);
+    expect(toastMock.error).toHaveBeenCalledWith(
+      "Copy failed. Password selected; press Ctrl+C to copy it.",
+    );
   });
 });

@@ -54,23 +54,45 @@ function generatePassword(length = 16) {
   return characters.join("");
 }
 
-function copyToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard && window.isSecureContext) {
-    return navigator.clipboard.writeText(text);
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (error) {
+    console.warn("navigator.clipboard failed, trying fallback", error);
   }
 
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
   try {
-    document.execCommand("copy");
-  } finally {
-    document.body.removeChild(textarea);
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.width = "2em";
+    textarea.style.height = "2em";
+    textarea.style.padding = "0";
+    textarea.style.border = "none";
+    textarea.style.outline = "none";
+    textarea.style.boxShadow = "none";
+    textarea.style.background = "transparent";
+    textarea.style.opacity = "0";
+    textarea.setAttribute("readonly", "");
+    document.body.appendChild(textarea);
+    try {
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, text.length);
+      if (document.execCommand("copy")) return true;
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  } catch (error) {
+    console.warn("execCommand fallback failed", error);
   }
-  return Promise.resolve();
+
+  return false;
 }
 
 export function AddAdminModal({
@@ -96,8 +118,17 @@ export function AddAdminModal({
 
   const handleCopy = async () => {
     if (!password) return;
-    await copyToClipboard(password);
-    toast.success("Password copied to clipboard");
+    if (await copyToClipboard(password)) {
+      toast.success("Password copied to clipboard");
+      return;
+    }
+
+    const passwordInput = document.getElementById(
+      "admin-password",
+    ) as HTMLInputElement | null;
+    passwordInput?.focus();
+    passwordInput?.select();
+    toast.error("Copy failed. Password selected; press Ctrl+C to copy it.");
   };
 
   const handleSubmit = async () => {
