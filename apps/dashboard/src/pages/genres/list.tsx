@@ -1,10 +1,24 @@
 import { useState } from "react";
-import { useListGenres, useCreateGenre, useUpdateGenre, useDeleteGenre, getListGenresQueryKey } from "@workspace/api-client-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  useListGenres,
+  useCreateGenre,
+  useUpdateGenre,
+  useDeleteGenre,
+  getListGenresQueryKey,
+} from "@workspace/api-client-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash, Check, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 
@@ -23,21 +37,35 @@ export default function GenresList() {
 
   const handleSave = () => {
     if (!editName || !editSlug) return;
-    
+
     if (editingId) {
-      updateGenre.mutate({ id: editingId, data: { name: editName, slug: editSlug } }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListGenresQueryKey() });
-          setEditingId(null);
-        }
-      });
+      updateGenre.mutate(
+        { id: editingId, data: { name: editName, slug: editSlug } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getListGenresQueryKey(),
+            });
+            setEditingId(null);
+            toast.success(t("genres.updateSuccess"));
+          },
+          onError: () => toast.error(t("genres.updateError")),
+        },
+      );
     } else {
-      createGenre.mutate({ data: { name: editName, slug: editSlug } }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListGenresQueryKey() });
-          setIsAdding(false);
-        }
-      });
+      createGenre.mutate(
+        { data: { name: editName, slug: editSlug } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getListGenresQueryKey(),
+            });
+            setIsAdding(false);
+            toast.success(t("genres.createSuccess"));
+          },
+          onError: () => toast.error(t("genres.createError")),
+        },
+      );
     }
   };
 
@@ -62,9 +90,18 @@ export default function GenresList() {
 
   const handleDelete = (id: number) => {
     if (confirm(t("genres.deleteConfirm"))) {
-      deleteGenre.mutate({ id }, {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListGenresQueryKey() })
-      });
+      deleteGenre.mutate(
+        { id },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getListGenresQueryKey(),
+            });
+            toast.success(t("genres.deleteSuccess"));
+          },
+          onError: () => toast.error(t("genres.deleteError")),
+        },
+      );
     }
   };
 
@@ -72,7 +109,9 @@ export default function GenresList() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("genres.title")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {t("genres.title")}
+          </h1>
           <p className="text-muted-foreground">{t("genres.list")}</p>
         </div>
         <Button onClick={startAdd} disabled={isAdding || editingId !== null}>
@@ -82,13 +121,15 @@ export default function GenresList() {
       </div>
 
       <Card>
-        <CardHeader className="sr-only"><CardTitle>{t("genres.list")}</CardTitle></CardHeader>
+        <CardHeader className="sr-only">
+          <CardTitle>{t("genres.list")}</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t("genres.name")}</TableHead>
-                <TableHead>Slug</TableHead>
+                <TableHead>{t("genres.slug")}</TableHead>
                 <TableHead className="text-right">{t("common.edit")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -96,48 +137,118 @@ export default function GenresList() {
               {isAdding && (
                 <TableRow>
                   <TableCell>
-                    <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder={t("genres.name")} />
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder={t("genres.name")}
+                    />
                   </TableCell>
                   <TableCell>
-                    <Input value={editSlug} onChange={e => setEditSlug(e.target.value)} placeholder="slug" />
+                    <Input
+                      value={editSlug}
+                      onChange={(e) => setEditSlug(e.target.value)}
+                      placeholder={t("genres.slugPlaceholder")}
+                    />
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button size="sm" onClick={handleSave} disabled={createGenre.isPending}><Check className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="outline" onClick={handleCancel} disabled={createGenre.isPending}><X className="h-4 w-4" /></Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={createGenre.isPending}
+                      aria-label={t("genres.save")}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancel}
+                      disabled={createGenre.isPending}
+                      aria-label={t("genres.cancel")}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               )}
               {isLoading ? (
-                <TableRow><TableCell colSpan={3} className="text-center py-8">{t("common.loading")}</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8">
+                    {t("common.loading")}
+                  </TableCell>
+                </TableRow>
               ) : genres?.length === 0 && !isAdding ? (
-                <TableRow><TableCell colSpan={3} className="text-center py-8">{t("genres.noGenres")}</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8">
+                    {t("genres.noGenres")}
+                  </TableCell>
+                </TableRow>
               ) : (
                 genres?.map((genre) => (
                   <TableRow key={genre.id}>
                     <TableCell>
                       {editingId === genre.id ? (
-                        <Input value={editName} onChange={e => setEditName(e.target.value)} />
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                        />
                       ) : (
                         <div className="font-medium">{genre.name}</div>
                       )}
                     </TableCell>
                     <TableCell>
                       {editingId === genre.id ? (
-                        <Input value={editSlug} onChange={e => setEditSlug(e.target.value)} />
+                        <Input
+                          value={editSlug}
+                          onChange={(e) => setEditSlug(e.target.value)}
+                        />
                       ) : (
-                        <div className="text-muted-foreground">{genre.slug}</div>
+                        <div className="text-muted-foreground">
+                          {genre.slug}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
                       {editingId === genre.id ? (
                         <>
-                          <Button size="sm" onClick={handleSave} disabled={updateGenre.isPending}><Check className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="outline" onClick={handleCancel} disabled={updateGenre.isPending}><X className="h-4 w-4" /></Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSave}
+                            disabled={updateGenre.isPending}
+                            aria-label={t("genres.save")}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancel}
+                            disabled={updateGenre.isPending}
+                            aria-label={t("genres.cancel")}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => startEdit(genre)} disabled={isAdding || editingId !== null}><Edit className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleDelete(genre.id)} disabled={isAdding || editingId !== null}><Trash className="h-4 w-4" /></Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEdit(genre)}
+                            disabled={isAdding || editingId !== null}
+                            aria-label={t("genres.edit")}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(genre.id)}
+                            disabled={isAdding || editingId !== null}
+                            aria-label={t("genres.delete")}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
                         </>
                       )}
                     </TableCell>
