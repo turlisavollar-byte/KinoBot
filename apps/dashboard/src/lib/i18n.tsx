@@ -638,7 +638,8 @@ const messages = {
     "actors.detail.roleUpdated": "Role updated",
     "actors.detail.roleUpdateError": "Could not update role",
     "actors.detail.detachMovie": "Remove movie from filmography",
-    "actors.detail.detachConfirm": "Remove this movie from the actor filmography?",
+    "actors.detail.detachConfirm":
+      "Remove this movie from the actor filmography?",
     "actors.detail.detachedSuccess": "Movie removed from filmography",
     "actors.detail.detachError": "Could not remove movie",
     "actors.detail.videoCodes": "Video codes",
@@ -737,15 +738,22 @@ const messages = {
     "notifications.broadcast.channels": "Telegram channels",
     "notifications.broadcast.telegramUserId": "Telegram user ID",
     "notifications.broadcast.userIdPlaceholder": "e.g. 123456789",
-    "notifications.broadcast.singleUserHint": "Enter one numeric Telegram ID. The message will only be sent to this user.",
-    "notifications.broadcast.allUsersHint": "The message will be sent to all active Telegram users who have started your bot.",
-    "notifications.broadcast.channelRecipients": "Recipients (Telegram channels)",
-    "notifications.broadcast.chooseRegisteredChannel": "Choose a registered channel",
-    "notifications.broadcast.channelIdsPlaceholder": "-1001234567890,@channelname",
-    "notifications.broadcast.channelsHint": "Choose registered channels or enter channel IDs separated by commas.",
+    "notifications.broadcast.singleUserHint":
+      "Enter one numeric Telegram ID. The message will only be sent to this user.",
+    "notifications.broadcast.allUsersHint":
+      "The message will be sent to all active Telegram users who have started your bot.",
+    "notifications.broadcast.channelRecipients":
+      "Recipients (Telegram channels)",
+    "notifications.broadcast.chooseRegisteredChannel":
+      "Choose a registered channel",
+    "notifications.broadcast.channelIdsPlaceholder":
+      "-1001234567890,@channelname",
+    "notifications.broadcast.channelsHint":
+      "Choose registered channels or enter channel IDs separated by commas.",
     "notifications.broadcast.scheduled": "Broadcast scheduled",
     "notifications.broadcast.queuedUsers": "Message queued for {count} users.",
-    "notifications.broadcast.queuedChannels": "Message queued for {count} channels.",
+    "notifications.broadcast.queuedChannels":
+      "Message queued for {count} channels.",
     "notifications.broadcast.sendNow": "Send now",
     "telegram.videoCodes.title": "Video Codes",
     "telegram.videoCodes.list": "Video Code List",
@@ -856,6 +864,7 @@ const messages = {
     "session.status.current": "Current Session",
     "session.status.active": "Active",
     "session.revokeSessionTitle": "Revoke Session?",
+    "session.revokeSession": "Revoke {sessionName} session",
     "session.revokeSessionDescription":
       "This will sign you out from {sessionName}. You will need to sign in again on this device.",
     "session.revoke": "Revoke",
@@ -1659,15 +1668,22 @@ const messages = {
     "notifications.broadcast.channels": "Каналы Telegram",
     "notifications.broadcast.telegramUserId": "ID пользователя Telegram",
     "notifications.broadcast.userIdPlaceholder": "например, 123456789",
-    "notifications.broadcast.singleUserHint": "Введите один числовой Telegram ID. Сообщение будет отправлено только этому пользователю.",
-    "notifications.broadcast.allUsersHint": "Сообщение будет отправлено всем активным пользователям, которые запускали бота.",
+    "notifications.broadcast.singleUserHint":
+      "Введите один числовой Telegram ID. Сообщение будет отправлено только этому пользователю.",
+    "notifications.broadcast.allUsersHint":
+      "Сообщение будет отправлено всем активным пользователям, которые запускали бота.",
     "notifications.broadcast.channelRecipients": "Получатели (каналы Telegram)",
-    "notifications.broadcast.chooseRegisteredChannel": "Выберите зарегистрированный канал",
-    "notifications.broadcast.channelIdsPlaceholder": "-1001234567890,@channelname",
-    "notifications.broadcast.channelsHint": "Выберите зарегистрированные каналы или введите ID каналов через запятую.",
+    "notifications.broadcast.chooseRegisteredChannel":
+      "Выберите зарегистрированный канал",
+    "notifications.broadcast.channelIdsPlaceholder":
+      "-1001234567890,@channelname",
+    "notifications.broadcast.channelsHint":
+      "Выберите зарегистрированные каналы или введите ID каналов через запятую.",
     "notifications.broadcast.scheduled": "Рассылка запланирована",
-    "notifications.broadcast.queuedUsers": "Сообщение поставлено в очередь для {count} пользователей.",
-    "notifications.broadcast.queuedChannels": "Сообщение поставлено в очередь для {count} каналов.",
+    "notifications.broadcast.queuedUsers":
+      "Сообщение поставлено в очередь для {count} пользователей.",
+    "notifications.broadcast.queuedChannels":
+      "Сообщение поставлено в очередь для {count} каналов.",
     "notifications.broadcast.sendNow": "Отправить",
     "telegram.videoCodes.title": "Видеокоды",
     "telegram.videoCodes.list": "Список видеокодов",
@@ -1778,6 +1794,7 @@ const messages = {
     "session.status.current": "Текущая сессия",
     "session.status.active": "Активна",
     "session.revokeSessionTitle": "Завершить сессию?",
+    "session.revokeSession": "Завершить сессию {sessionName}",
     "session.revokeSessionDescription":
       "Вы выйдете из сессии {sessionName}. На этом устройстве потребуется войти снова.",
     "session.revoke": "Завершить",
@@ -2481,7 +2498,8 @@ const messages = {
     "actors.detail.roleUpdated": "Rol yangilandi",
     "actors.detail.roleUpdateError": "Rolni yangilab bo'lmadi",
     "actors.detail.detachMovie": "Filmni filmografiyadan olib tashlash",
-    "actors.detail.detachConfirm": "Filmni aktyor filmografiyasidan olib tashlaysizmi?",
+    "actors.detail.detachConfirm":
+      "Filmni aktyor filmografiyasidan olib tashlaysizmi?",
     "actors.detail.detachedSuccess": "Film filmografiyadan olib tashlandi",
     "actors.detail.detachError": "Filmni olib tashlab bo'lmadi",
     "actors.detail.videoCodes": "Video kodlar",
@@ -2581,15 +2599,23 @@ const messages = {
     "notifications.broadcast.channels": "Telegram kanallari",
     "notifications.broadcast.telegramUserId": "Telegram foydalanuvchi ID si",
     "notifications.broadcast.userIdPlaceholder": "masalan, 123456789",
-    "notifications.broadcast.singleUserHint": "Bitta raqamli Telegram ID kiriting. Xabar faqat shu foydalanuvchiga yuboriladi.",
-    "notifications.broadcast.allUsersHint": "Xabar botni ishga tushirgan barcha faol Telegram foydalanuvchilariga yuboriladi.",
-    "notifications.broadcast.channelRecipients": "Qabul qiluvchilar (Telegram kanallari)",
-    "notifications.broadcast.chooseRegisteredChannel": "Ro'yxatdagi kanalni tanlang",
-    "notifications.broadcast.channelIdsPlaceholder": "-1001234567890,@kanal_nomi",
-    "notifications.broadcast.channelsHint": "Ro'yxatdagi kanallarni tanlang yoki kanal ID larini vergul bilan kiriting.",
+    "notifications.broadcast.singleUserHint":
+      "Bitta raqamli Telegram ID kiriting. Xabar faqat shu foydalanuvchiga yuboriladi.",
+    "notifications.broadcast.allUsersHint":
+      "Xabar botni ishga tushirgan barcha faol Telegram foydalanuvchilariga yuboriladi.",
+    "notifications.broadcast.channelRecipients":
+      "Qabul qiluvchilar (Telegram kanallari)",
+    "notifications.broadcast.chooseRegisteredChannel":
+      "Ro'yxatdagi kanalni tanlang",
+    "notifications.broadcast.channelIdsPlaceholder":
+      "-1001234567890,@kanal_nomi",
+    "notifications.broadcast.channelsHint":
+      "Ro'yxatdagi kanallarni tanlang yoki kanal ID larini vergul bilan kiriting.",
     "notifications.broadcast.scheduled": "Ommaviy xabar navbatga qo'yildi",
-    "notifications.broadcast.queuedUsers": "Xabar {count} ta foydalanuvchi uchun navbatga qo'yildi.",
-    "notifications.broadcast.queuedChannels": "Xabar {count} ta kanal uchun navbatga qo'yildi.",
+    "notifications.broadcast.queuedUsers":
+      "Xabar {count} ta foydalanuvchi uchun navbatga qo'yildi.",
+    "notifications.broadcast.queuedChannels":
+      "Xabar {count} ta kanal uchun navbatga qo'yildi.",
     "notifications.broadcast.sendNow": "Yuborish",
     "telegram.videoCodes.title": "Video kodlar",
     "telegram.videoCodes.list": "Video kod ro'yxati",
@@ -2675,14 +2701,16 @@ const messages = {
     "session.title": "Sessiya boshqaruvi",
     "session.subtitle": "Faol sessiyalarni boshqarish",
     "session.revokeOtherSessions": "Boshqa barcha sessiyalarni bekor qilish",
-    "session.revokeOtherSessionsTitle": "Boshqa barcha sessiyalar bekor qilinsinmi?",
+    "session.revokeOtherSessionsTitle":
+      "Boshqa barcha sessiyalar bekor qilinsinmi?",
     "session.revokeOtherSessionsDescription":
       "Joriy sessiyadan tashqari barcha qurilmalardan chiqasiz. Har bir qurilmada qayta tizimga kirishingiz kerak bo'ladi.",
     "session.revokeAll": "Barchasini bekor qilish",
     "session.activeSessions": "Faol sessiyalar",
     "session.acrossDeviceTypes": "Qurilma turlari: {count}",
     "session.desktopSessions": "Ish stoli sessiyalari",
-    "session.desktopSessionsDescription": "Kompyuter orqali ochilgan sessiyalar",
+    "session.desktopSessionsDescription":
+      "Kompyuter orqali ochilgan sessiyalar",
     "session.mobileSessions": "Mobil sessiyalar",
     "session.mobileSessionsDescription": "Telefon va planshet sessiyalari",
     "session.tableDescription":
@@ -2700,6 +2728,7 @@ const messages = {
     "session.status.current": "Joriy sessiya",
     "session.status.active": "Faol",
     "session.revokeSessionTitle": "Sessiya bekor qilinsinmi?",
+    "session.revokeSession": "{sessionName} sessiyasini bekor qilish",
     "session.revokeSessionDescription":
       "{sessionName} sessiyasidan chiqasiz. Bu qurilmada qayta tizimga kirishingiz kerak bo'ladi.",
     "session.revoke": "Bekor qilish",
