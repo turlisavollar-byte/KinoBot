@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { User, Shield, Globe, Info, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function Settings() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const { data: me } = useIdentityGetMe();
   const [showPass, setShowPass] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -46,7 +46,7 @@ export default function Settings() {
       toast.success(t("settings.passwordChanged"));
       setPwForm({ current: "", next: "", confirm: "" });
     } catch (e) {
-      toast.error((e as Error).message ?? t("settings.passwordFailed"));
+      toast.error(t("settings.passwordFailed"));
     } finally {
       setPwLoading(false);
     }
@@ -71,19 +71,32 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl">
-              {((me as any)?.email || "U").charAt(0).toUpperCase()}
+              {((me as any)?.email || t("settings.admin"))
+                .charAt(0)
+                .toUpperCase()}
             </div>
             <div>
-              <p className="font-semibold">{(me as any)?.email || "Admin"}</p>
+              <p className="font-semibold">
+                {(me as any)?.email || t("settings.admin")}
+              </p>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="outline" className="text-xs capitalize">
                   <Shield className="h-3 w-3 mr-1" />{" "}
-                  {(me as any)?.role || "admin"}
+                  {(me as any)?.role
+                    ? t(
+                        `settings.roleName.${(me as any).role}` as
+                          | "settings.roleName.admin"
+                          | "settings.roleName.superadmin"
+                          | "settings.roleName.manager"
+                          | "settings.roleName.moderator"
+                          | "settings.roleName.viewer",
+                      )
+                    : t("settings.roleName.admin")}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {t("settings.memberSince")}{" "}
                   {(me as any)?.createdAt
-                    ? new Date((me as any).createdAt).toLocaleDateString()
+                    ? formatDate((me as any).createdAt, { dateStyle: "medium" })
                     : "—"}
                 </span>
               </div>
@@ -92,7 +105,9 @@ export default function Settings() {
           <Separator />
           <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <div>
-              <span className="text-muted-foreground">Email</span>
+              <span className="text-muted-foreground">
+                {t("settings.email")}
+              </span>
               <p className="font-medium mt-0.5">{(me as any)?.email || "—"}</p>
             </div>
             <div>
@@ -100,7 +115,16 @@ export default function Settings() {
                 {t("settings.role")}
               </span>
               <p className="font-medium mt-0.5 capitalize">
-                {(me as any)?.role || "admin"}
+                {(me as any)?.role
+                  ? t(
+                      `settings.roleName.${(me as any).role}` as
+                        | "settings.roleName.admin"
+                        | "settings.roleName.superadmin"
+                        | "settings.roleName.manager"
+                        | "settings.roleName.moderator"
+                        | "settings.roleName.viewer",
+                    )
+                  : t("settings.roleName.admin")}
               </p>
             </div>
           </div>
@@ -133,6 +157,16 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={() => setShowPass((v) => !v)}
+                aria-label={
+                  showPass
+                    ? t("settings.hidePassword")
+                    : t("settings.showPassword")
+                }
+                title={
+                  showPass
+                    ? t("settings.hidePassword")
+                    : t("settings.showPassword")
+                }
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPass ? (
@@ -185,22 +219,25 @@ export default function Settings() {
         <CardContent>
           <dl className="space-y-3 text-sm">
             {[
-              { label: t("settings.platform"), value: "StreamOps Admin" },
+              {
+                label: t("settings.platform"),
+                value: t("settings.platformName"),
+              },
               {
                 label: t("settings.apiBase"),
                 value: `${window.location.origin}/api`,
               },
               {
                 label: t("settings.market"),
-                value: "Uzbekistan / Central Asia (UZ/RU)",
+                value: t("settings.marketValue"),
               },
               {
                 label: t("settings.stack"),
-                value: "Node.js · Express · PostgreSQL · Drizzle ORM",
+                value: t("settings.stackValue"),
               },
               {
                 label: t("settings.auth"),
-                value: "Bearer token · 7-day session · SHA-256 hash",
+                value: t("settings.authValue"),
               },
             ].map(({ label, value }) => (
               <div

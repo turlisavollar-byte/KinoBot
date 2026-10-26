@@ -3,7 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api-fetch";
@@ -13,17 +19,19 @@ import {
 } from "@/lib/password-change-flow";
 import { getIdentityGetMeQueryKey } from "@workspace/api-client-react";
 import { getAccessToken } from "@/lib/auth-token";
+import { useI18n } from "@/lib/i18n";
 
-function getPasswordValidationMessage(password: string): string | null {
-  if (password.length < 8) return "Yangi parol kamida 8 ta belgidan iborat bo'lishi kerak.";
-  if (!/[A-Z]/.test(password)) return "Yangi parolda kamida bitta katta harf bo'lishi kerak.";
-  if (!/[a-z]/.test(password)) return "Yangi parolda kamida bitta kichik harf bo'lishi kerak.";
-  if (!/[0-9]/.test(password)) return "Yangi parolda kamida bitta raqam bo'lishi kerak.";
-  if (!/[!@#$%^&*]/.test(password)) return "Yangi parolda !@#$%^&* belgilaridan kamida bittasi bo'lishi kerak.";
+function getPasswordValidationKey(password: string): string | null {
+  if (password.length < 8) return "changePassword.requirementLength";
+  if (!/[A-Z]/.test(password)) return "changePassword.requirementUppercase";
+  if (!/[a-z]/.test(password)) return "changePassword.requirementLowercase";
+  if (!/[0-9]/.test(password)) return "changePassword.requirementNumber";
+  if (!/[!@#$%^&*]/.test(password)) return "changePassword.requirementSymbol";
   return null;
 }
 
 export default function ChangePassword() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,17 +49,17 @@ export default function ChangePassword() {
     event.preventDefault();
     setError("");
 
-    const strengthError = getPasswordValidationMessage(newPassword);
-    if (strengthError) {
-      setError(strengthError);
+    const strengthErrorKey = getPasswordValidationKey(newPassword);
+    if (strengthErrorKey) {
+      setError(t(strengthErrorKey as import("@/lib/i18n").TranslationKey));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Yangi parol va tasdiqlash paroli mos kelmadi.");
+      setError(t("changePassword.passwordMismatch"));
       return;
     }
     if (newPassword === currentPassword) {
-      setError("Yangi parol joriy paroldan farq qilishi kerak.");
+      setError(t("changePassword.mustDiffer"));
       return;
     }
 
@@ -65,7 +73,7 @@ export default function ChangePassword() {
       queryClient.removeQueries({ queryKey: getIdentityGetMeQueryKey() });
       setLocation("/");
     } catch (requestError) {
-      setError((requestError as Error).message || "Parolni o'zgartirib bo'lmadi.");
+      setError(t("changePassword.updateError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -78,15 +86,15 @@ export default function ChangePassword() {
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
             <LockKeyhole className="h-5 w-5" />
           </div>
-          <CardTitle>Parolni o'zgartiring</CardTitle>
-          <CardDescription>
-            Davom etishdan oldin vaqtinchalik parolni yangisiga almashtiring.
-          </CardDescription>
+          <CardTitle>{t("changePassword.title")}</CardTitle>
+          <CardDescription>{t("changePassword.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={submit} noValidate>
             <div className="space-y-2">
-              <Label htmlFor="current-password">Joriy parol</Label>
+              <Label htmlFor="current-password">
+                {t("changePassword.currentPassword")}
+              </Label>
               <Input
                 id="current-password"
                 type="password"
@@ -97,7 +105,9 @@ export default function ChangePassword() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-password">Yangi parol</Label>
+              <Label htmlFor="new-password">
+                {t("changePassword.newPassword")}
+              </Label>
               <Input
                 id="new-password"
                 type="password"
@@ -107,12 +117,17 @@ export default function ChangePassword() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 aria-describedby="password-requirements"
               />
-              <p id="password-requirements" className="text-xs text-muted-foreground">
-                Kamida 8 belgi, katta-kichik harf, raqam va !@#$%^&* belgisidan foydalaning.
+              <p
+                id="password-requirements"
+                className="text-xs text-muted-foreground"
+              >
+                {t("changePassword.requirements")}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Yangi parolni tasdiqlang</Label>
+              <Label htmlFor="confirm-password">
+                {t("changePassword.confirmPassword")}
+              </Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -123,16 +138,24 @@ export default function ChangePassword() {
               />
             </div>
             {error ? (
-              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+              >
                 {error}
               </p>
             ) : null}
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || !currentPassword || !newPassword || !confirmPassword}
+              disabled={
+                isSubmitting ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword
+              }
             >
-              {isSubmitting ? "Saqlanmoqda..." : "Parolni yangilash"}
+              {isSubmitting ? t("common.saving") : t("changePassword.submit")}
             </Button>
           </form>
         </CardContent>

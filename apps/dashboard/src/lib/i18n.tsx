@@ -94,6 +94,42 @@ const messages = {
     "settings.stack": "Stack",
     "settings.auth": "Auth",
     "settings.role": "Role",
+    "settings.admin": "Admin",
+    "settings.email": "Email",
+    "settings.platformName": "StreamOps Admin",
+    "settings.marketValue": "Uzbekistan / Central Asia (UZ/RU)",
+    "settings.stackValue": "Node.js · Express · PostgreSQL · Drizzle ORM",
+    "settings.authValue": "Bearer token · 7-day session · SHA-256 hash",
+    "settings.showPassword": "Show password",
+    "settings.hidePassword": "Hide password",
+    "settings.roleName.admin": "Administrator",
+    "settings.roleName.superadmin": "Super administrator",
+    "settings.roleName.manager": "Manager",
+    "settings.roleName.moderator": "Moderator",
+    "settings.roleName.viewer": "Viewer",
+    "changePassword.title": "Change Password",
+    "changePassword.description":
+      "Replace the temporary password before continuing.",
+    "changePassword.currentPassword": "Current password",
+    "changePassword.newPassword": "New password",
+    "changePassword.confirmPassword": "Confirm new password",
+    "changePassword.requirements":
+      "Use at least 8 characters, uppercase and lowercase letters, a number, and one of !@#$%^&*.",
+    "changePassword.requirementLength":
+      "The new password must contain at least 8 characters.",
+    "changePassword.requirementUppercase":
+      "The new password must contain at least one uppercase letter.",
+    "changePassword.requirementLowercase":
+      "The new password must contain at least one lowercase letter.",
+    "changePassword.requirementNumber":
+      "The new password must contain at least one number.",
+    "changePassword.requirementSymbol":
+      "The new password must contain at least one of these symbols: !@#$%^&*.",
+    "changePassword.passwordMismatch": "The new passwords do not match.",
+    "changePassword.mustDiffer":
+      "The new password must differ from the current password.",
+    "changePassword.updateError": "Could not change the password.",
+    "changePassword.submit": "Update password",
     "common.loading": "Loading…",
     "common.unknown": "Unknown",
     "common.save": "Save",
@@ -1249,6 +1285,41 @@ const messages = {
     "settings.stack": "Стек",
     "settings.auth": "Авторизация",
     "settings.role": "Роль",
+    "settings.admin": "Администратор",
+    "settings.email": "Электронная почта",
+    "settings.platformName": "Панель администратора StreamOps",
+    "settings.marketValue": "Узбекистан / Центральная Азия (UZ/RU)",
+    "settings.stackValue": "Node.js · Express · PostgreSQL · Drizzle ORM",
+    "settings.authValue": "Токен Bearer · сессия на 7 дней · хеш SHA-256",
+    "settings.showPassword": "Показать пароль",
+    "settings.hidePassword": "Скрыть пароль",
+    "settings.roleName.admin": "Администратор",
+    "settings.roleName.superadmin": "Суперадминистратор",
+    "settings.roleName.manager": "Менеджер",
+    "settings.roleName.moderator": "Модератор",
+    "settings.roleName.viewer": "Наблюдатель",
+    "changePassword.title": "Смена пароля",
+    "changePassword.description":
+      "Перед продолжением замените временный пароль новым.",
+    "changePassword.currentPassword": "Текущий пароль",
+    "changePassword.newPassword": "Новый пароль",
+    "changePassword.confirmPassword": "Подтвердите новый пароль",
+    "changePassword.requirements":
+      "Не менее 8 символов: заглавная и строчная буквы, цифра и один из символов !@#$%^&*.",
+    "changePassword.requirementLength":
+      "Новый пароль должен содержать не менее 8 символов.",
+    "changePassword.requirementUppercase":
+      "В новом пароле должна быть хотя бы одна заглавная буква.",
+    "changePassword.requirementLowercase":
+      "В новом пароле должна быть хотя бы одна строчная буква.",
+    "changePassword.requirementNumber":
+      "В новом пароле должна быть хотя бы одна цифра.",
+    "changePassword.requirementSymbol":
+      "Новый пароль должен содержать один из символов: !@#$%^&*.",
+    "changePassword.passwordMismatch": "Новые пароли не совпадают.",
+    "changePassword.mustDiffer": "Новый пароль должен отличаться от текущего.",
+    "changePassword.updateError": "Не удалось изменить пароль.",
+    "changePassword.submit": "Обновить пароль",
     "common.loading": "Загрузка…",
     "common.unknown": "Неизвестно",
     "common.save": "Сохранить",
@@ -2370,6 +2441,42 @@ const messages = {
     "settings.stack": "Texnologiyalar",
     "settings.auth": "Avtorizatsiya",
     "settings.role": "Rol",
+    "settings.admin": "Administrator",
+    "settings.email": "Elektron pochta",
+    "settings.platformName": "StreamOps administrator paneli",
+    "settings.marketValue": "O'zbekiston / Markaziy Osiyo (UZ/RU)",
+    "settings.stackValue": "Node.js · Express · PostgreSQL · Drizzle ORM",
+    "settings.authValue": "Bearer token · 7 kunlik sessiya · SHA-256 xesh",
+    "settings.showPassword": "Parolni ko'rsatish",
+    "settings.hidePassword": "Parolni yashirish",
+    "settings.roleName.admin": "Administrator",
+    "settings.roleName.superadmin": "Bosh administrator",
+    "settings.roleName.manager": "Menejer",
+    "settings.roleName.moderator": "Moderator",
+    "settings.roleName.viewer": "Kuzatuvchi",
+    "changePassword.title": "Parolni o'zgartirish",
+    "changePassword.description":
+      "Davom etishdan oldin vaqtinchalik parolni yangisiga almashtiring.",
+    "changePassword.currentPassword": "Joriy parol",
+    "changePassword.newPassword": "Yangi parol",
+    "changePassword.confirmPassword": "Yangi parolni tasdiqlang",
+    "changePassword.requirements":
+      "Kamida 8 belgi, katta-kichik harf, raqam va !@#$%^&* belgilaridan birini ishlating.",
+    "changePassword.requirementLength":
+      "Yangi parol kamida 8 ta belgidan iborat bo'lishi kerak.",
+    "changePassword.requirementUppercase":
+      "Yangi parolda kamida bitta katta harf bo'lishi kerak.",
+    "changePassword.requirementLowercase":
+      "Yangi parolda kamida bitta kichik harf bo'lishi kerak.",
+    "changePassword.requirementNumber":
+      "Yangi parolda kamida bitta raqam bo'lishi kerak.",
+    "changePassword.requirementSymbol":
+      "Yangi parolda !@#$%^&* belgilaridan kamida bittasi bo'lishi kerak.",
+    "changePassword.passwordMismatch": "Yangi parollar mos kelmadi.",
+    "changePassword.mustDiffer":
+      "Yangi parol joriy paroldan farq qilishi kerak.",
+    "changePassword.updateError": "Parolni o'zgartirib bo'lmadi.",
+    "changePassword.submit": "Parolni yangilash",
     "common.loading": "Yuklanmoqda…",
     "common.unknown": "Noma'lum",
     "common.save": "Saqlash",
