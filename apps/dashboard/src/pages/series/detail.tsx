@@ -60,10 +60,12 @@ function SeasonEpisodes({
   seriesId,
   seasonId,
   t,
+  formatNumber,
 }: {
   seriesId: string;
   seasonId: string;
   t: (key: string, params?: Record<string, string | number>) => string;
+  formatNumber: (value: number) => string;
 }) {
   const { data: episodes, isLoading } = useListEpisodes(seriesId, seasonId, {
     query: { queryKey: getListEpisodesQueryKey(seriesId, seasonId) },
@@ -92,7 +94,7 @@ function SeasonEpisodes({
           className="flex justify-between text-sm text-muted-foreground"
         >
           <span>
-            {episode.episodeNumber}. {episode.title}
+            {formatNumber(episode.episodeNumber ?? 0)}. {episode.title}
           </span>
           <span>
             {episode.telegramFileId
@@ -105,20 +107,19 @@ function SeasonEpisodes({
   );
 }
 
-const formSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-  posterUrl: z.string().optional(),
-  backgroundUrl: z.string().optional(),
-  trailerUrl: z.string().optional(),
-  telegramFileId: z.string().optional(),
-});
-
 export default function SeriesDetail() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("series.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+    posterUrl: z.string().optional(),
+    backgroundUrl: z.string().optional(),
+    trailerUrl: z.string().optional(),
+    telegramFileId: z.string().optional(),
+  });
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -225,6 +226,7 @@ export default function SeriesDetail() {
           });
           setLocation("/catalog/series");
         },
+        onError: () => toast.error(t("series.deleteError")),
       },
     );
   };
@@ -252,10 +254,12 @@ export default function SeriesDetail() {
       {
         onSuccess: () => {
           setSeasonDialogOpen(false);
+          toast.success(t("series.seasonCreated"));
           queryClient.invalidateQueries({
             queryKey: getListSeasonsQueryKey(params.id as string),
           });
         },
+        onError: () => toast.error(t("series.seasonCreateError")),
       },
     );
   };
@@ -275,7 +279,8 @@ export default function SeriesDetail() {
       toast.error(t("series.episodeNumberPrompt"));
       return;
     }
-    if (!episodeTitle.trim() || !telegramFileId.trim() || !activeSeasonId) return;
+    if (!episodeTitle.trim() || !telegramFileId.trim() || !activeSeasonId)
+      return;
     createEpisode.mutate(
       {
         seriesId: params.id,
@@ -290,6 +295,7 @@ export default function SeriesDetail() {
       {
         onSuccess: (episode) => {
           setEpisodeDialogOpen(false);
+          toast.success(t("series.episodeCreated"));
           if (!episode.id) return;
           updateEpisode.mutate(
             { id: episode.id, data: { isPublished: true } },
@@ -304,6 +310,7 @@ export default function SeriesDetail() {
             },
           );
         },
+        onError: () => toast.error(t("series.episodeCreateError")),
       },
     );
   };
@@ -326,7 +333,7 @@ export default function SeriesDetail() {
         </div>
         <Button
           variant="destructive"
-                onClick={() => setDeleteDialogOpen(true)}
+          onClick={() => setDeleteDialogOpen(true)}
           disabled={deleteSeries.isPending}
         >
           {t("common.delete")}
@@ -496,7 +503,8 @@ export default function SeriesDetail() {
                     <div key={season.id} className="border p-4 rounded-md">
                       <div className="flex justify-between items-center font-medium">
                         <span>
-                          {t("series.season")} {season.seasonNumber}{" "}
+                          {t("series.season")}{" "}
+                          {formatNumber(season.seasonNumber)}{" "}
                           {season.title && `- ${season.title}`}
                         </span>
                         <Button
@@ -512,6 +520,7 @@ export default function SeriesDetail() {
                         seriesId={params.id as string}
                         seasonId={season.id as string}
                         t={t}
+                        formatNumber={formatNumber}
                       />
                     </div>
                   ))}
@@ -529,11 +538,15 @@ export default function SeriesDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("series.addSeason")}</DialogTitle>
-            <DialogDescription>{t("series.seasonNumberPrompt")}</DialogDescription>
+            <DialogDescription>
+              {t("series.seasonNumberPrompt")}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label htmlFor="season-number">{t("series.seasonNumberPrompt")}</Label>
+              <Label htmlFor="season-number">
+                {t("series.seasonNumberPrompt")}
+              </Label>
               <Input
                 id="season-number"
                 type="number"
@@ -543,7 +556,9 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="season-title">{t("series.seasonTitlePrompt")}</Label>
+              <Label htmlFor="season-title">
+                {t("series.seasonTitlePrompt")}
+              </Label>
               <Input
                 id="season-title"
                 value={seasonTitle}
@@ -552,7 +567,10 @@ export default function SeriesDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSeasonDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setSeasonDialogOpen(false)}
+            >
               {t("common.cancel")}
             </Button>
             <Button onClick={handleAddSeason} disabled={createSeason.isPending}>
@@ -565,11 +583,15 @@ export default function SeriesDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("series.addEpisode")}</DialogTitle>
-            <DialogDescription>{t("series.episodeNumberPrompt")}</DialogDescription>
+            <DialogDescription>
+              {t("series.episodeNumberPrompt")}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label htmlFor="episode-number">{t("series.episodeNumberPrompt")}</Label>
+              <Label htmlFor="episode-number">
+                {t("series.episodeNumberPrompt")}
+              </Label>
               <Input
                 id="episode-number"
                 type="number"
@@ -579,7 +601,9 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="episode-title">{t("series.episodeTitlePrompt")}</Label>
+              <Label htmlFor="episode-title">
+                {t("series.episodeTitlePrompt")}
+              </Label>
               <Input
                 id="episode-title"
                 value={episodeTitle}
@@ -587,7 +611,9 @@ export default function SeriesDetail() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="episode-file-id">{t("series.telegramFileIdPrompt")}</Label>
+              <Label htmlFor="episode-file-id">
+                {t("series.telegramFileIdPrompt")}
+              </Label>
               <Input
                 id="episode-file-id"
                 value={telegramFileId}
@@ -596,10 +622,16 @@ export default function SeriesDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEpisodeDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setEpisodeDialogOpen(false)}
+            >
               {t("common.cancel")}
             </Button>
-            <Button onClick={handleAddEpisode} disabled={createEpisode.isPending}>
+            <Button
+              onClick={handleAddEpisode}
+              disabled={createEpisode.isPending}
+            >
               {t("series.addEpisode")}
             </Button>
           </DialogFooter>
@@ -609,7 +641,9 @@ export default function SeriesDetail() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("series.manage")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("series.deleteConfirm")}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {t("series.deleteConfirm")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>

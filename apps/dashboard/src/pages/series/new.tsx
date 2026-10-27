@@ -23,16 +23,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 
-const formSchema = z.object({
-  title: z.string().min(1, "series.titleRequired"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-});
-
 export default function NewSeries() {
   const { t } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("series.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+  });
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const createSeries = useCreateSeries();
