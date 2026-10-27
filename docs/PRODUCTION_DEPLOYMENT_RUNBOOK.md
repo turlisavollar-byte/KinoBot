@@ -10,6 +10,23 @@ The supported production runtime is Docker Compose. The API process also runs Te
 - Source archive or Git checkout for `feature/actor-card-mvp`.
 - A valid email for Let's Encrypt and a PostgreSQL admin password with 16+ alphanumeric characters.
 
+### Reported Test Server
+
+The following baseline was supplied in the deployment test notes and has not
+been independently queried by this workspace:
+
+- AWS EC2 `t3.small`, Ubuntu 24.04 LTS, 2 vCPU.
+- 1.9 GB RAM with 2 GB swap; 29 GB disk with 26 GB free at test time.
+- Domain `3-27-225-225.sslip.io`; Let's Encrypt certificate expiry reported as
+  2027-01-25.
+- Docker 29.9.2 and Node.js 22.
+- Reported first deploy about 4 minutes; repeat deploy about 2 minutes.
+- Reported post-deploy state: 6 roles, 41 tables, 10 genres, 4 plans, and 1
+  admin account.
+
+These are observed test values, not sizing guarantees. A production workload
+with simultaneous builds may require more than the tested 1.9 GB RAM.
+
 The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed job, the API, dashboard (its own Nginx), and the public Nginx reverse proxy. Host PostgreSQL, host Nginx, and PM2 are not required.
 
 ## First Installation
@@ -36,16 +53,23 @@ The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed 
 
    ```bash
    cd /opt/kinobot
-   sudo ./scripts/deploy.sh
+   sudo bash ./scripts/deploy.sh
    ```
 
    For an uploaded source ZIP instead of Git:
 
    ```bash
-   sudo ./scripts/deploy.sh /opt/releases/kinobot-release.zip
+   sudo bash ./scripts/deploy.sh /opt/releases/kinobot-release.zip
    ```
 
-The deploy script performs a verified pre-migration `pg_dump` to `/opt/kinobot/backups`, then starts database bootstrap, migration, seed, API, dashboard, and Nginx in order. It builds both workspace artifacts and Docker images. It fails on the first unsuccessful command and prints recent Compose logs.
+The deploy script performs a verified pre-migration `pg_dump` to
+`/opt/kinobot/backups`, then starts database bootstrap, migration, RBAC seed,
+application seed, API, dashboard, and Nginx in order. It builds workspace
+artifacts and Docker images. It fails on the first unsuccessful command and
+prints recent Compose logs. Shell scripts are tracked as mode `100644`, so use
+`bash scripts/deploy.sh`; do not `chmod` tracked checkout files. Installer-copied
+source intentionally has no `.git`; the deployer recognizes that staged tree.
+Pass a new ZIP path to deploy an updated archive.
 
 ## Environment and Database Roles
 
@@ -70,10 +94,18 @@ For managed PostgreSQL, use the provider's approved DBA role/provisioning proced
 
 Deploy sequence for database changes:
 
-1. The deployer starts PostgreSQL/Redis and ensures the app role exists.
+1. The deployer starts PostgreSQL/Redis and the privileged `db-init` creates
+   the app role plus `audit_owner` and `audit_archiver` before migration.
 2. It creates a custom-format backup and checks it with `pg_restore --list`.
 3. It runs `assert-migration-state.mjs`, then the canonical `migrate-live.mjs` migrator.
-4. Only after migration success does it seed and start application services.
+4. Migration `0011` creates the base roles if missing and links the health
+   permission to admin and superadmin. The `db-seed` job then runs
+   `seed-roles-permissions.ts` before optional admin bootstrap and catalog seed.
+5. Only after migration and seed success do application services start.
+
+The role/permission seeder is deliberately independent of optional
+`SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`; an empty admin-bootstrap config
+does not suppress role and permission initialization.
 
 ## Nginx, TLS, and PM2
 
@@ -99,6 +131,10 @@ PM2 is not part of this deployment. Do not start a separate bot process while AP
 - **Dashboard/API is unavailable:** check `docker compose -f docker-compose.prod.yml ps` and `logs --tail=100 api-server dashboard nginx`; confirm ports 80/443 are open. Local health endpoints are `http://127.0.0.1:8080/api/healthz` and `http://127.0.0.1:3000/health`.
 - **Bot does not start:** confirm `TELEGRAM_POLLING_ENABLED=true`, an active token is configured in the admin UI/database, outbound Telegram connectivity works, and logs show bot startup. The API can start without a configured bot token.
 - **DB bootstrap authentication failure:** confirm `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `MIGRATION_DATABASE_URL` agree. Existing named volumes retain their initialized credentials; changing `.env` does not reset a PostgreSQL volume password.
+- **API log `EACCES`:** the installer assigns `/opt/kinobot/logs/api` to UID/GID 1001, matching the API container's non-root user. If the directory was created earlier, repair its ownership during an approved maintenance window.
+- **Redis overcommit warning:** installer enables `vm.overcommit_memory=1` immediately and persists it in `/etc/sysctl.d/99-kinobot-redis.conf`.
+- **Missing SSL README / Git checkout marked dirty:** installer excludes `.git/` and only excludes TLS `.pem` files from copies, preserving `nginx/ssl/README.md`. It does not chmod tracked scripts.
+- **No RBAC roles or missing health permission:** check the 0011 migration ledger row and `db-seed` logs. The application permission map includes `view:health` for admin and superadmin; the DB seeder must finish after migrations.
 - **Disk space or backup failure:** inspect `/opt/kinobot/backups` and free space. Backups contain production data; retain restricted permissions and move copies to approved encrypted storage. The script does not automatically delete old backups.
 
 ## Operational Commands

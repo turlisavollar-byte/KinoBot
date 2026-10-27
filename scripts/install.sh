@@ -40,6 +40,7 @@ node --version | grep -Eq '^v22\.' || fail 'Node.js 22 installation did not succ
 mkdir -p "$APP_DIR"
 if [[ "$SOURCE_DIR" != "$APP_DIR" ]]; then
   rsync -a \
+    --exclude='.git/' \
     --exclude='.env' \
     --exclude='node_modules/' \
     --exclude='apps/*/dist/' \
@@ -48,13 +49,16 @@ if [[ "$SOURCE_DIR" != "$APP_DIR" ]]; then
     --exclude='apps/landing/playwright-report/' \
     --exclude='logs/' \
     --exclude='backups/' \
-    --exclude='nginx/ssl/' \
+    --exclude='nginx/ssl/*.pem' \
     "$SOURCE_DIR/" "$APP_DIR/"
 fi
 
 mkdir -p "$APP_DIR/logs/nginx" "$APP_DIR/logs/api" "$APP_DIR/backups" "$APP_DIR/nginx/ssl"
+chown -R 1001:1001 "$APP_DIR/logs/api"
 chmod 700 "$APP_DIR/backups" "$APP_DIR/nginx/ssl"
-chmod +x "$APP_DIR/scripts/install.sh" "$APP_DIR/scripts/deploy.sh"
+
+printf 'vm.overcommit_memory=1\n' > /etc/sysctl.d/99-kinobot-redis.conf
+sysctl -w vm.overcommit_memory=1
 
 if [[ ! -f "$APP_DIR/.env" ]]; then
   read -r -p 'Production domain (DNS must point to this server): ' APP_DOMAIN
@@ -63,6 +67,10 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   read -r -s -p 'PostgreSQL admin password (16+ letters/digits): ' POSTGRES_PASSWORD
   printf '\n'
   [[ "$POSTGRES_PASSWORD" =~ ^[A-Za-z0-9]{16,}$ ]] || fail 'Use at least 16 letters/digits so database URLs can be safely constructed.'
+  read -r -s -p 'Confirm PostgreSQL admin password: ' POSTGRES_PASSWORD_CONFIRM
+  printf '\n'
+  [[ "$POSTGRES_PASSWORD" == "$POSTGRES_PASSWORD_CONFIRM" ]] || fail 'PostgreSQL passwords do not match.'
+  unset POSTGRES_PASSWORD_CONFIRM
 
   read -r -s -p 'JWT access secret (blank generates a random secret): ' JWT_ACCESS_SECRET
   printf '\n'
@@ -70,6 +78,18 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
     JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
   fi
   [[ "$JWT_ACCESS_SECRET" =~ ^[A-Za-z0-9_-]{32,}$ ]] || fail 'JWT access secret must be at least 32 letters, digits, underscores, or hyphens.'
+
+  read -r -p 'Initial superadmin email: ' SUPER_ADMIN_EMAIL
+  [[ "$SUPER_ADMIN_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || fail 'Enter a valid superadmin email address.'
+  read -r -s -p 'Initial superadmin password (12+ characters): ' SUPER_ADMIN_PASSWORD
+  printf '\n'
+  [[ "$SUPER_ADMIN_PASSWORD" =~ ^[A-Za-z0-9._-]{12,}$ ]] || fail 'Superadmin password must be at least 12 letters, digits, dots, underscores, or hyphens.'
+  read -r -s -p 'Confirm superadmin password: ' SUPER_ADMIN_PASSWORD_CONFIRM
+  printf '\n'
+  [[ "$SUPER_ADMIN_PASSWORD" == "$SUPER_ADMIN_PASSWORD_CONFIRM" ]] || fail 'Superadmin passwords do not match.'
+  unset SUPER_ADMIN_PASSWORD_CONFIRM
+  read -r -p 'Admin Telegram IDs (comma-separated numeric IDs): ' ADMIN_TELEGRAM_IDS
+  [[ "$ADMIN_TELEGRAM_IDS" =~ ^[0-9]+(,[0-9]+)*$ ]] || fail 'Enter comma-separated numeric Telegram IDs.'
 
   POSTGRES_DB=kinobot
   POSTGRES_USER=postgres
@@ -86,8 +106,9 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   export APP_DOMAIN POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD APP_DB_USER APP_DB_PASSWORD
   export DATABASE_URL MIGRATION_DATABASE_URL JWT_ACCESS_SECRET JWT_REFRESH_SECRET SESSION_SECRET
   export CORS_ORIGINS TLS_CERT_FILE TLS_KEY_FILE TELEGRAM_POLLING_ENABLED
+  export SUPER_ADMIN_EMAIL SUPER_ADMIN_PASSWORD ADMIN_TELEGRAM_IDS
 
-  envsubst '${APP_DOMAIN} ${POSTGRES_DB} ${POSTGRES_USER} ${POSTGRES_PASSWORD} ${APP_DB_USER} ${APP_DB_PASSWORD} ${DATABASE_URL} ${MIGRATION_DATABASE_URL} ${JWT_ACCESS_SECRET} ${JWT_REFRESH_SECRET} ${SESSION_SECRET} ${CORS_ORIGINS} ${TLS_CERT_FILE} ${TLS_KEY_FILE} ${TELEGRAM_POLLING_ENABLED}' \
+  envsubst '${APP_DOMAIN} ${POSTGRES_DB} ${POSTGRES_USER} ${POSTGRES_PASSWORD} ${APP_DB_USER} ${APP_DB_PASSWORD} ${DATABASE_URL} ${MIGRATION_DATABASE_URL} ${JWT_ACCESS_SECRET} ${JWT_REFRESH_SECRET} ${SESSION_SECRET} ${CORS_ORIGINS} ${TLS_CERT_FILE} ${TLS_KEY_FILE} ${TELEGRAM_POLLING_ENABLED} ${SUPER_ADMIN_EMAIL} ${SUPER_ADMIN_PASSWORD} ${ADMIN_TELEGRAM_IDS}' \
     < "$APP_DIR/.env.example" > "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
 else
@@ -107,6 +128,6 @@ if [[ -n "${SUDO_USER:-}" ]]; then
 fi
 
 printf '\nKinoBot server setup is ready at %s.\n' "$APP_DIR"
-printf 'Next: review %s/.env, configure ADMIN_TELEGRAM_IDS and payment credentials, then run:\n' "$APP_DIR"
+printf 'Next: review %s/.env and configure optional payment credentials, then run:\n' "$APP_DIR"
 printf '  cd %s && sudo ./scripts/deploy.sh\n' "$APP_DIR"
 printf 'DNS and ports 80/443 must be reachable for TLS issuance; re-login is needed for docker-group access.\n'

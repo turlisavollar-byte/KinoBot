@@ -58,7 +58,8 @@ if [[ -n "$ZIP_FILE" ]]; then
   [[ -n "$SOURCE_ROOT" ]] || fail 'ZIP must contain the KinoBot workspace root (pnpm-workspace.yaml).'
   rsync -a --delete \
     --exclude='.env' --exclude='.git/' --exclude='node_modules/' \
-    --exclude='backups/' --exclude='logs/' --exclude='nginx/ssl/' \
+    --exclude='backups/' --exclude='logs/' --exclude='nginx/ssl/*.pem' \
+    --exclude='nginx/ssl/README.md' \
     --exclude='apps/*/dist/' --exclude='apps/landing/.next/' \
     "$SOURCE_ROOT/" "$APP_DIR/"
   rm -rf "$ZIP_TEMP"
@@ -68,6 +69,8 @@ elif [[ -d .git ]]; then
   [[ "$current_branch" == "$DEPLOY_BRANCH" ]] || fail "Expected branch $DEPLOY_BRANCH, found $current_branch."
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail 'Tracked working-tree changes exist; refusing to overwrite them.'
   git pull --ff-only origin "$DEPLOY_BRANCH"
+elif [[ -f pnpm-workspace.yaml ]]; then
+  printf 'Using the staged source tree at %s. Pass a new ZIP path to update it.\n' "$APP_DIR"
 else
   fail 'Run from a Git checkout or pass a source ZIP path: ./scripts/deploy.sh /path/to/release.zip'
 fi

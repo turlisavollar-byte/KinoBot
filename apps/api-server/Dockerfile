@@ -63,7 +63,9 @@ COPY --from=build --chown=streamops:streamops /app/apps/api-server/dist ./dist
 COPY --from=build --chown=streamops:streamops /app/lib/db/drizzle-canonical ./lib/db/drizzle-canonical
 COPY --from=build --chown=streamops:streamops /app/lib/db/scripts ./lib/db/scripts
 COPY --from=build --chown=streamops:streamops /app/lib/db/src ./lib/db/src
+COPY --from=build --chown=streamops:streamops /app/lib/db/package.json ./lib/db/package.json
 COPY --from=build --chown=streamops:streamops /app/lib/db/drizzle.config.ts ./lib/db/drizzle.config.ts
+COPY --from=build --chown=streamops:streamops /app/apps/api-server/src/shared/constants ./apps/api-server/src/shared/constants
 COPY --from=deps --chown=streamops:streamops /app/node_modules ./node_modules
 COPY --from=deps --chown=streamops:streamops /app/apps/api-server/node_modules ./apps/api-server/node_modules
 COPY --from=deps --chown=streamops:streamops /app/lib/db/node_modules ./lib/db/node_modules
@@ -77,8 +79,10 @@ RUN for dependency in /app/apps/api-server/node_modules/*; do \
     ln -s "$dependency" "/app/node_modules/$name"; \
     fi; \
     done && \
+    mkdir -p /app/node_modules/@workspace && \
+    ln -sfn /app/lib/db /app/node_modules/@workspace/db && \
     mkdir -p /app/logs /var/uploads && \
-    chown -R streamops:streamops /app/logs /var/uploads
+    chown -R streamops:streamops /app/logs /var/uploads /app/node_modules/@workspace
 
 # Switch to non-root user
 USER streamops
