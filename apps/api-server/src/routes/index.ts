@@ -21,6 +21,7 @@ import { authRouter } from "@/modules/identity";
 import userModule from "@/modules/user";
 import { analyticsRouter } from "@/modules/analytics";
 import billingModule from "@/modules/billing";
+import webRouter from "@/routes/web";
 
 const router: IRouter = Router();
 
@@ -32,6 +33,7 @@ router.use(healthRouter);
 // Note: app.ts already mounts router at /api, so we use relative paths here
 router.use("/identity/auth", authRouter());
 router.use("/auth", authRouter());
+router.use("/web", webRouter);
 router.use(rbacModuleRouter());
 router.use("/notifications", notificationModuleRouter());
 

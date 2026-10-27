@@ -5,6 +5,8 @@ export interface JwtPayload {
   email: string;
   role: string;
   permissions: string[];
+  audience?: "admin" | "web";
+  sessionId?: string;
   tokenType?: "access" | "refresh";
   iat?: number;
   exp?: number;
@@ -106,6 +108,8 @@ export class JwtService {
         email: payload.email,
         role: payload.role,
         permissions: payload.permissions,
+        audience: payload.audience ?? "admin",
+        ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
         tokenType: "access",
       },
       this.accessSecret,
@@ -120,6 +124,8 @@ export class JwtService {
         email: payload.email,
         role: payload.role,
         permissions: payload.permissions,
+        audience: payload.audience ?? "admin",
+        ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
         tokenType: "refresh",
       },
       this.refreshSecret,
@@ -130,6 +136,7 @@ export class JwtService {
   async verify(
     token: string,
     expectedTokenType?: "access" | "refresh",
+    expectedAudience: "admin" | "web" = "admin",
   ): Promise<JwtPayload> {
     try {
       const secret =
@@ -140,11 +147,16 @@ export class JwtService {
       if (expectedTokenType && decoded.tokenType !== expectedTokenType) {
         throw new Error("Unexpected token type");
       }
+      if ((decoded.audience ?? "admin") !== expectedAudience) {
+        throw new Error("Unexpected token audience");
+      }
       return {
         sub: decoded.sub,
         email: decoded.email,
         role: decoded.role,
         permissions: decoded.permissions || [],
+        audience: decoded.audience ?? "admin",
+        sessionId: decoded.sessionId,
         tokenType: decoded.tokenType,
         iat: decoded.iat,
         exp: decoded.exp,
@@ -163,6 +175,8 @@ export class JwtService {
         email: decoded.email,
         role: decoded.role,
         permissions: decoded.permissions || [],
+        audience: decoded.audience ?? "admin",
+        sessionId: decoded.sessionId,
         tokenType: decoded.tokenType,
         iat: decoded.iat,
         exp: decoded.exp,

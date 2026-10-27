@@ -28,6 +28,16 @@ while preparing this report.
 
 These timings reflect the reported test server and are not a production SLA.
 
+### Latest v1.1.1 Baseline Supplied by Operator
+
+- Branch/tag: `feature/actor-card-mvp` / annotated `v1.1.1`; HEAD reported as
+  `23d4bb7`, synchronized with `origin/feature/actor-card-mvp`.
+- Server: AWS `c7i-flex.large`, Ubuntu 24.04.5 LTS, 3.7 GB RAM plus 2 GB swap.
+- Domain: `3-25-119-10.sslip.io`; TLS expiry reported as 2027-01-25.
+- `install.sh`: 104 seconds; `deploy.sh`: 293 seconds; total reported 6:37.
+- v1.1.1 12/12 fixes, dashboard, bot, login, and health status were reported
+  confirmed by the operator. They are not independent v2 test results.
+
 ## Findings and Resolutions
 
 1. **API log `EACCES` - confirmed from filesystem ownership model.** The API runs
@@ -102,3 +112,91 @@ These timings reflect the reported test server and are not a production SLA.
   unjournaled migrations.
 - `git diff --check`: passed.
 - Docker image build, database migration, and live deploy: not run.
+
+## v2 Integration Status (2026-10-27)
+
+Work is on `feature/v2-web-integration`, branched from the frozen v1.1.1 tag.
+Only the Web subtree was imported from `feature/web`; the current `apps/landing`
+was preserved. The reported v1.1.1 server results above are operator-provided
+and do not constitute a v2 deployment test.
+
+Implemented in this workspace:
+
+- Public routes: LandingPage `/`, Dashboard `/admin/`, cinema `/web/`, API `/api`.
+- Docker Compose Web and LandingPage services with Next.js standalone output,
+  internal health checks, shared Nginx routing, and the existing PostgreSQL,
+  Redis, API, bot, and dashboard services.
+- Web-only JWT audience, separate from administrator tokens; customer
+  registration/login/me use the shared `users` and `user_profiles` tables.
+- Canonical `0012_web_customer_auth.sql` adds the Web password hash and allows
+  accounts without Telegram IDs; the application TypeScript contract remains
+  non-null for existing Telegram code, while the Web insert explicitly writes
+  SQL NULL.
+- API-backed published movie/series catalog, profile, favorites/watchlist,
+  watch progress, public plans, current subscription, and premium stream ticket.
+- Premium/family entitlement is checked in api-server on every stream-ticket
+  request. A five-minute S3 presigned URL is returned only for S3-backed
+  published movies. Telegram `file_id` is not exposed.
+- Supabase client SDK and old Supabase migration assets were removed from the
+  imported Web app. v3 tenant IDs/RLS/tenant routing were not implemented.
+
+Static checks performed:
+
+- `pnpm --filter @workspace/api-server typecheck`: passed.
+- `pnpm --filter @workspace/web typecheck`: passed.
+- `pnpm --filter @workspace/web build`: passed, Next.js standalone build.
+- `pnpm --filter @workspace/landing build`: passed, Next.js standalone build.
+- `pnpm --filter @workspace/dashboard build` with `BASE_PATH=/admin/`: passed.
+- `docker compose ... config -q`: passed with dummy interpolation values; no
+  services were started.
+- JWT audience regression tests: 16 passed.
+- Live Docker image build, migration 0012, clean-server deploy, browser login,
+  real premium stream, and repeat deploy: not run.
+
+Known v2 release gates:
+
+- Most current video rows use Telegram file IDs; Web streaming requires S3
+  ingest, bucket/key metadata, S3 credentials, and browser-compatible media
+  CORS/range behavior. Telegram-only titles correctly return
+  `STREAM_UNAVAILABLE`.
+- Password reset/change and self-service purchase/cancellation are not enabled
+  by the Web API. Production purchase must use verified provider webhooks to
+  create active subscription rows; direct client tier selection is disabled.
+- `pnpm install --frozen-lockfile` was attempted after the Web workspace was
+  added but stalled at 194/195 packages in this Windows environment. The
+  already available binaries allowed Web/landing/dashboard builds and type
+  checks above; a clean Linux install/build remains a release gate.
+- No production server or database was contacted, and no migration was run.
+- The v1.1.1 branch/tag was not modified; this work remains on
+  `feature/v2-web-integration`.
+
+## v2 Enterprise Hardening Update
+
+- Web accounts may omit Telegram identity. Canonical migration 0012 adds
+  `password_hash`, makes `users.telegram_id` nullable, and adds a
+  case-insensitive unique email index after a duplicate-case preflight. Existing
+  Telegram provisioning still requires a Telegram ID; user DTOs now represent
+  it as optional/null.
+- Canonical migration 0013 adds `web_refresh_sessions`. Web refresh tokens are
+  stored only as SHA-256 hashes, rotated atomically, and revoked on logout.
+  Access and refresh JWTs contain `audience=web` and the session ID; protected
+  Web requests check the active session row. Admin JWT defaults remain
+  `audience=admin`.
+- Registration normalizes email and maps unique-constraint races to HTTP 409.
+  Telegram broadcasts filter out Web-only accounts with no Telegram ID.
+- Deploy preflight now requires a trusted public certificate and probes public
+  `/api/healthz`, `/admin/health`, `/web/`, and `/` routes. It no longer uses
+  `curl --insecure` for deployment acceptance.
+- API typecheck and Web typecheck pass after the latest shared-schema changes.
+  JWT audience/session regression suite: 17 passed. Web and LandingPage
+  production builds passed; Dashboard `/admin/` production build passed.
+- Docker Compose config parsing and migration journal parity passed; journal
+  contains 14 SQL files and 14 entries through 0013. No image build, database
+  migration, clean-server deployment, payment flow, S3 playback, or production
+  traffic test has been performed.
+
+Remaining release gates: test migrations 0012-0013 against a restored copy of
+the actual v1.1.1 DB; confirm the case-insensitive email preflight on that data;
+run a clean Linux `pnpm install --frozen-lockfile` and Docker build; validate
+refresh replay rejection, logout revocation, S3 URL expiry/CORS/range playback,
+and the payment-provider webhook before enabling paid checkout.

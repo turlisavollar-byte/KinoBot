@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
+  experimental: {
+    outputFileTracingRoot: require("path").join(__dirname, "../.."),
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   images: {

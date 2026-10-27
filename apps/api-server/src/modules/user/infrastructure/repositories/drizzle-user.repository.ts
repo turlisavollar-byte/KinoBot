@@ -44,7 +44,7 @@ export class DrizzleUserRepository implements IUserRepository {
   private toDomain(row: DbUser): User {
     return User.reconstitute({
       id: row.id,
-      telegramId: row.telegramId,
+      telegramId: row.telegramId ?? undefined,
       email: row.email ? Email.create(row.email) : undefined,
       phone: row.phone ? Phone.create(row.phone) : undefined,
       username: row.username || undefined,
@@ -80,7 +80,7 @@ export class DrizzleUserRepository implements IUserRepository {
   private toDb(user: User): Partial<DbUser> {
     return {
       id: user.id,
-      telegramId: user.telegramId,
+      telegramId: user.telegramId ?? null,
       email: user.email?.toString(),
       phone: user.phone?.toString(),
       username: user.username,

@@ -5,18 +5,34 @@
  * MinIO will be used for: thumbnails, subtitles, actor/genre images.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListBucketsCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  ListBucketsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Logger } from "@/shared/utils/logger";
 
 const logger = Logger.getInstance("Storage");
 
 export interface StorageClient {
-  upload(bucket: string, key: string, data: Buffer, contentType: string): Promise<string>;
+  upload(
+    bucket: string,
+    key: string,
+    data: Buffer,
+    contentType: string,
+  ): Promise<string>;
   getUrl(bucket: string, key: string): Promise<string>;
   delete(bucket: string, key: string): Promise<void>;
   exists(bucket: string, key: string): Promise<boolean>;
-  getPresignedUrl(bucket: string, key: string, expiresIn?: number): Promise<string>;
+  getPresignedUrl(
+    bucket: string,
+    key: string,
+    expiresIn?: number,
+  ): Promise<string>;
 }
 
 export const Buckets = {
@@ -28,17 +44,24 @@ export const Buckets = {
 
 class S3Storage implements StorageClient {
   private client: S3Client;
+  private presignClient: S3Client;
   private endpoint?: string;
 
   constructor() {
     const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
-    const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
-    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
-    const region = process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1";
-    const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === "true" || endpoint?.includes("minio");
+    const accessKeyId =
+      process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+    const secretAccessKey =
+      process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+    const region =
+      process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1";
+    const forcePathStyle =
+      process.env.S3_FORCE_PATH_STYLE === "true" || endpoint?.includes("minio");
 
     if (!accessKeyId || !secretAccessKey) {
-      throw new Error("S3 credentials not configured. Set S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY");
+      throw new Error(
+        "S3 credentials not configured. Set S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY",
+      );
     }
 
     this.endpoint = endpoint;
@@ -49,6 +72,13 @@ class S3Storage implements StorageClient {
         accessKeyId,
         secretAccessKey,
       },
+      region,
+      forcePathStyle,
+    });
+
+    this.presignClient = new S3Client({
+      endpoint: process.env.S3_PRESIGN_ENDPOINT || endpoint,
+      credentials: { accessKeyId, secretAccessKey },
       region,
       forcePathStyle,
     });
@@ -67,7 +97,12 @@ class S3Storage implements StorageClient {
     }
   }
 
-  async upload(bucket: string, key: string, data: Buffer, contentType: string): Promise<string> {
+  async upload(
+    bucket: string,
+    key: string,
+    data: Buffer,
+    contentType: string,
+  ): Promise<string> {
     try {
       const command = new PutObjectCommand({
         Bucket: bucket,
@@ -80,7 +115,11 @@ class S3Storage implements StorageClient {
       logger.debug(`File uploaded to ${bucket}/${key}`);
       return `${bucket}/${key}`;
     } catch (error) {
-      logger.error(`Failed to upload file to ${bucket}/${key}:`, undefined, error);
+      logger.error(
+        `Failed to upload file to ${bucket}/${key}:`,
+        undefined,
+        error,
+      );
       throw error;
     }
   }
@@ -94,17 +133,27 @@ class S3Storage implements StorageClient {
     return `https://${bucket}.s3.amazonaws.com/${key}`;
   }
 
-  async getPresignedUrl(bucket: string, key: string, expiresIn: number = 3600): Promise<string> {
+  async getPresignedUrl(
+    bucket: string,
+    key: string,
+    expiresIn: number = 3600,
+  ): Promise<string> {
     try {
       const command = new GetObjectCommand({
         Bucket: bucket,
         Key: key,
       });
 
-      const url = await getSignedUrl(this.client, command, { expiresIn });
+      const url = await getSignedUrl(this.presignClient, command, {
+        expiresIn,
+      });
       return url;
     } catch (error) {
-      logger.error(`Failed to generate presigned URL for ${bucket}/${key}:`, undefined, error);
+      logger.error(
+        `Failed to generate presigned URL for ${bucket}/${key}:`,
+        undefined,
+        error,
+      );
       throw error;
     }
   }
@@ -119,7 +168,11 @@ class S3Storage implements StorageClient {
       await this.client.send(command);
       logger.debug(`File deleted from ${bucket}/${key}`);
     } catch (error) {
-      logger.error(`Failed to delete file from ${bucket}/${key}:`, undefined, error);
+      logger.error(
+        `Failed to delete file from ${bucket}/${key}:`,
+        undefined,
+        error,
+      );
       throw error;
     }
   }
@@ -134,17 +187,29 @@ class S3Storage implements StorageClient {
       await this.client.send(command);
       return true;
     } catch (error: any) {
-      if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      if (
+        error.name === "NotFound" ||
+        error.$metadata?.httpStatusCode === 404
+      ) {
         return false;
       }
-      logger.error(`Failed to check existence of ${bucket}/${key}:`, undefined, error);
+      logger.error(
+        `Failed to check existence of ${bucket}/${key}:`,
+        undefined,
+        error,
+      );
       return false;
     }
   }
 }
 
 class StubStorage implements StorageClient {
-  async upload(_bucket: string, key: string, _data: Buffer, _contentType: string): Promise<string> {
+  async upload(
+    _bucket: string,
+    key: string,
+    _data: Buffer,
+    _contentType: string,
+  ): Promise<string> {
     logger.warn("Storage: S3 not configured, upload skipped (stub)", { key });
     return `stub://${key}`;
   }
@@ -152,15 +217,22 @@ class StubStorage implements StorageClient {
     return `stub://${key}`;
   }
   async delete(_bucket: string, _key: string): Promise<void> {}
-  async exists(_bucket: string, _key: string): Promise<boolean> { return false; }
-  async getPresignedUrl(_bucket: string, key: string, _expiresIn?: number): Promise<string> {
+  async exists(_bucket: string, _key: string): Promise<boolean> {
+    return false;
+  }
+  async getPresignedUrl(
+    _bucket: string,
+    key: string,
+    _expiresIn?: number,
+  ): Promise<string> {
     return `stub://${key}`;
   }
 }
 
-export const storage: StorageClient = (process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY)
-  ? new S3Storage()
-  : new StubStorage();
+export const storage: StorageClient =
+  process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY
+    ? new S3Storage()
+    : new StubStorage();
 
 if (process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY) {
   logger.info("Storage: using S3-compatible storage");

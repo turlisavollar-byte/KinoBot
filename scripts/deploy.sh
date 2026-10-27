@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-DEPLOY_BRANCH="${DEPLOY_BRANCH:-feature/actor-card-mvp}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-feature/v2-web-integration}"
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:8080/api/healthz}"
 DASHBOARD_HEALTH_URL="${DASHBOARD_HEALTH_URL:-http://127.0.0.1:3000/health}"
@@ -60,7 +60,7 @@ if [[ -n "$ZIP_FILE" ]]; then
     --exclude='.env' --exclude='.git/' --exclude='node_modules/' \
     --exclude='backups/' --exclude='logs/' --exclude='nginx/ssl/*.pem' \
     --exclude='nginx/ssl/README.md' \
-    --exclude='apps/*/dist/' --exclude='apps/landing/.next/' \
+    --exclude='apps/*/dist/' --exclude='apps/landing/.next/' --exclude='apps/web/.next/' \
     "$SOURCE_ROOT/" "$APP_DIR/"
   rm -rf "$ZIP_TEMP"
   trap on_error ERR
@@ -86,7 +86,9 @@ done
 
 tls_cert="$(sed -n 's/^TLS_CERT_FILE=//p' .env | tail -n 1 | tr -d '\r"')"
 tls_key="$(sed -n 's/^TLS_KEY_FILE=//p' .env | tail -n 1 | tr -d '\r"')"
+public_domain="$(sed -n 's/^PUBLIC_DOMAIN=//p' .env | tail -n 1 | tr -d '\r"')"
 [[ -s "$tls_cert" && -s "$tls_key" ]] || fail 'TLS certificate/key are missing; run scripts/install.sh or provision TLS_CERT_FILE/TLS_KEY_FILE.'
+[[ -n "$public_domain" ]] || fail 'PUBLIC_DOMAIN is missing from .env.'
 openssl x509 -in "$tls_cert" -noout >/dev/null 2>&1 || fail 'TLS_CERT_FILE is not a valid certificate.'
 
 docker compose --env-file .env -f "$COMPOSE_FILE" config -q
@@ -101,11 +103,16 @@ docker compose --env-file .env -f "$COMPOSE_FILE" run --rm db-init
 docker compose --env-file .env -f "$COMPOSE_FILE" run --rm db-backup
 docker compose --env-file .env -f "$COMPOSE_FILE" up --no-deps --force-recreate --exit-code-from db-migrator db-migrator
 docker compose --env-file .env -f "$COMPOSE_FILE" up --no-deps --force-recreate --exit-code-from db-seed db-seed
-docker compose --env-file .env -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 api-server dashboard nginx
+docker compose --env-file .env -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 api-server dashboard web landing nginx
 
 for attempt in $(seq 1 30); do
-  if curl --fail --silent "$API_HEALTH_URL" >/dev/null && curl --fail --silent "$DASHBOARD_HEALTH_URL" >/dev/null; then
-    printf 'API and dashboard health checks passed.\n'
+  if curl --fail --silent "$API_HEALTH_URL" >/dev/null \
+    && curl --fail --silent "$DASHBOARD_HEALTH_URL" >/dev/null \
+    && curl --fail --silent "https://${public_domain}/api/healthz" >/dev/null \
+    && curl --fail --silent "https://${public_domain}/admin/health" >/dev/null \
+    && curl --fail --silent "https://${public_domain}/web/" >/dev/null \
+    && curl --fail --silent "https://${public_domain}/" >/dev/null; then
+    printf 'API, dashboard, Web, and LandingPage health checks passed.\n'
     break
   fi
   if [[ "$attempt" -eq 30 ]]; then

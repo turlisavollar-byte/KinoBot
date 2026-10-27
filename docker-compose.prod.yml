@@ -142,6 +142,13 @@ services:
       PORT: 8080
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_PRESIGN_ENDPOINT: ${S3_PRESIGN_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      VIDEO_BUCKET: ${VIDEO_BUCKET:-videos}
       TELEGRAM_POLLING_ENABLED: ${TELEGRAM_POLLING_ENABLED:-true}
       PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
       PAYME_KEY: ${PAYME_KEY:-}
@@ -187,6 +194,8 @@ services:
     build:
       context: .
       dockerfile: apps/dashboard/Dockerfile
+      args:
+        BASE_PATH: /admin/
     restart: always
     environment:
       VITE_API_URL: /api
@@ -200,6 +209,66 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - kinobot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api
+        NEXT_PUBLIC_APP_URL: https://${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}
+        NEXT_BASE_PATH: /web
+    restart: always
+    environment:
+      API_URL: http://api-server:8080
+      NEXT_PUBLIC_API_URL: /api
+      NEXT_PUBLIC_APP_URL: https://${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}
+      NODE_ENV: production
+      PORT: 3000
+    expose:
+      - "3000"
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/web').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - kinobot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  landing:
+    build:
+      context: .
+      dockerfile: apps/landing/Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: https://${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - kinobot-network
     logging:
@@ -222,6 +291,8 @@ services:
     depends_on:
       - api-server
       - dashboard
+      - web
+      - landing
     networks:
       - kinobot-network
     logging:

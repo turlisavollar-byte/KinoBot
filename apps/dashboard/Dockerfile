@@ -25,6 +25,8 @@ COPY . .
 # Set environment for build
 ENV NODE_ENV=production
 ENV VITE_API_URL=/api
+ARG BASE_PATH=/admin/
+ENV BASE_PATH=$BASE_PATH
 
 # Build the dashboard
 RUN pnpm --filter @workspace/dashboard run build

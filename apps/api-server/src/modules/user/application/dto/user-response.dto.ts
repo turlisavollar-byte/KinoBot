@@ -5,7 +5,7 @@ import { z } from "zod";
 // User response schema
 export const userResponseSchema = z.object({
   id: z.string(),
-  telegramId: z.string(),
+  telegramId: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   username: z.string().nullable().optional(),

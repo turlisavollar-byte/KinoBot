@@ -2,12 +2,24 @@
 
 The supported production runtime is Docker Compose. The API process also runs Telegram polling; there is no separate bot or PM2 process. On a prepared Debian/Ubuntu server, a deploy normally takes 30-60 minutes depending on image downloads, build speed, and database size. The installer and deployer do not guarantee that duration.
 
+## v2 Public Routes
+
+- `/` serves the Next.js LandingPage.
+- `/admin/` serves the Vite administrator dashboard.
+- `/web/` serves the Next.js cinema application.
+- `/api/` serves api-server.
+
+One Nginx reverse proxy and one TLS certificate serve all four paths. Dashboard
+assets are built with `/admin/` as their base path; cinema uses Next.js
+`basePath=/web`. The existing PostgreSQL, Redis, API, bot, dashboard, and
+canonical migrations remain in the same Compose stack.
+
 ## Requirements
 
 - Fresh Debian 12+ or Ubuntu 22.04+ server, at least 2 vCPU, 4 GB RAM, and 20 GB free disk recommended.
 - DNS A record for the production domain pointing to this server.
 - Inbound TCP 80/443 open for ACME certificate issuance and HTTPS; SSH restricted to operator IPs.
-- Source archive or Git checkout for `feature/actor-card-mvp`.
+- Source archive or Git checkout for `feature/v2-web-integration`.
 - A valid email for Let's Encrypt and a PostgreSQL admin password with 16+ alphanumeric characters.
 
 ### Reported Test Server
@@ -27,7 +39,9 @@ been independently queried by this workspace:
 These are observed test values, not sizing guarantees. A production workload
 with simultaneous builds may require more than the tested 1.9 GB RAM.
 
-The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed job, the API, dashboard (its own Nginx), and the public Nginx reverse proxy. Host PostgreSQL, host Nginx, and PM2 are not required.
+The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed
+job, API, dashboard, cinema Web, LandingPage, and public Nginx reverse proxy.
+Host PostgreSQL, host Nginx, and PM2 are not required.
 
 ## First Installation
 
@@ -64,7 +78,7 @@ The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed 
 
 The deploy script performs a verified pre-migration `pg_dump` to
 `/opt/kinobot/backups`, then starts database bootstrap, migration, RBAC seed,
-application seed, API, dashboard, and Nginx in order. It builds workspace
+application seed, API, dashboard, Web, LandingPage, and Nginx in order. It builds workspace
 artifacts and Docker images. It fails on the first unsuccessful command and
 prints recent Compose logs. Shell scripts are tracked as mode `100644`, so use
 `bash scripts/deploy.sh`; do not `chmod` tracked checkout files. Installer-copied
@@ -79,10 +93,51 @@ Pass a new ZIP path to deploy an updated archive.
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `SESSION_SECRET` are distinct random values. Do not rotate them casually; doing so invalidates sessions/tokens.
 - `CORS_ORIGINS` is an exact HTTPS origin such as `https://kino.example.com`, without a trailing slash or path. Wildcard `*` is rejected. Dashboard API requests use same-origin `/api` routing.
 - `TLS_CERT_FILE` and `TLS_KEY_FILE` point to the host certificate and private key. Installer uses Certbot paths under `/etc/letsencrypt/live/<domain>/`.
+- `NEXT_PUBLIC_API_URL=/api`, `NEXT_PUBLIC_APP_URL=https://<domain>`, and `NEXT_BASE_PATH=/web` configure the cinema app. No Supabase credentials are used.
+- `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, and `VIDEO_BUCKET` are optional; without these values S3-backed Web playback returns `STREAM_UNAVAILABLE`.
 - `TELEGRAM_POLLING_ENABLED=true` starts polling in the API process. The API exposes permission-protected `/api/telegram/bot/start` and `/api/telegram/bot/stop` controls; the dashboard action invokes the API, not a second process.
 - `ADMIN_TELEGRAM_IDS` must be set before deployment. `SUPER_ADMIN_*` bootstrap values are optional; leave blank unless the project seed flow is explicitly configured for initial admin creation.
 
 The API binds to `0.0.0.0` inside its container so Docker networking works, but Compose publishes the API only on host loopback (`127.0.0.1:8080`). Public requests go through the Nginx container on ports 80/443. Do not change the in-container host binding to `127.0.0.1`.
+
+## Web Customer Auth and Premium
+
+The cinema app uses `/api/web/auth/register`, `/api/web/auth/login`, and
+`/api/web/auth/me`, `/api/web/auth/refresh`, and `/api/web/auth/logout`. Web
+JWTs carry `audience=web` plus a session ID and are rejected by admin routes.
+Only a SHA-256 hash of each refresh token is stored in
+`web_refresh_sessions`; refresh atomically revokes the old session and creates
+one replacement. Sessions have a seven-day idle expiry and a fixed 30-day
+absolute expiry. Web protected requests check that the session row is active,
+so logout revokes access immediately. Use HTTPS and do not log bearer tokens.
+Profile, watchlist, watch progress, and subscriptions use the shared PostgreSQL
+database. Password reset/change and self-service purchase/cancel are not
+enabled unless matching server-side flows are configured.
+
+Migration 0012 permits Web accounts without Telegram IDs, adds `password_hash`,
+and creates a case-insensitive email unique index. It fails before index
+creation if existing accounts collide by email case; reconcile such rows in a
+reviewed maintenance operation before applying that migration. Migration 0013
+adds the hashed Web refresh-session ledger. Existing Telegram account creation
+continues to require a Telegram ID.
+
+`GET /api/web/subscriptions/current` reports an active, unexpired entitlement.
+`GET /api/web/movies/:id/stream` independently checks active `premium` or
+`family` subscription status before returning a five-minute signed S3 URL. It
+only works for published movies with `source_type=s3`, a storage key, and S3
+credentials (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`,
+`S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, `VIDEO_BUCKET`, and optionally
+`S3_PRESIGN_ENDPOINT` when the internal storage endpoint is not browser
+reachable). Dashboard `source_type=minio` and `source_type=s3` are supported.
+Telegram file IDs are never exposed to browsers; Telegram-only/HLS titles return
+`STREAM_UNAVAILABLE` until media is ingested to S3. Restrict S3 bucket policy,
+serve HTTPS, and configure allowed browser media origins/range requests on the
+storage endpoint. The Nginx CSP allows HTTPS/blob media; the S3 CORS policy
+must separately allow the production domain and byte-range `GET`.
+
+The v2 architecture centralizes customer data access behind api-server but
+does not implement tenant IDs, tenant claims, RLS tenant policies, or tenant
+routing. Multi-tenancy is a v3 task.
 
 ## Migration 0008
 
@@ -109,7 +164,9 @@ does not suppress role and permission initialization.
 
 ## Nginx, TLS, and PM2
 
-The public Nginx container publishes 80/443 and reverse-proxies `/api` to the API service and other paths to the dashboard. The dashboard container separately serves the Vite build with SPA fallback. No host Nginx installation or checked-in `dist/public` is needed; Docker builds the dashboard image from source.
+The public Nginx container publishes 80/443 and routes `/api` to api-server,
+`/admin/` to the Vite dashboard, `/web/` to the Next.js cinema app, and `/` to
+the LandingPage. Docker builds the dashboard and Next.js assets from source.
 
 Let's Encrypt certificates renew on the host. After a successful renewal, restart the proxy so it reopens the certificate files:
 
@@ -129,6 +186,10 @@ PM2 is not part of this deployment. Do not start a separate bot process while AP
 - **Migration 0008 fails with permission denied:** inspect `docker compose -f docker-compose.prod.yml logs db-migrator`; confirm the migration URL has provider-supported role and ownership privileges. Do not suppress the error or mark the migration applied manually.
 - **Migration hash mismatch:** the deployed SQL differs from the version recorded in the DB ledger. Restore the exact release migration files or prepare an approved forward reconciliation; do not edit the applied migration.
 - **Dashboard/API is unavailable:** check `docker compose -f docker-compose.prod.yml ps` and `logs --tail=100 api-server dashboard nginx`; confirm ports 80/443 are open. Local health endpoints are `http://127.0.0.1:8080/api/healthz` and `http://127.0.0.1:3000/health`.
+- **Web or LandingPage unavailable:** inspect `docker compose -f docker-compose.prod.yml logs --tail=100 web landing nginx`; verify `/web/` and `/` return success and both service health checks are healthy.
+- **Web login is unauthorized:** use a customer account registered through `/web/register`, not the Dashboard administrator account. Web audience tokens are intentionally rejected by admin APIs.
+- **Premium stream returns 403:** verify the same customer has an active, unexpired `premium` or `family` subscription.
+- **Premium stream returns 503:** the movie must have `source_type=s3`, a storage key, and configured S3 credentials; Telegram-hosted videos are not browser stream URLs.
 - **Bot does not start:** confirm `TELEGRAM_POLLING_ENABLED=true`, an active token is configured in the admin UI/database, outbound Telegram connectivity works, and logs show bot startup. The API can start without a configured bot token.
 - **DB bootstrap authentication failure:** confirm `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `MIGRATION_DATABASE_URL` agree. Existing named volumes retain their initialized credentials; changing `.env` does not reset a PostgreSQL volume password.
 - **API log `EACCES`:** the installer assigns `/opt/kinobot/logs/api` to UID/GID 1001, matching the API container's non-root user. If the directory was created earlier, repair its ownership during an approved maintenance window.
@@ -143,9 +204,10 @@ PM2 is not part of this deployment. Do not start a separate bot process while AP
 cd /opt/kinobot
 sudo docker compose -f docker-compose.prod.yml ps
 sudo docker compose -f docker-compose.prod.yml logs --tail=100
-sudo docker compose -f docker-compose.prod.yml restart api-server dashboard nginx
+sudo docker compose -f docker-compose.prod.yml restart api-server dashboard web landing nginx
 curl --fail https://<domain>/api/healthz
 curl --fail https://<domain>/health
+curl --fail https://<domain>/web/
 ```
 
 The deploy automation, installation, and documentation do not replace staging validation, monitoring, encrypted off-host backups, or a tested restore/rollback procedure.

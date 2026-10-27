@@ -9,7 +9,7 @@ export type UserRole =
 
 export interface UserProps {
   id: string;
-  telegramId: string;
+  telegramId?: string;
   email?: Email;
   phone?: Phone;
   username?: string;
@@ -82,7 +82,7 @@ export class User {
   get id(): string {
     return this.props.id;
   }
-  get telegramId(): string {
+  get telegramId(): string | undefined {
     return this.props.telegramId;
   }
   get email(): Email | undefined {
