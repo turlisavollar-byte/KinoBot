@@ -1,52 +1,112 @@
-# =============================================================================
-# StreamOps - Docker Compose Production Configuration
-# Optimized for production deployment
-# =============================================================================
-
 services:
-  # Redis with persistence
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kinobot-network
+
   redis:
     image: redis:7-alpine
-    container_name: streamops-redis-prod
     restart: always
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
-    ports:
-      - "127.0.0.1:16379:6379"  # Only accessible locally; avoid conflicts with a host Redis.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - streamops-network
+      - kinobot-network
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Apply tracked migrations before seeding or starting the API.
+  # Creates the least-privilege app login and grants existing/future app tables.
+  db-init:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      ADMIN_DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+    command:
+      - sh
+      - -ec
+      - |
+        until pg_isready -h postgres -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"; do sleep 2; done
+        psql "$$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -v app_password="$$APP_DB_PASSWORD" -v database_name="$$POSTGRES_DB" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', 'kinobot_user', :'app_password')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kinobot_user')
+        \gexec
+        SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', 'kinobot_user', :'app_password')
+        \gexec
+        SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'database_name', 'kinobot_user')
+        \gexec
+        GRANT USAGE ON SCHEMA public TO kinobot_user;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO kinobot_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO kinobot_user;
+        ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO kinobot_user;
+        ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO kinobot_user;
+        SQL
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kinobot-network
+
+  # Creates a verified pre-migration backup in the private host backups directory.
+  db-backup:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["sh", "-ec"]
+    command:
+      - |
+        umask 077
+        backup="/backups/kinobot-$$(date -u +%Y%m%dT%H%M%SZ).dump"
+        pg_dump --format=custom --no-owner --no-acl "$$DATABASE_URL" > "$$backup"
+        pg_restore --list "$$backup" >/dev/null
+        printf 'Verified backup: %s\n' "$$backup"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kinobot-network
+
   db-migrator:
     build:
       context: .
       dockerfile: apps/api-server/Dockerfile
-    container_name: streamops-db-migrator-prod
     restart: "no"
     working_dir: /app/lib/db
     command: ["sh", "-c", "node /app/lib/db/scripts/assert-migration-state.mjs && node /app/lib/db/scripts/migrate-live.mjs"]
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
     networks:
-      - streamops-network
+      - kinobot-network
 
-  # Seed defaults only after all migrations have completed.
   db-seed:
     build:
       context: .
       dockerfile: apps/api-server/Dockerfile
-    container_name: streamops-db-seed-prod
     restart: "no"
     working_dir: /app/lib/db
     command: ["/app/node_modules/.bin/tsx", "src/seed.ts"]
@@ -60,20 +120,20 @@ services:
       db-migrator:
         condition: service_completed_successfully
     networks:
-      - streamops-network
+      - kinobot-network
 
-  # API Server with production settings
   api-server:
     build:
       context: .
       dockerfile: apps/api-server/Dockerfile
-    container_name: streamops-api-prod
     restart: always
     environment:
       NODE_ENV: production
+      HOST: 0.0.0.0
       PORT: 8080
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: redis://redis:6379
+      TELEGRAM_POLLING_ENABLED: ${TELEGRAM_POLLING_ENABLED:-true}
       PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
       PAYME_KEY: ${PAYME_KEY:-}
       PAYME_IS_TEST: "false"
@@ -101,25 +161,23 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/healthz', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     networks:
-      - streamops-network
+      - kinobot-network
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Dashboard with production settings
   dashboard:
     build:
       context: .
       dockerfile: apps/dashboard/Dockerfile
-    container_name: streamops-dashboard-prod
     restart: always
     environment:
       VITE_API_URL: /api
@@ -134,30 +192,29 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - streamops-network
+      - kinobot-network
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # Nginx Reverse Proxy with SSL support
   nginx:
     image: nginx:1.27-alpine
-    container_name: streamops-nginx-prod
     restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ${TLS_CERT_FILE:?TLS_CERT_FILE is required}:/etc/nginx/ssl/cert.pem:ro
+      - ${TLS_KEY_FILE:?TLS_KEY_FILE is required}:/etc/nginx/ssl/key.pem:ro
       - ./logs/nginx:/var/log/nginx
     depends_on:
       - api-server
       - dashboard
     networks:
-      - streamops-network
+      - kinobot-network
     logging:
       driver: "json-file"
       options:
@@ -165,10 +222,12 @@ services:
         max-file: "3"
 
 networks:
-  streamops-network:
+  kinobot-network:
     driver: bridge
 
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
   upload_data:

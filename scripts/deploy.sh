@@ -1,178 +1,115 @@
-#!/bin/bash
-# =============================================================================
-# StreamOps - Deployment Script
-# One-command deployment for production environments
-# =============================================================================
+#!/usr/bin/env bash
 
-set -e
+set -Eeuo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-feature/actor-card-mvp}"
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:8080/api/healthz}"
+DASHBOARD_HEALTH_URL="${DASHBOARD_HEALTH_URL:-http://127.0.0.1:3000/health}"
+ZIP_FILE="${1:-${ZIP_FILE:-}}"
 
-# Logging functions
-log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+fail() {
+  printf 'ERROR: %s\n' "$1" >&2
+  if command -v docker >/dev/null 2>&1 && [[ -f .env && -f "$COMPOSE_FILE" ]]; then
+    docker compose --env-file .env -f "$COMPOSE_FILE" logs --tail=100 2>&1 || true
+  fi
+  exit 1
 }
 
-log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+on_error() {
+  status=$?
+  trap - ERR
+  printf '\nDeployment failed (exit %s). Recent Compose logs:\n' "$status" >&2
+  docker compose --env-file .env -f "$COMPOSE_FILE" logs --tail=100 2>&1 || true
+  exit "$status"
+}
+trap on_error ERR
+
+require_env() {
+  local key="$1"
+  grep -Eq "^[[:space:]]*${key}=.+" .env || fail "Set ${key} in .env"
 }
 
-log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
+cd "$APP_DIR"
+[[ -f .env ]] || fail 'Missing .env. Run scripts/install.sh first.'
+[[ -f "$COMPOSE_FILE" ]] || fail "Compose file not found: $COMPOSE_FILE"
+command -v docker >/dev/null || fail 'Docker is not installed.'
+command -v pnpm >/dev/null || fail 'pnpm is not installed. Run scripts/install.sh first.'
+command -v curl >/dev/null || fail 'curl is not installed.'
+command -v unzip >/dev/null || fail 'unzip is not installed.'
+docker compose version >/dev/null 2>&1 || fail 'Docker Compose plugin is unavailable.'
+docker info >/dev/null 2>&1 || fail 'Docker daemon is not running or accessible.'
 
-log_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
+for key in DATABASE_URL MIGRATION_DATABASE_URL ADMIN_TELEGRAM_IDS JWT_ACCESS_SECRET JWT_REFRESH_SECRET SESSION_SECRET CORS_ORIGINS TLS_CERT_FILE TLS_KEY_FILE; do
+  require_env "$key"
+done
+admin_ids="$(sed -n 's/^ADMIN_TELEGRAM_IDS=//p' .env | tail -n 1 | tr -d '\r"')"
+[[ "$admin_ids" != REPLACE_* ]] || fail 'Set ADMIN_TELEGRAM_IDS to real numeric Telegram IDs before deploying.'
+[[ "$admin_ids" =~ ^[0-9]+(,[0-9]+)*$ ]] || fail 'ADMIN_TELEGRAM_IDS must be comma-separated numeric Telegram IDs.'
 
-# Check prerequisites
-check_prerequisites() {
-    log_info "Checking prerequisites..."
-    
-    # Check Docker
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker is not installed. Please install Docker first."
-        exit 1
-    fi
-    log_success "Docker is installed"
+if [[ -n "$ZIP_FILE" ]]; then
+  [[ -f "$ZIP_FILE" ]] || fail "ZIP archive not found: $ZIP_FILE"
+  ZIP_FILE="$(realpath "$ZIP_FILE")"
+  ZIP_TEMP="$(mktemp -d)"
+  trap 'rm -rf "${ZIP_TEMP:-}"' EXIT
+  unzip -q "$ZIP_FILE" -d "$ZIP_TEMP"
+  SOURCE_ROOT="$(find "$ZIP_TEMP" -mindepth 1 -maxdepth 4 -type f -name pnpm-workspace.yaml -printf '%h\n' | head -n 1)"
+  [[ -n "$SOURCE_ROOT" ]] || fail 'ZIP must contain the KinoBot workspace root (pnpm-workspace.yaml).'
+  rsync -a --delete \
+    --exclude='.env' --exclude='.git/' --exclude='node_modules/' \
+    --exclude='backups/' --exclude='logs/' --exclude='nginx/ssl/' \
+    --exclude='apps/*/dist/' --exclude='apps/landing/.next/' \
+    "$SOURCE_ROOT/" "$APP_DIR/"
+  rm -rf "$ZIP_TEMP"
+  trap on_error ERR
+elif [[ -d .git ]]; then
+  current_branch="$(git branch --show-current)"
+  [[ "$current_branch" == "$DEPLOY_BRANCH" ]] || fail "Expected branch $DEPLOY_BRANCH, found $current_branch."
+  [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail 'Tracked working-tree changes exist; refusing to overwrite them.'
+  git pull --ff-only origin "$DEPLOY_BRANCH"
+else
+  fail 'Run from a Git checkout or pass a source ZIP path: ./scripts/deploy.sh /path/to/release.zip'
+fi
 
-    # Check Docker Compose
-    if ! docker compose version &> /dev/null; then
-        log_error "Docker Compose is not installed. Please install Docker Compose first."
-        exit 1
-    fi
-    log_success "Docker Compose is installed"
+cors_origins="$(sed -n 's/^[[:space:]]*CORS_ORIGINS=//p' .env | tail -n 1 | tr -d '\r"' | sed "s/'//g")"
+[[ -n "$cors_origins" ]] || fail 'CORS_ORIGINS is empty.'
+[[ "$cors_origins" != *'*'* ]] || fail "CORS_ORIGINS must list exact HTTPS origins; '*' is forbidden."
+IFS=',' read -r -a origins <<< "$cors_origins"
+for origin in "${origins[@]}"; do
+  origin="$(printf '%s' "$origin" | xargs)"
+  [[ "$origin" =~ ^https://[^[:space:]]+$ ]] || fail "Invalid production CORS origin: $origin"
+done
 
-    # Check .env file
-    if [ ! -f .env ]; then
-        log_error ".env file not found. Please copy .env.example to .env and configure it."
-        exit 1
-    fi
-    log_success ".env file found"
+tls_cert="$(sed -n 's/^TLS_CERT_FILE=//p' .env | tail -n 1 | tr -d '\r"')"
+tls_key="$(sed -n 's/^TLS_KEY_FILE=//p' .env | tail -n 1 | tr -d '\r"')"
+[[ -s "$tls_cert" && -s "$tls_key" ]] || fail 'TLS certificate/key are missing; run scripts/install.sh or provision TLS_CERT_FILE/TLS_KEY_FILE.'
+openssl x509 -in "$tls_cert" -noout >/dev/null 2>&1 || fail 'TLS_CERT_FILE is not a valid certificate.'
 
-    for tls_file in nginx/ssl/cert.pem nginx/ssl/key.pem; do
-        if [ ! -f "$tls_file" ]; then
-            log_error "Missing TLS file: $tls_file. Install a real production certificate before deploying."
-            exit 1
-        fi
-    done
-    log_success "TLS certificate files found"
+docker compose --env-file .env -f "$COMPOSE_FILE" config -q
+pnpm install --frozen-lockfile
+pnpm build
+docker compose --env-file .env -f "$COMPOSE_FILE" build
 
-    if grep -Eq '^CORS_ORIGINS=.*(^|,)[[:space:]]*\*([[:space:]]*,|$)' .env; then
-        log_error "CORS_ORIGINS must contain explicit production origins; wildcard '*' is not allowed."
-        exit 1
-    fi
+mkdir -p backups
+chmod 700 backups
+docker compose --env-file .env -f "$COMPOSE_FILE" up -d --wait --wait-timeout 180 postgres redis
+docker compose --env-file .env -f "$COMPOSE_FILE" run --rm db-init
+docker compose --env-file .env -f "$COMPOSE_FILE" run --rm db-backup
+docker compose --env-file .env -f "$COMPOSE_FILE" up --no-deps --force-recreate --exit-code-from db-migrator db-migrator
+docker compose --env-file .env -f "$COMPOSE_FILE" up --no-deps --force-recreate --exit-code-from db-seed db-seed
+docker compose --env-file .env -f "$COMPOSE_FILE" up -d --wait --wait-timeout 300 api-server dashboard nginx
 
-    # Check Docker is running
-    if ! docker info &> /dev/null; then
-        log_error "Docker is not running. Please start Docker first."
-        exit 1
-    fi
-    log_success "Docker is running"
-}
+for attempt in $(seq 1 30); do
+  if curl --fail --silent "$API_HEALTH_URL" >/dev/null && curl --fail --silent "$DASHBOARD_HEALTH_URL" >/dev/null; then
+    printf 'API and dashboard health checks passed.\n'
+    break
+  fi
+  if [[ "$attempt" -eq 30 ]]; then
+    fail "Health checks timed out: $API_HEALTH_URL and $DASHBOARD_HEALTH_URL"
+  fi
+  sleep 2
+done
 
-# Load environment variables
-load_env() {
-    log_info "Loading environment variables..."
-    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-    log_success "Environment variables loaded"
-}
-
-# Stop existing services
-stop_services() {
-    log_info "Stopping existing services..."
-    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
-    log_success "Services stopped"
-}
-
-# Build and start services
-deploy_services() {
-    log_info "Building and starting services..."
-    
-    # Pull latest images
-    log_info "Pulling latest images..."
-    docker compose -f "$COMPOSE_FILE" pull
-    
-    # Build services
-    log_info "Building services..."
-    docker compose -f "$COMPOSE_FILE" build --no-cache
-    
-    # Start services
-    log_info "Starting services..."
-    docker compose -f "$COMPOSE_FILE" up -d
-    
-    log_success "Services deployed"
-}
-
-# Health check
-health_check() {
-    log_info "Running health checks..."
-    
-    # Wait for services to be healthy
-    log_info "Waiting for services to be healthy (this may take up to 60 seconds)..."
-    sleep 30
-    
-    # Check API health
-    if curl -f http://localhost:8080/api/healthz &> /dev/null; then
-        log_success "API server is healthy"
-    else
-        log_warning "API server health check failed, but deployment may still be working"
-    fi
-    
-    # Check Dashboard health
-    if curl -f http://localhost:3000/health &> /dev/null; then
-        log_success "Dashboard is healthy"
-    else
-        log_warning "Dashboard health check failed, but deployment may still be working"
-    fi
-}
-
-# Show deployment info
-show_info() {
-    echo ""
-    echo "=========================================="
-    log_success "Deployment completed successfully!"
-    echo "=========================================="
-    echo ""
-    echo "🌐 Access URLs:"
-    echo "   Dashboard: http://localhost:3000"
-    echo "   API: http://localhost:8080"
-    echo "   API Health: http://localhost:8080/api/healthz"
-    echo ""
-    echo "📝 Admin access:"
-    echo "   Use the explicitly configured bootstrap account, if one was provided."
-    echo "   Remove SUPER_ADMIN_PASSWORD from the environment after first use."
-    echo ""
-    echo "🔧 Useful Commands:"
-    echo "   View logs: docker compose -f $COMPOSE_FILE logs -f"
-    echo "   Stop services: docker compose -f $COMPOSE_FILE down"
-    echo "   Restart services: docker compose -f $COMPOSE_FILE restart"
-    echo ""
-}
-
-# Main deployment flow
-main() {
-    echo ""
-    echo "=========================================="
-    echo "🚀 StreamOps Deployment Script"
-    echo "=========================================="
-    echo ""
-    
-    check_prerequisites
-    load_env
-    stop_services
-    deploy_services
-    health_check
-    show_info
-    
-    log_success "Deployment completed!"
-}
-
-# Run main function
-main "$@"
+printf 'Deployment healthy. Backups: %s/backups\n' "$APP_DIR"
+printf 'Review logs with: docker compose -f %s logs --tail=100\n' "$COMPOSE_FILE"
