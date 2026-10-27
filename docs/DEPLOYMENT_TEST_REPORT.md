@@ -73,6 +73,12 @@ These timings reflect the reported test server and are not a production SLA.
     provisions `audit_owner` and `audit_archiver` before migration. Migration
     0008 remains fail-closed; permission/ownership errors must stop deployment,
     not be converted to success notices.
+12. **Installer prompts were not persisted in `.env` - confirmed.** The
+    `envsubst` variable list included bootstrap values but the template used
+    literal `ADMIN_TELEGRAM_IDS` and blank `SUPER_ADMIN_*` lines. The template
+    now references all four prompted variables, `SUPER_ADMIN_NAME` is prompted
+    with a `Developer` default, and the installer prints `sudo bash` for the
+    non-executable tracked deploy script.
 
 ## Follow-up Recommendations
 

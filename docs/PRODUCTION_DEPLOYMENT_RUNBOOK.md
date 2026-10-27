@@ -44,10 +44,10 @@ The Compose stack includes PostgreSQL, Redis, a bootstrap/backup/migration/seed 
    sudo bash scripts/install.sh
    ```
 
-   It installs Docker Engine/Compose, Node.js 22, pnpm 9.15, Git, curl, unzip, rsync, OpenSSL, and Certbot; copies source to `/opt/kinobot`; and creates a mode-600 `.env` from `.env.example` if one is not already present. It prompts for the domain, PostgreSQL admin password, and optional JWT access secret; other high-entropy secrets are generated with OpenSSL.
+   It installs Docker Engine/Compose, Node.js 22, pnpm 9.15, Git, curl, unzip, rsync, OpenSSL, and Certbot; copies source to `/opt/kinobot`; and creates a mode-600 `.env` from `.env.example` if one is not already present. It prompts for the domain, PostgreSQL admin password, optional JWT access secret, initial superadmin name/email/password, and Telegram admin IDs; generated values are substituted into the environment template.
 
 4. Installer requests a Let's Encrypt certificate in standalone mode. DNS must already resolve to the server and port 80 must reach it. If issuance is not possible, stop and arrange valid certificate/key paths in `.env` before deployment.
-5. Edit `/opt/kinobot/.env` and set `ADMIN_TELEGRAM_IDS` to numeric Telegram user IDs. Add payment secrets only for providers that are enabled. Do not put `.env` or private keys in ZIP/Git/chat.
+5. Confirm the installer wrote the requested `ADMIN_TELEGRAM_IDS`, `SUPER_ADMIN_NAME`, `SUPER_ADMIN_EMAIL`, and `SUPER_ADMIN_PASSWORD` values to `/opt/kinobot/.env`. Add payment secrets only for providers that are enabled. Do not put `.env` or private keys in ZIP/Git/chat.
 6. Configure the Telegram bot token in the dashboard/admin settings after first deploy. Bot polling is enabled in the API with `TELEGRAM_POLLING_ENABLED=true`.
 7. Run the first deploy:
 

@@ -79,6 +79,8 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   fi
   [[ "$JWT_ACCESS_SECRET" =~ ^[A-Za-z0-9_-]{32,}$ ]] || fail 'JWT access secret must be at least 32 letters, digits, underscores, or hyphens.'
 
+  read -r -p 'Initial superadmin name [Developer]: ' SUPER_ADMIN_NAME
+  SUPER_ADMIN_NAME="${SUPER_ADMIN_NAME:-Developer}"
   read -r -p 'Initial superadmin email: ' SUPER_ADMIN_EMAIL
   [[ "$SUPER_ADMIN_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || fail 'Enter a valid superadmin email address.'
   read -r -s -p 'Initial superadmin password (12+ characters): ' SUPER_ADMIN_PASSWORD
@@ -106,9 +108,9 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   export APP_DOMAIN POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD APP_DB_USER APP_DB_PASSWORD
   export DATABASE_URL MIGRATION_DATABASE_URL JWT_ACCESS_SECRET JWT_REFRESH_SECRET SESSION_SECRET
   export CORS_ORIGINS TLS_CERT_FILE TLS_KEY_FILE TELEGRAM_POLLING_ENABLED
-  export SUPER_ADMIN_EMAIL SUPER_ADMIN_PASSWORD ADMIN_TELEGRAM_IDS
+  export ADMIN_TELEGRAM_IDS SUPER_ADMIN_NAME SUPER_ADMIN_EMAIL SUPER_ADMIN_PASSWORD
 
-  envsubst '${APP_DOMAIN} ${POSTGRES_DB} ${POSTGRES_USER} ${POSTGRES_PASSWORD} ${APP_DB_USER} ${APP_DB_PASSWORD} ${DATABASE_URL} ${MIGRATION_DATABASE_URL} ${JWT_ACCESS_SECRET} ${JWT_REFRESH_SECRET} ${SESSION_SECRET} ${CORS_ORIGINS} ${TLS_CERT_FILE} ${TLS_KEY_FILE} ${TELEGRAM_POLLING_ENABLED} ${SUPER_ADMIN_EMAIL} ${SUPER_ADMIN_PASSWORD} ${ADMIN_TELEGRAM_IDS}' \
+  envsubst '${APP_DOMAIN} ${POSTGRES_DB} ${POSTGRES_USER} ${POSTGRES_PASSWORD} ${APP_DB_USER} ${APP_DB_PASSWORD} ${DATABASE_URL} ${MIGRATION_DATABASE_URL} ${JWT_ACCESS_SECRET} ${JWT_REFRESH_SECRET} ${SESSION_SECRET} ${CORS_ORIGINS} ${TLS_CERT_FILE} ${TLS_KEY_FILE} ${TELEGRAM_POLLING_ENABLED} ${ADMIN_TELEGRAM_IDS} ${SUPER_ADMIN_NAME} ${SUPER_ADMIN_EMAIL} ${SUPER_ADMIN_PASSWORD}' \
     < "$APP_DIR/.env.example" > "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
 else
@@ -129,5 +131,5 @@ fi
 
 printf '\nKinoBot server setup is ready at %s.\n' "$APP_DIR"
 printf 'Next: review %s/.env and configure optional payment credentials, then run:\n' "$APP_DIR"
-printf '  cd %s && sudo ./scripts/deploy.sh\n' "$APP_DIR"
+printf '  cd %s && sudo bash ./scripts/deploy.sh\n' "$APP_DIR"
 printf 'DNS and ports 80/443 must be reachable for TLS issuance; re-login is needed for docker-group access.\n'
