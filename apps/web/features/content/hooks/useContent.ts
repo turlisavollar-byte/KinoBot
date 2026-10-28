@@ -20,6 +20,15 @@ interface CatalogData {
   featuredItems: FeaturedItem[];
 }
 
+const emptyCatalog: CatalogData = {
+  trendingMovies: [],
+  trendingSeries: [],
+  continueWatching: [],
+  top10Movies: [],
+  newReleases: [],
+  featuredItems: [],
+};
+
 export function useCatalog() {
   const { data, isLoading, error } = useQuery<CatalogData>({
     queryKey: ["content", "catalog"],
@@ -27,7 +36,7 @@ export function useCatalog() {
   });
 
   return {
-    data: data ?? null,
+    data: data ?? emptyCatalog,
     loading: isLoading,
     error:
       error instanceof Error
