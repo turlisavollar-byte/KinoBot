@@ -14,16 +14,24 @@ export default function Home() {
     return <PageSkeleton />;
   }
 
+  const featuredItems = data.featuredItems?.filter((item) => item?.id) ?? [];
+  const continueWatching =
+    data.continueWatching?.filter((item) => item?.id) ?? [];
+  const trendingMovies = data.trendingMovies?.filter((item) => item?.id) ?? [];
+  const top10Movies = data.top10Movies?.filter((item) => item?.id) ?? [];
+  const trendingSeries = data.trendingSeries?.filter((item) => item?.id) ?? [];
+  const newReleases = data.newReleases?.filter((item) => item?.id) ?? [];
+
   return (
     <main className="pt-0">
-      <FeaturedCarousel items={data.featuredItems} />
+      {featuredItems.length > 0 && <FeaturedCarousel items={featuredItems} />}
 
       <div className="relative -mt-20 z-10 space-y-10 lg:space-y-14 pb-16">
-        {data.continueWatching.length > 0 && (
+        {continueWatching.length > 0 && (
           <HorizontalScroll
             title="Continue Watching"
             subtitle="Pick up where you left off"
-            items={data.continueWatching}
+            items={continueWatching}
           />
         )}
 
@@ -31,14 +39,14 @@ export default function Home() {
           title="Trending Movies"
           subtitle="Most popular movies right now"
           href={routes.movies}
-          items={data.trendingMovies}
+          items={trendingMovies}
         />
 
         <HorizontalScroll
           title="Top 10 Today"
           subtitle="Most watched in the last 24 hours"
           href="/browse?filter=top10"
-          items={data.top10Movies}
+          items={top10Movies}
           showRank
         />
 
@@ -46,7 +54,7 @@ export default function Home() {
           title="Trending Series"
           subtitle="Most popular TV shows right now"
           href={routes.series}
-          items={data.trendingSeries}
+          items={trendingSeries}
         />
 
         <CTABanner />
@@ -55,7 +63,7 @@ export default function Home() {
           title="New Releases"
           subtitle="Fresh content just added"
           href="/browse?filter=new"
-          items={data.newReleases}
+          items={newReleases}
         />
       </div>
     </main>
