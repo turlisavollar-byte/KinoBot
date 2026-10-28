@@ -17,6 +17,11 @@ const nextConfig = {
         hostname: "images.pexels.com",
         pathname: "/photos/**",
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+        pathname: "/**",
+      },
     ],
   },
 };
