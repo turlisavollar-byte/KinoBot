@@ -32,7 +32,33 @@ const emptyCatalog: CatalogData = {
 export function useCatalog() {
   const { data, isLoading, error } = useQuery<CatalogData>({
     queryKey: ["content", "catalog"],
-    queryFn: async (): Promise<CatalogData> => contentApi.getCatalog(),
+    queryFn: async (): Promise<CatalogData> => {
+      const [movies, series] = await Promise.all([
+        contentApi.getMovies(),
+        contentApi.listSeries(),
+      ]);
+      const featuredItems: FeaturedItem[] = movies.slice(0, 5).map((movie) => ({
+        id: movie.id,
+        title: movie.title,
+        description: movie.title,
+        image: movie.image,
+        backdrop: movie.image,
+        year: movie.year ?? 0,
+        rating: movie.rating ?? 0,
+        duration: movie.duration ?? "",
+        genres: movie.genres ?? [],
+        type: movie.type,
+      }));
+
+      return {
+        trendingMovies: movies,
+        trendingSeries: series,
+        continueWatching: [],
+        top10Movies: movies.slice(0, 10),
+        newReleases: movies.slice(0, 10),
+        featuredItems,
+      };
+    },
   });
 
   return {
