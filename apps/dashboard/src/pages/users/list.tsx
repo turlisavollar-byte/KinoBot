@@ -13,7 +13,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Eye, Search, ShieldAlert } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Search,
+  ShieldAlert,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -33,16 +39,53 @@ type UserWithSubscription = User & {
 };
 
 export default function UsersList() {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, formatNumber, locale } = useI18n();
   const [search, setSearch] = useState("");
+  // Keep the page size aligned with the API default.
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const { data: usersResponse, isLoading } = useListUsers({
+  const {
+    data: usersResponse,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+  } = useListUsers({
     search,
     role: "user",
+    page,
+    limit,
   });
   const blockUser = useBlockUser();
   const users = usersResponse?.data as UserWithSubscription[] | undefined;
+  const meta = usersResponse?.meta;
+  const pageCount = Math.max(meta?.totalPages ?? 1, 1);
+  const paginationLabels = {
+    en: {
+      previous: "Previous",
+      next: "Next",
+      page: "Page",
+      total: "Total",
+      loadError: "Could not load users",
+    },
+    ru: {
+      previous: "Назад",
+      next: "Далее",
+      page: "Страница",
+      total: "Всего",
+      loadError: "Не удалось загрузить пользователей",
+    },
+    uz: {
+      previous: "Oldingi",
+      next: "Keyingi",
+      page: "Sahifa",
+      total: "Jami",
+      loadError: "Foydalanuvchilarni yuklab bo'lmadi",
+    },
+  }[locale];
+  const isPageLoading = isLoading || isFetching;
 
   const handleBlockToggle = (id: string, isBlocked: boolean) => {
     blockUser.mutate(
@@ -77,7 +120,10 @@ export default function UsersList() {
             placeholder={t("users.searchPlaceholder")}
             className="pl-8"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
       </div>
@@ -96,10 +142,22 @@ export default function UsersList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isPageLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8">
                   {t("common.loading")}
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="py-8 text-center text-destructive"
+                >
+                  {paginationLabels.loadError}
+                  {error instanceof Error && error.message
+                    ? `: ${error.message}`
+                    : ""}
                 </TableCell>
               </TableRow>
             ) : !users || users.length === 0 ? (
@@ -192,6 +250,41 @@ export default function UsersList() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Page controls follow the server-provided pagination metadata. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {paginationLabels.total}: {formatNumber(meta?.total ?? 0)}
+        </p>
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setPage((currentPage) => Math.max(1, currentPage - 1))
+            }
+            disabled={isPageLoading || !meta?.hasPrevious}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            {paginationLabels.previous}
+          </Button>
+          <span
+            className="whitespace-nowrap text-sm text-muted-foreground"
+            aria-live="polite"
+          >
+            {paginationLabels.page} {formatNumber(page)} / {formatNumber(pageCount)}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((currentPage) => currentPage + 1)}
+            disabled={isPageLoading || !meta?.hasNext}
+          >
+            {paginationLabels.next}
+            <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </div>
   );
