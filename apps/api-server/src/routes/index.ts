@@ -17,6 +17,7 @@ import searchRouter from "@/modules/search/search.routes";
 import advertisingRouter from "@/modules/advertising/advertising.routes";
 import integrationRouter from "@/modules/integration/integration.routes";
 import viewingRouter from "@/modules/viewing/viewing.routes";
+import settingsRouter from "@/modules/settings/settings.routes";
 import { authRouter } from "@/modules/identity";
 import userModule from "@/modules/user";
 import { analyticsRouter } from "@/modules/analytics";
@@ -53,6 +54,7 @@ router.use(searchRouter);
 router.use(advertisingRouter);
 router.use(integrationRouter);
 router.use(viewingRouter);
+router.use(settingsRouter);
 router.use("/analytics", analyticsRouter);
 
 // New billing module (DDD architecture with full payment provider support)

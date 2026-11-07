@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useIdentityGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api-fetch";
 import { useI18n } from "@/lib/i18n";
@@ -21,9 +21,69 @@ import { User, Shield, Globe, Info, Lock, Eye, EyeOff } from "lucide-react";
 export default function Settings() {
   const { t, formatDate } = useI18n();
   const { data: me } = useIdentityGetMe();
+  const [trialDurationDays, setTrialDurationDays] = useState(30);
+  const [trialLoading, setTrialLoading] = useState(true);
+  const [trialSaving, setTrialSaving] = useState(false);
+  const [trialLoadError, setTrialLoadError] = useState(false);
+  const [trialSaveError, setTrialSaveError] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwLoading, setPwLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch<{
+      success: boolean;
+      data: Record<string, unknown>;
+    }>("/api/settings")
+      .then((response) => {
+        const trialDays = Number(response.data.trial_duration_days);
+        if (
+          active &&
+          Number.isInteger(trialDays) &&
+          trialDays >= 0 &&
+          trialDays <= 365
+        ) {
+          setTrialDurationDays(trialDays);
+        }
+      })
+      .catch(() => {
+        if (active) setTrialLoadError(true);
+      })
+      .finally(() => {
+        if (active) setTrialLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSaveTrialDuration = async () => {
+    if (
+      !Number.isInteger(trialDurationDays) ||
+      trialDurationDays < 0 ||
+      trialDurationDays > 365
+    ) {
+      setTrialSaveError(true);
+      return;
+    }
+
+    setTrialSaving(true);
+    setTrialSaveError(false);
+    try {
+      await apiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({ trial_duration_days: trialDurationDays }),
+      });
+      toast.success(t("settings.trialSaved"));
+    } catch {
+      setTrialSaveError(true);
+      toast.error(t("settings.trialSaveFailed"));
+    } finally {
+      setTrialSaving(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (pwForm.next !== pwForm.confirm) {
@@ -128,6 +188,61 @@ export default function Settings() {
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t("settings.trialTitle")}
+          </CardTitle>
+          <CardDescription>
+            {t("settings.trialDescription")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="trial-duration-days">
+              {t("settings.trialDurationDays")}
+            </Label>
+            <Input
+              id="trial-duration-days"
+              type="number"
+              min={0}
+              max={365}
+              step={1}
+              value={trialDurationDays}
+              disabled={trialLoading || trialSaving}
+              onChange={(event) => {
+                setTrialDurationDays(Number(event.target.value));
+                setTrialSaveError(false);
+              }}
+            />
+          </div>
+          {trialLoading && (
+            <p className="text-sm text-muted-foreground">
+              {t("settings.trialLoading")}
+            </p>
+          )}
+          {trialLoadError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("settings.trialLoadFailed")}
+            </p>
+          )}
+          {trialSaveError && (
+            <p role="alert" className="text-sm text-destructive">
+              {trialDurationDays < 0 || trialDurationDays > 365 ||
+              !Number.isInteger(trialDurationDays)
+                ? t("settings.trialInvalid")
+                : t("settings.trialSaveFailed")}
+            </p>
+          )}
+          <Button
+            onClick={() => void handleSaveTrialDuration()}
+            disabled={trialLoading || trialSaving}
+          >
+            {trialSaving ? t("settings.saving") : t("settings.trialSave")}
+          </Button>
         </CardContent>
       </Card>
 
