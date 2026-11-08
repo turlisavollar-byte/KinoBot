@@ -1,4 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import { z } from "zod";
 import { requireAuth, requirePermission } from "@/lib/auth";
 import { Permission } from "@/shared/constants/permissions";
@@ -8,12 +13,21 @@ import { Logger } from "@/shared/utils/logger";
 import {
   getSettings,
   getTrialDurationDays,
+  resetAllTrials,
   setTrialDurationDays,
 } from "./settings.service";
 
 const updateSettingsSchema = z
   .object({
     trial_duration_days: z.number().int().min(0).max(365),
+  })
+  .strict();
+
+const resetAllTrialsSchema = z
+  .object({
+    days: z.number().int().min(1).max(365),
+    onlyExpired: z.boolean().default(true),
+    preview: z.boolean().default(true),
   })
   .strict();
 
@@ -78,6 +92,45 @@ router.put(
       res.json({
         success: true,
         data: { trial_duration_days: trialDurationDays },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  "/settings/reset-all-trials",
+  requirePermission(Permission.MANAGE_SYSTEM),
+  validate({ body: resetAllTrialsSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { days, onlyExpired, preview } = req.body as z.infer<
+        typeof resetAllTrialsSchema
+      >;
+      const affectedCount = await resetAllTrials(days, onlyExpired, preview);
+
+      if (!preview) {
+        const auditResult = await logAuditEvent({
+          action: "TRIAL_RESET_ALL",
+          targetType: "USER",
+          targetId: "all",
+          targetName: "All user trials",
+          oldValue: { onlyExpired },
+          newValue: { days, onlyExpired, affectedCount },
+          req,
+        });
+        if (!auditResult.success) {
+          logger.error("Failed to write audit log for global trial reset", {
+            affectedCount,
+            logId: auditResult.logId,
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: { affectedCount, days, onlyExpired, preview },
       });
     } catch (error) {
       next(error);
