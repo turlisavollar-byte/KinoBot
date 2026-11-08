@@ -1,5 +1,5 @@
 name: Deploy v2 staging
-"on":
+on:
   workflow_dispatch:
     inputs:
       confirm_staging:
