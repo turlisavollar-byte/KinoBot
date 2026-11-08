@@ -45,6 +45,12 @@ export const updateUserSchema = z.object({
 
 export type UpdateUserDto = z.infer<typeof updateUserSchema>;
 
+export const extendTrialSchema = z.object({
+  days: z.number().int().min(1).max(365),
+});
+
+export type ExtendTrialDto = z.infer<typeof extendTrialSchema>;
+
 // Block user DTO
 export const blockUserSchema = z.object({
   blocked: z.boolean(),

@@ -65,6 +65,7 @@ import {
 import type { IBillingPlanRepository } from "../domain";
 import { createPagination, PaginatedResult } from "@/shared/types";
 import { AppError } from "@/shared/errors";
+import { logAuditEvent } from "@/shared/utils/audit";
 
 function uuidRegex() {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -162,6 +163,14 @@ export class BillingController {
     try {
       const dto = CreatePlanSchema.parse(req.body);
       const plan = await this.createPlanUC.execute(dto);
+      await logAuditEvent({
+        action: "CONFIG_CHANGED",
+        targetType: "CONFIG",
+        targetId: plan.id,
+        targetName: plan.name,
+        newValue: this.planResponse(plan),
+        req,
+      });
       res.status(201).json({ success: true, data: this.planResponse(plan) });
     } catch (err) {
       next(err);
@@ -258,8 +267,18 @@ export class BillingController {
   ): Promise<void> {
     try {
       const id = routeParam(req.params.id);
+      const previous = await this.getPlanUC.execute(id);
       const dto = UpdatePlanSchema.parse(req.body);
       const plan = await this.updatePlanUC.execute(id, dto);
+      await logAuditEvent({
+        action: "CONFIG_CHANGED",
+        targetType: "CONFIG",
+        targetId: id,
+        targetName: plan.name,
+        oldValue: this.planResponse(previous),
+        newValue: this.planResponse(plan),
+        req,
+      });
       res.json({ success: true, data: this.planResponse(plan) });
     } catch (err) {
       next(err);
@@ -360,7 +379,17 @@ export class BillingController {
   ): Promise<void> {
     try {
       const id = routeParam(req.params.id);
+      const previous = await this.getPlanUC.execute(id);
       await this.deletePlanUC.execute(id);
+      await logAuditEvent({
+        action: "CONFIG_CHANGED",
+        targetType: "CONFIG",
+        targetId: id,
+        targetName: previous.name,
+        oldValue: this.planResponse(previous),
+        newValue: { deleted: true },
+        req,
+      });
       res.status(204).json({ success: true, message: "Plan deleted" });
     } catch (err) {
       next(err);
@@ -379,9 +408,67 @@ export class BillingController {
         ...dto,
         userId: this.canManageBilling(req) ? dto.userId : this.actorId(req),
       });
-      res
-        .status(201)
-        .json({ success: true, data: await this.subResponse(sub) });
+      const response = await this.subResponse(sub);
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CREATED",
+        targetType: "SUBSCRIPTION",
+        targetId: sub.id,
+        newValue: response,
+        req,
+      });
+      res.status(201).json({ success: true, data: response });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async createSubscriptionForAdmin(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const dto = CreateSubscriptionSchema.parse(req.body);
+      const sub = await this.createSubUC.execute(dto);
+      const response = await this.subResponse(sub);
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CREATED",
+        targetType: "SUBSCRIPTION",
+        targetId: sub.id,
+        newValue: response,
+        req,
+        metadata: { administrativeGrant: true },
+      });
+      res.status(201).json({ success: true, data: response });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async deleteSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = routeParam(req.params.id);
+      const previous = await this.getSubUC.execute(id);
+      const canceled = await this.cancelSubUC.execute(
+        CancelSubscriptionSchema.parse({ id, immediate: true }),
+      );
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CANCELLED",
+        targetType: "SUBSCRIPTION",
+        targetId: id,
+        oldValue: {
+          status: previous.status,
+          currentPeriodEnd: previous.currentPeriodEnd,
+        },
+        newValue: { status: "canceled", immediate: true },
+        req,
+        metadata: { administrativeRevocation: true },
+      });
+      res.status(204).end();
     } catch (err) {
       next(err);
     }
@@ -441,6 +528,20 @@ export class BillingController {
       this.assertResourceAccess(req, sub.userId);
       const dto = CancelSubscriptionSchema.parse({ id, ...req.body });
       const canceledSub = await this.cancelSubUC.execute(dto);
+      await logAuditEvent({
+        action: "SUBSCRIPTION_CANCELLED",
+        targetType: "SUBSCRIPTION",
+        targetId: id,
+        oldValue: {
+          status: sub.status,
+          currentPeriodEnd: sub.currentPeriodEnd,
+        },
+        newValue: {
+          immediate: dto.immediate ?? false,
+          cancelAtPeriodEnd: !(dto.immediate ?? false),
+        },
+        req,
+      });
       res.json(await this.subResponse(canceledSub));
     } catch (err) {
       next(err);

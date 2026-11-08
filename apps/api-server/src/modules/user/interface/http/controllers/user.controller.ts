@@ -8,6 +8,7 @@ import { UpdateUserUseCase } from "../../../application/use-cases/update-user.us
 import { BlockUserUseCase } from "../../../application/use-cases/block-user.use-case";
 import { DeleteUserUseCase } from "../../../application/use-cases/delete-user.use-case";
 import { ExportUsersUseCase } from "../../../application/use-cases/export-users.use-case";
+import { ExtendTrialUseCase } from "../../../application/use-cases/extend-trial.use-case";
 import { UserFilters } from "../../../domain/repositories/user.repository.interface";
 import {
   updateUserSchema,
@@ -52,6 +53,8 @@ export class UserController {
     private readonly deleteUser: DeleteUserUseCase,
     @inject("ExportUsersUseCase")
     private readonly exportUsers: ExportUsersUseCase,
+    @inject(ExtendTrialUseCase)
+    private readonly extendTrial: ExtendTrialUseCase,
   ) {}
 
   // GET /users
@@ -267,6 +270,36 @@ export class UserController {
         success: true,
         data: user.toPublicData(),
         message: "User updated successfully",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /users/:id/subscription/grant
+  async extendTrialForUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+      const actorId = (req as any).user?.id;
+      if (!actorId) {
+        throw AppError.unauthorized();
+      }
+
+      const user = await this.extendTrial.execute(
+        id,
+        req.body.days as number,
+        actorId,
+      );
+      res.json({
+        success: true,
+        data: user.toPublicData(),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

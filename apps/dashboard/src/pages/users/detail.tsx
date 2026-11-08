@@ -47,9 +47,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { UserDetail } from "@workspace/api-client-react";
 import { useI18n } from "@/lib/i18n";
+import { apiFetch } from "@/lib/api-fetch";
 
 type DialogMode = "grant" | "extend" | null;
 type UserDetailWithLimits = UserDetail & {
+  trialExpiresAt?: string | null;
   weeklyCodeLimit?: number | null;
   weeklyCodeUsed?: number | null;
   monthlyCodeLimit?: number | null;
@@ -87,6 +89,9 @@ export default function UserDetail() {
   const [accountStatus, setAccountStatus] = useState<"active" | "blocked">(
     "active",
   );
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
+  const [trialDays, setTrialDays] = useState("30");
+  const [trialSaving, setTrialSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -181,6 +186,30 @@ export default function UserDetail() {
         onError: () => toast.error(t("users.profileUpdateFailed")),
       },
     );
+  };
+
+  const handleExtendTrial = async () => {
+    if (!user) return;
+    const days = Number(trialDays);
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      toast.error(t("users.trialInvalidDuration"));
+      return;
+    }
+
+    setTrialSaving(true);
+    try {
+      await apiFetch(`/api/users/${user.id}/extend-trial`, {
+        method: "POST",
+        body: JSON.stringify({ days }),
+      });
+      refreshUser();
+      setTrialDialogOpen(false);
+      toast.success(t("users.trialExtended"));
+    } catch {
+      toast.error(t("users.trialExtendFailed"));
+    } finally {
+      setTrialSaving(false);
+    }
   };
 
   const openGrant = () => {
@@ -332,6 +361,25 @@ export default function UserDetail() {
               label={t("users.joined")}
               value={formatDate(user.createdAt, { dateStyle: "medium" })}
             />
+            <Info
+              label={t("users.trialExpires")}
+              value={
+                user.trialExpiresAt
+                  ? formatDate(user.trialExpiresAt, { dateStyle: "medium" })
+                  : "—"
+              }
+            />
+            <Button
+              variant="outline"
+              className="w-fit self-end"
+              onClick={() => {
+                setTrialDays("30");
+                setTrialDialogOpen(true);
+              }}
+            >
+              <CalendarPlus className="mr-2 h-4 w-4" />
+              {t("users.extendTrial")}
+            </Button>
             <Info
               label={t("users.watchSessions")}
               value={formatNumber(user.watchCount || 0)}
@@ -717,6 +765,41 @@ export default function UserDetail() {
               {dialogMode === "extend"
                 ? t("users.extendSubscription")
                 : t("users.grantSubscriptionAccess")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
+        <DialogContent className="sm:max-w-120">
+          <DialogHeader>
+            <DialogTitle>{t("users.extendTrial")}</DialogTitle>
+            <DialogDescription>
+              {t("users.trialExtendDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="trial-days">{t("users.daysToAdd")}</Label>
+            <Input
+              id="trial-days"
+              type="number"
+              min={1}
+              max={365}
+              step={1}
+              value={trialDays}
+              onChange={(event) => setTrialDays(event.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTrialDialogOpen(false)}
+              disabled={trialSaving}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={() => void handleExtendTrial()} disabled={trialSaving}>
+              {trialSaving ? t("settings.saving") : t("users.extendTrial")}
             </Button>
           </DialogFooter>
         </DialogContent>
