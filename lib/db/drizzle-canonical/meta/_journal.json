@@ -98,6 +98,13 @@
       "version": "7",
       "when": 1793232000000,
       "tag": "0013_web_refresh_sessions",
+        "breakpoints": true
+      },
+      {
+        "idx": 14,
+        "version": "7",
+        "when": 1794070917472,
+        "tag": "0014_cute_kree",
       "breakpoints": true
     }
   ]

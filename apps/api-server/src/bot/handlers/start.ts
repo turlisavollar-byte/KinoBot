@@ -11,6 +11,7 @@ import type { BotContext } from "@/bot/index";
 import { logger } from "@/lib/logger";
 import { deliverVideoCodeByDeeplink } from "@/bot/handlers/catalog";
 import { sendActorProfile } from "@/bot/handlers/actor";
+import { getTrialDurationDays } from "@/modules/settings/settings.service";
 
 // Deep-link payload formats (t.me/<bot>?start=<payload>):
 //   ig            — generic Instagram-sourced entry (tracked, no content)
@@ -18,8 +19,6 @@ import { sendActorProfile } from "@/bot/handlers/actor";
 const DEEPLINK_SOURCE_PREFIXES: Record<string, string> = {
   ig: "instagram",
 };
-const TRIAL_DAYS = 30;
-
 function escapeHtml(value: string): string {
   return value.replace(
     /[&<>"']/g,
@@ -71,6 +70,7 @@ async function registerOrGetUser(
 ) {
   const tg = ctx.from!;
   const telegramId = String(tg.id);
+  const trialDays = await getTrialDurationDays();
 
   const [user] = await db
     .insert(usersTable)
@@ -82,7 +82,7 @@ async function registerOrGetUser(
       languageCode: resolveTelegramLanguage(tg.language_code),
       isActive: true,
       acquisitionSource,
-      trialExpiresAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+      trialExpiresAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
     })
     .onConflictDoNothing({ target: usersTable.telegramId })
     .returning();

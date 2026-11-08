@@ -17,6 +17,7 @@ import { Phone } from "../../domain/value-objects/phone.vo";
 import { Logger } from "@/shared/utils/logger";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
+import { getTrialDurationDays } from "@/modules/settings/settings.service";
 
 export interface CreateUserInput {
   telegramId: string;
@@ -68,6 +69,7 @@ export class CreateUserUseCase {
     }
 
     // Create user entity
+    const trialDays = await getTrialDurationDays();
     const user = User.createWithDefaults({
       telegramId: input.telegramId,
       email: input.email ? Email.create(input.email) : undefined,
@@ -79,6 +81,7 @@ export class CreateUserUseCase {
       role: input.role
         ? UserRoleVO.fromString(input.role)
         : UserRoleVO.fromString("user"),
+      trialExpiresAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
     });
 
     // Create profile
@@ -113,6 +116,9 @@ export class CreateUserUseCase {
       profile,
       stats,
     );
+    if (this.repository.update) {
+      await this.repository.update(createdUser);
+    }
 
     // Emit event
     const event = new UserCreatedEvent(createdUser);

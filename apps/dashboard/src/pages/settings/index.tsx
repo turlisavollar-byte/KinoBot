@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useIdentityGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api-fetch";
 import { useI18n } from "@/lib/i18n";
@@ -13,17 +13,169 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { User, Shield, Globe, Info, Lock, Eye, EyeOff } from "lucide-react";
+import {
+  User,
+  Shield,
+  Globe,
+  Info,
+  Lock,
+  Eye,
+  EyeOff,
+  Users,
+} from "lucide-react";
 
 export default function Settings() {
   const { t, formatDate } = useI18n();
   const { data: me } = useIdentityGetMe();
+  const [trialDurationDays, setTrialDurationDays] = useState(30);
+  const [trialLoading, setTrialLoading] = useState(true);
+  const [trialSaving, setTrialSaving] = useState(false);
+  const [trialLoadError, setTrialLoadError] = useState(false);
+  const [trialSaveError, setTrialSaveError] = useState(false);
+  const [resetDays, setResetDays] = useState(30);
+  const [onlyExpiredTrials, setOnlyExpiredTrials] = useState(true);
+  const [resetPreview, setResetPreview] = useState<{
+    affectedCount: number;
+    days: number;
+    onlyExpired: boolean;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [resetApplying, setResetApplying] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwLoading, setPwLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch<{
+      success: boolean;
+      data: Record<string, unknown>;
+    }>("/api/settings")
+      .then((response) => {
+        const trialDays = Number(response.data.trial_duration_days);
+        if (
+          active &&
+          Number.isInteger(trialDays) &&
+          trialDays >= 0 &&
+          trialDays <= 365
+        ) {
+          setTrialDurationDays(trialDays);
+        }
+      })
+      .catch(() => {
+        if (active) setTrialLoadError(true);
+      })
+      .finally(() => {
+        if (active) setTrialLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSaveTrialDuration = async () => {
+    if (
+      !Number.isInteger(trialDurationDays) ||
+      trialDurationDays < 0 ||
+      trialDurationDays > 365
+    ) {
+      setTrialSaveError(true);
+      return;
+    }
+
+    setTrialSaving(true);
+    setTrialSaveError(false);
+    try {
+      await apiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({ trial_duration_days: trialDurationDays }),
+      });
+      toast.success(t("settings.trialSaved"));
+    } catch {
+      setTrialSaveError(true);
+      toast.error(t("settings.trialSaveFailed"));
+    } finally {
+      setTrialSaving(false);
+    }
+  };
+
+  const resetDaysValid =
+    Number.isInteger(resetDays) && resetDays >= 1 && resetDays <= 365;
+  const previewMatchesCurrentOptions =
+    resetPreview?.days === resetDays &&
+    resetPreview.onlyExpired === onlyExpiredTrials;
+
+  const handlePreviewTrialReset = async () => {
+    if (!resetDaysValid) return;
+
+    setPreviewLoading(true);
+    setResetPreview(null);
+    try {
+      const response = await apiFetch<{
+        data: { affectedCount: number };
+      }>("/api/settings/reset-all-trials", {
+        method: "POST",
+        body: JSON.stringify({
+          days: resetDays,
+          onlyExpired: onlyExpiredTrials,
+          preview: true,
+        }),
+      });
+      setResetPreview({
+        affectedCount: response.data.affectedCount,
+        days: resetDays,
+        onlyExpired: onlyExpiredTrials,
+      });
+    } catch {
+      toast.error(t("settings.resetAllTrialsFailed"));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleApplyTrialReset = async () => {
+    if (!previewMatchesCurrentOptions || !resetPreview) return;
+
+    setResetApplying(true);
+    try {
+      const response = await apiFetch<{
+        data: { affectedCount: number };
+      }>("/api/settings/reset-all-trials", {
+        method: "POST",
+        body: JSON.stringify({
+          days: resetDays,
+          onlyExpired: onlyExpiredTrials,
+          preview: false,
+        }),
+      });
+      toast.success(
+        `${response.data.affectedCount} ${t("settings.resetAllTrialsSuccess")}`,
+      );
+      setResetPreview(null);
+      setConfirmResetOpen(false);
+    } catch {
+      toast.error(t("settings.resetAllTrialsFailed"));
+    } finally {
+      setResetApplying(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (pwForm.next !== pwForm.confirm) {
@@ -128,6 +280,163 @@ export default function Settings() {
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t("settings.trialTitle")}
+          </CardTitle>
+          <CardDescription>{t("settings.trialDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="trial-duration-days">
+              {t("settings.trialDurationDays")}
+            </Label>
+            <Input
+              id="trial-duration-days"
+              type="number"
+              min={0}
+              max={365}
+              step={1}
+              value={trialDurationDays}
+              disabled={trialLoading || trialSaving}
+              onChange={(event) => {
+                setTrialDurationDays(Number(event.target.value));
+                setTrialSaveError(false);
+              }}
+            />
+          </div>
+          {trialLoading && (
+            <p className="text-sm text-muted-foreground">
+              {t("settings.trialLoading")}
+            </p>
+          )}
+          {trialLoadError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("settings.trialLoadFailed")}
+            </p>
+          )}
+          {trialSaveError && (
+            <p role="alert" className="text-sm text-destructive">
+              {trialDurationDays < 0 ||
+              trialDurationDays > 365 ||
+              !Number.isInteger(trialDurationDays)
+                ? t("settings.trialInvalid")
+                : t("settings.trialSaveFailed")}
+            </p>
+          )}
+          <Button
+            onClick={() => void handleSaveTrialDuration()}
+            disabled={trialLoading || trialSaving}
+          >
+            {trialSaving ? t("settings.saving") : t("settings.trialSave")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            {t("settings.resetAllTrials")}
+          </CardTitle>
+          <CardDescription>
+            {t("settings.resetAllTrialsDescription")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="reset-trials-days">
+              {t("settings.resetAllTrialsDays")}
+            </Label>
+            <Input
+              id="reset-trials-days"
+              type="number"
+              min={1}
+              max={365}
+              step={1}
+              value={resetDays}
+              disabled={previewLoading || resetApplying}
+              onChange={(event) => {
+                setResetDays(Number(event.target.value));
+                setResetPreview(null);
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="reset-only-expired"
+              checked={onlyExpiredTrials}
+              disabled={previewLoading || resetApplying}
+              onCheckedChange={(checked) => {
+                setOnlyExpiredTrials(checked === true);
+                setResetPreview(null);
+              }}
+            />
+            <Label htmlFor="reset-only-expired">
+              {t("settings.resetAllTrialsOnlyExpired")}
+            </Label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => void handlePreviewTrialReset()}
+              disabled={!resetDaysValid || previewLoading || resetApplying}
+            >
+              {previewLoading
+                ? t("settings.saving")
+                : t("settings.resetAllTrialsPreview")}
+            </Button>
+            {resetPreview && previewMatchesCurrentOptions && (
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                {resetPreview.affectedCount}{" "}
+                {t("settings.resetAllTrialsAffected")}
+              </p>
+            )}
+          </div>
+          <AlertDialog
+            open={confirmResetOpen}
+            onOpenChange={setConfirmResetOpen}
+          >
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                disabled={!previewMatchesCurrentOptions || resetApplying}
+              >
+                {t("settings.resetAllTrialsButton")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("settings.resetAllTrialsConfirm")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {resetPreview?.affectedCount}{" "}
+                  {t("settings.resetAllTrialsAffected")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={resetApplying}>
+                  {t("common.cancel")}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={resetApplying}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleApplyTrialReset();
+                  }}
+                >
+                  {resetApplying
+                    ? t("settings.saving")
+                    : t("settings.resetAllTrialsButton")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
 

@@ -41,6 +41,7 @@ export * from "./application/use-cases/delete-user.use-case";
 export * from "./application/use-cases/block-user.use-case";
 export * from "./application/use-cases/search-users.use-case";
 export * from "./application/use-cases/export-users.use-case";
+export * from "./application/use-cases/extend-trial.use-case";
 export * from "./application/services/user-cache.service";
 export * from "./application/services/user-event.service";
 export * from "./application/dto/user-request.dto";
@@ -74,6 +75,7 @@ import {
   BlockUserSchema,
   ExportUsersSchema,
 } from "./interface/http/validators/user.validator";
+import { extendTrialSchema } from "./application/dto/user-request.dto";
 
 export { UserController };
 
@@ -90,6 +92,7 @@ import { DeleteUserUseCase } from "./application/use-cases/delete-user.use-case"
 import { BlockUserUseCase } from "./application/use-cases/block-user.use-case";
 import { SearchUsersUseCase } from "./application/use-cases/search-users.use-case";
 import { ExportUsersUseCase } from "./application/use-cases/export-users.use-case";
+import { ExtendTrialUseCase } from "./application/use-cases/extend-trial.use-case";
 
 // ==================== Logger ====================
 import { Logger } from "@/shared/utils/logger";
@@ -147,6 +150,7 @@ function registerDependencies() {
   container.registerSingleton("BlockUserUseCase", BlockUserUseCase);
   container.registerSingleton("SearchUsersUseCase", SearchUsersUseCase);
   container.registerSingleton("ExportUsersUseCase", ExportUsersUseCase);
+  container.registerSingleton(ExtendTrialUseCase, ExtendTrialUseCase);
 
   initialized = true;
   logger.info("User module dependencies registered");
@@ -240,6 +244,14 @@ function createUserRouter() {
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     requireCustomerScope,
     controller.grantSubscription.bind(controller),
+  );
+
+  router.post(
+    "/:id/extend-trial",
+    requirePermission(Permission.UPDATE_USERS),
+    requireCustomerScope,
+    validate({ body: extendTrialSchema }),
+    controller.extendTrialForUser.bind(controller),
   );
 
   router.delete(

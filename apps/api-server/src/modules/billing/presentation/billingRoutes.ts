@@ -61,7 +61,7 @@ export function createBillingRouter(controller: BillingController): Router {
   // ===== Plans =====
   router.post(
     "/plans",
-    requirePermission(Permission.MANAGE_BILLING),
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     validate({ body: CreatePlanSchema }),
     (req, res, next) => controller.createPlan(req, res, next),
   );
@@ -75,13 +75,13 @@ export function createBillingRouter(controller: BillingController): Router {
   );
   router.put(
     "/plans/:id",
-    requirePermission(Permission.MANAGE_BILLING),
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     validate({ params: PlanIdSchema, body: UpdatePlanSchema }),
     (req, res, next) => controller.updatePlan(req, res, next),
   );
   router.delete(
     "/plans/:id",
-    requirePermission(Permission.MANAGE_BILLING),
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
     validate({ params: PlanIdSchema }),
     (req, res, next) => controller.deletePlan(req, res, next),
   );
@@ -92,6 +92,12 @@ export function createBillingRouter(controller: BillingController): Router {
     validate({ body: CreateSubscriptionSchema }),
     (req, res, next) => controller.createSubscription(req, res, next),
   );
+  router.post(
+    "/subscriptions/admin/create",
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    validate({ body: CreateSubscriptionSchema }),
+    (req, res, next) => controller.createSubscriptionForAdmin(req, res, next),
+  );
   router.get("/subscriptions/user/:userId", (req, res, next) =>
     controller.listSubscriptions(req, res, next),
   );
@@ -99,6 +105,12 @@ export function createBillingRouter(controller: BillingController): Router {
     "/subscriptions/:id",
     validate({ params: SubscriptionIdSchema }),
     (req, res, next) => controller.getSubscription(req, res, next),
+  );
+  router.delete(
+    "/subscriptions/:id",
+    requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    validate({ params: SubscriptionIdSchema }),
+    (req, res, next) => controller.deleteSubscription(req, res, next),
   );
   router.patch(
     "/subscriptions/:id/cancel",
