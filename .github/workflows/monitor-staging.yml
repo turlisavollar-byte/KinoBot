@@ -1,0 +1,103 @@
+name: v2 staging monitoring
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: v2-staging-monitor
+  cancel-in-progress: true
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure staging SSH
+        env:
+          STAGING_HOST: ${{ vars.STAGING_HOST }}
+          STAGING_USER: ${{ vars.STAGING_USER }}
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test "$STAGING_HOST" = "3.105.228.88"
+          test "$STAGING_USER" = "ubuntu"
+          test -n "$STAGING_SSH_PRIVATE_KEY"
+          test -n "$STAGING_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_PRIVATE_KEY" > "$HOME/.ssh/v2-staging"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/v2-staging" "$HOME/.ssh/known_hosts"
+      - name: Probe staging health, errors, and resource metrics
+        id: probe
+        continue-on-error: true
+        env:
+          STAGING_HOST: ${{ vars.STAGING_HOST }}
+          STAGING_USER: ${{ vars.STAGING_USER }}
+        run: |
+          set -euo pipefail
+          test "$STAGING_HOST" = "3.105.228.88"
+          test "$STAGING_USER" = "ubuntu"
+          ssh -i "$HOME/.ssh/v2-staging" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$STAGING_USER@$STAGING_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          api_http="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 http://127.0.0.1:3001/api/healthz || true)"
+          nginx_http="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 http://127.0.0.1:8081/ || true)"
+          nginx_https="$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' --max-time 10 https://127.0.0.1:8443/ || true)"
+          api_errors="$(sudo docker compose -f docker-compose.prod.yml logs --since=15m --no-color api-server 2>&1 | grep -Eic 'ERROR|FATAL|Exception' || true)"
+          api_errors="${api_errors:-0}"
+          printf 'METRIC api_health_http=%s\n' "$api_http"
+          printf 'METRIC nginx_http=%s\n' "$nginx_http"
+          printf 'METRIC nginx_https=%s\n' "$nginx_https"
+          printf 'METRIC api_errors_15m=%s\n' "$api_errors"
+          sudo docker stats --no-stream --format 'METRIC {{.Name}} cpu={{.CPUPerc}} memory={{.MemUsage}} memory_pct={{.MemPerc}}'
+          sudo docker compose -f docker-compose.prod.yml ps
+          test "$api_http" = "200"
+          case "$nginx_http" in 200|301|302) ;; *) exit 1 ;; esac
+          test "$nginx_https" = "200"
+          test "$api_errors" -eq 0
+          REMOTE
+      - name: Create or update monitoring alert issue
+        if: steps.probe.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[staging-monitor] v2 health or API errors';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const issue = issues.find((item) => item.title === title && !item.pull_request);
+            const body = [
+              'The automated v2 staging health/API log check failed.',
+              '',
+              `Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              'Raw application logs are intentionally not copied into this issue.',
+            ].join('\n');
+            if (issue) {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, body });
+            }
+      - name: Close monitoring alert after recovery
+        if: steps.probe.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[staging-monitor] v2 health or API errors';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const issue = issues.find((item) => item.title === title && !item.pull_request);
+            if (issue) {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+            }
+      - name: Mark failed monitor run
+        if: steps.probe.outcome == 'failure'
+        run: |
+          exit 1
