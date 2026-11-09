@@ -37,7 +37,7 @@ class BullMQQueue implements JobQueue {
 
   constructor() {
     const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-    this.connection = new Redis(redisUrl);
+    this.connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
     this.connection.on("connect", () => {
       logger.info("BullMQ Redis connected successfully");
