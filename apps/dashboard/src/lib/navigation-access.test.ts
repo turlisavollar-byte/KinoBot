@@ -61,6 +61,18 @@ describe("dashboard route access", () => {
     ).toBe(true);
   });
 
+  it("shows Telegram Media navigation only to content readers", () => {
+    expect(
+      canAccessNavigationPath("admin", ["read:content"], "/telegram-media"),
+    ).toBe(true);
+    expect(
+      canAccessNavigationPath("admin", ["read:telegram"], "/telegram-media"),
+    ).toBe(false);
+    expect(
+      canAccessDashboardPath("moderator", ["read:content"], "/telegram-media"),
+    ).toBe(true);
+  });
+
   it("maps admin navigation to permissions accepted by the backend", () => {
     const permissions = [
       "refund:payments",

@@ -8,6 +8,7 @@ const permissionByPath: Record<string, string> = {
   "/notifications": "read:notifications",
   "/telegram": "manage:telegram",
   "/telegram/video-codes": "read:content",
+  "/telegram-media": "read:content",
   "/system/health": "view:health",
   "/system/security-center": "manage:security",
   "/system/session-management": "read:sessions",
@@ -33,7 +34,9 @@ export function canAccessNavigationPath(
   if (normalizedRole === "superadmin") return true;
   if (normalizedRole === "moderator") {
     const isModeratorContentPath =
-      path.startsWith("/catalog/") || path === "/telegram/video-codes";
+      path.startsWith("/catalog/") ||
+      path === "/telegram/video-codes" ||
+      path === "/telegram-media";
     if (!isModeratorPersonalPath(path) && !isModeratorContentPath) return false;
   }
   if (isModeratorPersonalPath(path)) return true;

@@ -71,6 +71,7 @@ const NAV = [
       { label: "nav.notifications" as TranslationKey, href: "/notifications", icon: Bell },
       { label: "nav.telegramBot" as TranslationKey, href: "/telegram", icon: Bot },
       { label: "nav.videoCodes" as TranslationKey, href: "/telegram/video-codes", icon: Hash },
+      { label: "nav.telegramMedia" as TranslationKey, href: "/telegram-media", icon: Tv },
     ],
   },
   {

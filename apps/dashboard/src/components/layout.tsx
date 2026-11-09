@@ -39,6 +39,7 @@ const BREADCRUMB_MAP: Record<string, string[]> = {
   "/billing/payments":       ["Billing", "Payments"],
   "/notifications":          ["Notifications"],
   "/telegram":               ["Telegram", "Config"],
+  "/telegram-media":         ["Telegram", "Media"],
   "/system/health":          ["System", "Health"],
   "/system/feature-flags":   ["System", "Feature Flags"],
   "/system/audit-logs":      ["System", "Audit Logs"],

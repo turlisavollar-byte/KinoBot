@@ -54,6 +54,7 @@ import PaymentsList from "@/pages/payments/list";
 import NotificationsList from "@/pages/notifications/list";
 import TelegramConfig from "@/pages/telegram/config";
 import VideoCodes from "@/pages/telegram/video-codes";
+import TelegramMedia from "@/pages/telegram/media";
 
 import SystemHealth from "@/pages/system/health";
 import SecurityCenter from "@/pages/system/security-center";
@@ -232,6 +233,7 @@ function Router() {
       <Route path="/notifications" component={P(NotificationsList)} />
       <Route path="/telegram" component={P(TelegramConfig)} />
       <Route path="/telegram/video-codes" component={P(VideoCodes)} />
+      <Route path="/telegram-media" component={P(TelegramMedia)} />
 
       {/* System */}
       <Route path="/system/health" component={P(SystemHealth)} />

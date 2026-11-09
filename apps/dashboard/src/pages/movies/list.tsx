@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit } from "lucide-react";
+import { Plus, Search, Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,15 @@ import { useI18n } from "@/lib/i18n";
 export default function MoviesList() {
   const { t, formatNumber } = useI18n();
   const [search, setSearch] = useState("");
-  const { data: movies, isLoading, error } = useListMovies({ search });
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const {
+    data: movies,
+    isLoading,
+    isFetching,
+    error,
+  } = useListMovies({ search, page, limit });
+  const pageCount = Math.max(Math.ceil((movies?.total ?? 0) / limit), 1);
   const publishMovie = usePublishMovie();
   const queryClient = useQueryClient();
 
@@ -91,7 +99,10 @@ export default function MoviesList() {
             placeholder={t("movies.searchPlaceholder")}
             className="pl-8"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
       </div>
@@ -202,6 +213,39 @@ export default function MoviesList() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {t("movies.paginationTotal")}: {formatNumber(movies?.total ?? 0)}
+        </p>
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={isLoading || isFetching || page <= 1}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            {t("movies.paginationPrevious")}
+          </Button>
+          <span
+            className="whitespace-nowrap text-sm text-muted-foreground"
+            aria-live="polite"
+          >
+            {t("movies.paginationPage")} {formatNumber(page)} /{" "}
+            {formatNumber(pageCount)}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((current) => current + 1)}
+            disabled={isLoading || isFetching || page >= pageCount}
+          >
+            {t("movies.paginationNext")}
+            <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </div>
   );

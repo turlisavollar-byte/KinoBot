@@ -225,33 +225,91 @@ router.get(
 router.get(
   "/catalog/telegram-media",
   requirePermission(Permission.READ_CONTENT),
-  async (_req, res, next): Promise<void> => {
+  async (req, res, next): Promise<void> => {
     try {
-      const media = await db
-        .select({
-          id: telegramMediaTable.id,
-          fileName: telegramMediaTable.fileName,
-          fileSize: telegramMediaTable.fileSize,
-          duration: telegramMediaTable.duration,
-          uploadedAt: telegramMediaTable.uploadedAt,
-        })
-        .from(telegramMediaTable)
-        .where(
-          and(
-            eq(telegramMediaTable.status, "uploaded"),
-            eq(telegramMediaTable.mimeType, "video/mp4"),
-            gt(telegramMediaTable.fileSize, 0),
-            lte(telegramMediaTable.fileSize, MAX_MOVIE_UPLOAD_BYTES),
-            isNotNull(telegramMediaTable.storageBucket),
-            isNotNull(telegramMediaTable.storageKey),
-          ),
-        )
-        .orderBy(
-          desc(telegramMediaTable.uploadedAt),
-          desc(telegramMediaTable.createdAt),
-        )
-        .limit(100);
-      res.json({ media });
+      const status =
+        typeof req.query.status === "string" ? req.query.status : "uploaded";
+      const allowedStatuses = ["pending", "processing", "uploaded", "failed"];
+      if (status !== "all" && !allowedStatuses.includes(status)) {
+        res.status(400).json({
+          error: {
+            code: "INVALID_MEDIA_STATUS",
+            message: "Invalid media status",
+          },
+        });
+        return;
+      }
+
+      const page = req.query.page === undefined ? 1 : Number(req.query.page);
+      const limit = req.query.limit === undefined ? 100 : Number(req.query.limit);
+      if (
+        !Number.isInteger(page) ||
+        page < 1 ||
+        !Number.isInteger(limit) ||
+        limit < 1 ||
+        limit > 100
+      ) {
+        res.status(400).json({
+          error: {
+            code: "INVALID_PAGINATION",
+            message: "Invalid page or limit",
+          },
+        });
+        return;
+      }
+
+      const statusCondition =
+        status === "all" ? undefined : eq(telegramMediaTable.status, status);
+      const where =
+        status === "uploaded"
+          ? and(
+              statusCondition,
+              eq(telegramMediaTable.mimeType, "video/mp4"),
+              gt(telegramMediaTable.fileSize, 0),
+              lte(telegramMediaTable.fileSize, MAX_MOVIE_UPLOAD_BYTES),
+              isNotNull(telegramMediaTable.storageBucket),
+              isNotNull(telegramMediaTable.storageKey),
+            )
+          : statusCondition;
+      const [totalResult, media] = await Promise.all([
+        db.select({ total: count() }).from(telegramMediaTable).where(where),
+        db
+          .select({
+            id: telegramMediaTable.id,
+            fileName: telegramMediaTable.fileName,
+            mimeType: telegramMediaTable.mimeType,
+            fileSize: telegramMediaTable.fileSize,
+            duration: telegramMediaTable.duration,
+            status: telegramMediaTable.status,
+            createdAt: telegramMediaTable.createdAt,
+            uploadedAt: telegramMediaTable.uploadedAt,
+            storageBucket: telegramMediaTable.storageBucket,
+            storageKey: telegramMediaTable.storageKey,
+          })
+          .from(telegramMediaTable)
+          .where(where)
+          .orderBy(
+            desc(telegramMediaTable.uploadedAt),
+            desc(telegramMediaTable.createdAt),
+          )
+          .limit(limit)
+          .offset((page - 1) * limit),
+      ]);
+      const mediaWithPreview = await Promise.all(
+        media.map(async ({ storageBucket, storageKey, ...item }) => ({
+          ...item,
+          previewUrl:
+            item.status === "uploaded" && storageBucket && storageKey
+              ? await storage.getPresignedUrl(storageBucket, storageKey, 300)
+              : null,
+        })),
+      );
+      res.json({
+        media: mediaWithPreview,
+        total: totalResult[0]?.total ?? 0,
+        page,
+        limit,
+      });
     } catch (error) {
       next(error);
     }
