@@ -1,8 +1,8 @@
 /**
  * Object storage client using S3-compatible storage (MinIO, AWS S3, etc.)
  *
- * Current strategy: Videos are stored as Telegram file_ids.
- * MinIO will be used for: thumbnails, subtitles, actor/genre images.
+ * Videos and generated assets are stored in configured S3-compatible storage.
+ * Telegram file IDs are retained as source metadata for ingestion and recovery.
  */
 
 import {
@@ -10,11 +10,12 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { Readable } from "node:stream";
+import { Readable } from "node:stream";
 import { Logger } from "@/shared/utils/logger";
 
 const logger = Logger.getInstance("Storage");
@@ -34,8 +35,10 @@ export interface StorageClient {
     contentLength: number,
   ): Promise<string>;
   getUrl(bucket: string, key: string): Promise<string>;
+  getObjectStream(bucket: string, key: string): Promise<Readable>;
   delete(bucket: string, key: string): Promise<void>;
   exists(bucket: string, key: string): Promise<boolean>;
+  checkBucket(bucket: string): Promise<void>;
   getPresignedUrl(
     bucket: string,
     key: string,
@@ -147,9 +150,23 @@ class S3Storage implements StorageClient {
         ContentType: contentType,
         ContentLength: contentLength,
       }),
+      { abortSignal: AbortSignal.timeout(120_000) },
     );
     logger.info("Streamed media uploaded to S3", { bucket, key, contentLength });
     return `${bucket}/${key}`;
+  }
+
+  async getObjectStream(bucket: string, key: string): Promise<Readable> {
+    const response = await this.client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+      { abortSignal: AbortSignal.timeout(120_000) },
+    );
+    if (!response.Body) {
+      throw new Error("S3 returned no object body");
+    }
+    return Readable.fromWeb(
+      response.Body.transformToWebStream() as import("node:stream/web").ReadableStream,
+    );
   }
 
   async getUrl(bucket: string, key: string): Promise<string> {
@@ -184,6 +201,13 @@ class S3Storage implements StorageClient {
       );
       throw error;
     }
+  }
+
+  async checkBucket(bucket: string): Promise<void> {
+    await this.client.send(
+      new HeadBucketCommand({ Bucket: bucket }),
+      { abortSignal: AbortSignal.timeout(5_000) },
+    );
   }
 
   async delete(bucket: string, key: string): Promise<void> {
@@ -250,12 +274,18 @@ class StubStorage implements StorageClient {
   ): Promise<string> {
     throw new Error("S3 storage is not configured; media upload is unavailable");
   }
+  async getObjectStream(_bucket: string, _key: string): Promise<Readable> {
+    throw new Error("S3 storage is not configured; media download is unavailable");
+  }
   async getUrl(_bucket: string, key: string): Promise<string> {
     return `stub://${key}`;
   }
   async delete(_bucket: string, _key: string): Promise<void> {}
   async exists(_bucket: string, _key: string): Promise<boolean> {
     return false;
+  }
+  async checkBucket(_bucket: string): Promise<void> {
+    throw new Error("S3 storage is not configured");
   }
   async getPresignedUrl(
     _bucket: string,

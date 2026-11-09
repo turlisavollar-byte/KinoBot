@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   Router,
   type NextFunction,
@@ -20,6 +20,7 @@ import {
   seriesTable,
   subscriptionPlansTable,
   subscriptionsTable,
+  telegramMediaTable,
   userProfilesTable,
   usersTable,
   watchProgressTable,
@@ -32,6 +33,8 @@ import {
 } from "@/modules/identity/infrastructure/services/jwt.service";
 import { storage } from "@/infrastructure/storage/minio";
 import { AuthUser } from "@/lib/auth";
+import { resolveActiveSubscriptionSnapshot } from "@/modules/billing/infrastructure/subscriptionCompatibility";
+import { getTelegramMediaUrlLifetime } from "@/modules/telegram-media/telegram-media.retention-policy";
 
 const router = Router();
 const jwtService = JwtService.getInstance();
@@ -1181,6 +1184,169 @@ router.get("/movies/:id/stream", requireWebAuth, async (req, res, next) => {
       expiresAt: new Date(Date.now() + 300_000).toISOString(),
       quality: "auto",
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/telegram/media", requireWebAuth, async (req, res, next) => {
+  try {
+    const subscription = await resolveActiveSubscriptionSnapshot(req.user!.id);
+    if (!subscription) {
+      sendError(res, 403, "SUBSCRIPTION_REQUIRED", "Active subscription required");
+      return;
+    }
+
+    const retentionCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const media = await db
+      .select({
+        id: telegramMediaTable.id,
+        fileName: telegramMediaTable.fileName,
+        mimeType: telegramMediaTable.mimeType,
+        fileSize: telegramMediaTable.fileSize,
+        duration: telegramMediaTable.duration,
+        width: telegramMediaTable.width,
+        height: telegramMediaTable.height,
+        caption: telegramMediaTable.caption,
+        uploadedAt: telegramMediaTable.uploadedAt,
+        thumbnailKey: telegramMediaTable.thumbnailKey,
+        storageBucket: telegramMediaTable.storageBucket,
+        viewsCount: telegramMediaTable.viewsCount,
+      })
+      .from(telegramMediaTable)
+      .where(
+        and(
+          eq(telegramMediaTable.status, "uploaded"),
+          gt(telegramMediaTable.uploadedAt, retentionCutoff),
+          isNotNull(telegramMediaTable.storageBucket),
+          isNotNull(telegramMediaTable.storageKey),
+        ),
+      )
+      .orderBy(desc(telegramMediaTable.uploadedAt))
+      .limit(50);
+
+    const mediaWithThumbnails = await Promise.all(
+      media.map(async (item) => ({
+        ...item,
+        viewsCount: Number(item.viewsCount),
+        thumbnailUrl:
+          item.thumbnailKey && item.storageBucket
+            ? await storage.getPresignedUrl(item.storageBucket, item.thumbnailKey)
+            : null,
+      })),
+    );
+    res.json({ media: mediaWithThumbnails });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/telegram/media/:id/stream", requireWebAuth, async (req, res, next) => {
+  try {
+    const subscription = await resolveActiveSubscriptionSnapshot(req.user!.id);
+    if (!subscription) {
+      sendError(res, 403, "SUBSCRIPTION_REQUIRED", "Active subscription required");
+      return;
+    }
+
+    const [media] = await db
+      .select({
+        id: telegramMediaTable.id,
+        fileName: telegramMediaTable.fileName,
+        mimeType: telegramMediaTable.mimeType,
+        fileSize: telegramMediaTable.fileSize,
+        duration: telegramMediaTable.duration,
+        width: telegramMediaTable.width,
+        height: telegramMediaTable.height,
+        caption: telegramMediaTable.caption,
+        viewsCount: telegramMediaTable.viewsCount,
+        status: telegramMediaTable.status,
+        storageBucket: telegramMediaTable.storageBucket,
+        storageKey: telegramMediaTable.storageKey,
+        uploadedAt: telegramMediaTable.uploadedAt,
+        createdAt: telegramMediaTable.createdAt,
+      })
+      .from(telegramMediaTable)
+      .where(eq(telegramMediaTable.id, routeParam(req.params.id)))
+      .limit(1);
+
+    if (
+      !media ||
+      media.status !== "uploaded" ||
+      !media.storageBucket ||
+      !media.storageKey
+    ) {
+      sendError(res, 404, "MEDIA_NOT_FOUND", "Uploaded Telegram media not found");
+      return;
+    }
+
+    const now = new Date();
+    const expiresIn = getTelegramMediaUrlLifetime(media.uploadedAt ?? media.createdAt, now);
+    if (expiresIn === null) {
+      sendError(res, 410, "MEDIA_EXPIRED", "Telegram media retention period has expired");
+      return;
+    }
+
+    if (
+      !(process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY) ||
+      !(process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY)
+    ) {
+      sendError(res, 503, "STREAM_UNAVAILABLE", "Video storage is not configured");
+      return;
+    }
+
+    const streamUrl = await storage.getPresignedUrl(
+      media.storageBucket,
+      media.storageKey,
+      expiresIn,
+    );
+    res.json({
+      streamUrl,
+      expiresAt: new Date(now.getTime() + expiresIn * 1000).toISOString(),
+      media: {
+        id: media.id,
+        fileName: media.fileName,
+        mimeType: media.mimeType,
+        fileSize: media.fileSize,
+        duration: media.duration,
+        width: media.width,
+        height: media.height,
+        caption: media.caption,
+        viewsCount: Number(media.viewsCount),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/telegram/media/:id/view", requireWebAuth, async (req, res, next) => {
+  try {
+    const subscription = await resolveActiveSubscriptionSnapshot(req.user!.id);
+    if (!subscription) {
+      sendError(res, 403, "SUBSCRIPTION_REQUIRED", "Active subscription required");
+      return;
+    }
+
+    const retentionCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const [media] = await db
+      .update(telegramMediaTable)
+      .set({ viewsCount: sql`${telegramMediaTable.viewsCount} + 1` })
+      .where(
+        and(
+          eq(telegramMediaTable.id, routeParam(req.params.id)),
+          eq(telegramMediaTable.status, "uploaded"),
+          gt(telegramMediaTable.uploadedAt, retentionCutoff),
+          isNotNull(telegramMediaTable.storageKey),
+        ),
+      )
+      .returning({ viewsCount: telegramMediaTable.viewsCount });
+
+    if (!media) {
+      sendError(res, 404, "MEDIA_NOT_FOUND", "Uploaded Telegram media not found");
+      return;
+    }
+    res.json({ viewsCount: Number(media.viewsCount) });
   } catch (error) {
     next(error);
   }

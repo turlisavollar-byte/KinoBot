@@ -18,6 +18,7 @@ import { startBot, stopBot, isBotRunning } from "@/bot/index";
 import { getRecentFileIds } from "@/bot/handlers/storage";
 import { serializeRequiredChannelIds } from "@/bot/required-channels";
 import { storage } from "@/infrastructure/storage/minio";
+import { queue } from "@/infrastructure/queue/bull";
 
 const router: IRouter = Router();
 
@@ -182,6 +183,37 @@ router.get(
 
     const url = await storage.getPresignedUrl(media.storageBucket, media.storageKey);
     res.json({ url, expiresIn: 3600 });
+  },
+);
+
+router.get(
+  "/telegram/media/metrics",
+  requirePermission(Permission.READ_TELEGRAM),
+  async (_req, res, next): Promise<void> => {
+    try {
+      const [database, queueCounts] = await Promise.all([
+        db
+          .select({
+            total: sql<number>`COUNT(*)::int`,
+            pending: sql<number>`COUNT(*) FILTER (WHERE ${telegramMediaTable.status} = 'pending')::int`,
+            processing: sql<number>`COUNT(*) FILTER (WHERE ${telegramMediaTable.status} = 'processing')::int`,
+            uploaded: sql<number>`COUNT(*) FILTER (WHERE ${telegramMediaTable.status} = 'uploaded')::int`,
+            failed: sql<number>`COUNT(*) FILTER (WHERE ${telegramMediaTable.status} = 'failed')::int`,
+            uploadedBytes: sql<number>`COALESCE(SUM(${telegramMediaTable.fileSize}) FILTER (WHERE ${telegramMediaTable.status} = 'uploaded'), 0)::float8`,
+            lastFailureAt: sql<Date | null>`MAX(${telegramMediaTable.updatedAt}) FILTER (WHERE ${telegramMediaTable.status} = 'failed')`,
+          })
+          .from(telegramMediaTable),
+        queue.getCounts("telegram-media"),
+      ]);
+      res.json({
+        sampledAt: new Date().toISOString(),
+        media: database[0],
+        queue: queueCounts,
+        alerts: { uploadFailures: (database[0]?.failed ?? 0) > 0 },
+      });
+    } catch (error) {
+      next(error);
+    }
   },
 );
 

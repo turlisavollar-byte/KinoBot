@@ -48,7 +48,7 @@ FROM node:22-trixie-slim AS production
 
 # Install dumb-init for proper signal handling
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends dumb-init \
+    && apt-get install -y --no-install-recommends dumb-init ffmpeg \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 

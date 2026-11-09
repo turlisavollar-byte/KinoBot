@@ -86,6 +86,8 @@ export const telegramMediaTable = pgTable(
     status: text("status").notNull().default("pending"),
     storageBucket: text("storage_bucket"),
     storageKey: text("storage_key"),
+    thumbnailKey: text("thumbnail_key"),
+    viewsCount: bigint("views_count", { mode: "number" }).notNull().default(0),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -100,6 +102,10 @@ export const telegramMediaTable = pgTable(
     statusCreatedIdx: index("telegram_media_status_created_idx").on(
       table.status,
       table.createdAt,
+    ),
+    statusUploadedIdx: index("telegram_media_status_uploaded_idx").on(
+      table.status,
+      table.uploadedAt,
     ),
   }),
 );

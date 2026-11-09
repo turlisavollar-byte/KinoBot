@@ -19,6 +19,13 @@ export interface JobQueue {
   add<T>(name: string, data: T, opts?: { delay?: number; attempts?: number; jobId?: string }): Promise<void>;
   register<T>(name: string, handler: (data: T) => Promise<void>): void;
   process(queueName: string): void;
+  getCounts(name: string): Promise<{
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+    completed: number;
+  }>;
   close(): Promise<void>;
 }
 
@@ -141,6 +148,29 @@ class BullMQQueue implements JobQueue {
     logger.info(`Worker started for queue ${queueName}`);
   }
 
+  async getCounts(name: string): Promise<{
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+    completed: number;
+  }> {
+    const counts = await this.getQueue(name).getJobCounts(
+      "waiting",
+      "active",
+      "delayed",
+      "failed",
+      "completed",
+    );
+    return {
+      waiting: counts.waiting ?? 0,
+      active: counts.active ?? 0,
+      delayed: counts.delayed ?? 0,
+      failed: counts.failed ?? 0,
+      completed: counts.completed ?? 0,
+    };
+  }
+
   async close(): Promise<void> {
     for (const [name, worker] of this.workers) {
       await worker.close();
@@ -175,6 +205,16 @@ class SyncQueue implements JobQueue {
 
   process(queueName: string): void {
     // Sync queue doesn't need processing
+  }
+
+  async getCounts(_name: string): Promise<{
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+    completed: number;
+  }> {
+    return { waiting: 0, active: 0, delayed: 0, failed: 0, completed: 0 };
   }
 
   async close(): Promise<void> {

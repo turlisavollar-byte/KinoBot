@@ -6,6 +6,10 @@ import { startBot, stopBot } from "@/bot/index";
 import { bootstrapSuperAdmin } from "@/modules/identity";
 import { closeAuditArchiverPool } from "@/modules/audit/audit.service";
 import { pool } from "@workspace/db";
+import {
+  startTelegramMediaRetentionCleanup,
+  stopTelegramMediaRetentionCleanup,
+} from "@/modules/telegram-media/telegram-media.retention";
 
 // Increase EventEmitter max listeners to prevent memory leak warnings
 process.setMaxListeners(20);
@@ -42,6 +46,7 @@ function shutdown(signal: string, requestedExitCode = 0): Promise<void> {
 
   shutdownPromise = (async () => {
     console.log(`Shutting down on ${signal}`);
+    stopTelegramMediaRetentionCleanup();
     let exitCode = requestedExitCode;
 
     try {
@@ -90,6 +95,7 @@ process.once("SIGINT", () => void shutdown("SIGINT"));
 
 async function startServer() {
   await bootstrapSuperAdmin();
+  startTelegramMediaRetentionCleanup();
   httpServer = app.listen(port, "0.0.0.0", () => {
     console.log(`Server successfully started on port ${port}`);
 

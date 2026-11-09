@@ -113,6 +113,13 @@
       "when": 1794191371301,
       "tag": "0015_fresh_unicorn",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794204977043,
+      "tag": "0016_telegram_media_metadata_and_metrics",
+      "breakpoints": true
     }
   ]
 }

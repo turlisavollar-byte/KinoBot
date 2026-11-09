@@ -124,7 +124,6 @@ export function registerStorageHandler(bot: Bot<BotContext>) {
     logger.info(
       {
         telegramId,
-        fileId,
         fileName,
         mediaType: ctx.message.video ? "video" : "document",
         forwardType: ctx.message.forward_origin?.type,
@@ -181,7 +180,12 @@ export function registerStorageHandler(bot: Bot<BotContext>) {
         width: ctx.channelPost.video?.width ?? null,
         height: ctx.channelPost.video?.height ?? null,
         caption: ctx.channelPost.caption ?? null,
-        metadata: { mediaType: ctx.channelPost.video ? "video" : "document" },
+        metadata: {
+          mediaType: ctx.channelPost.video ? "video" : "document",
+          ...(ctx.channelPost.video?.thumbnail
+            ? { thumbnailFileId: ctx.channelPost.video.thumbnail.file_id }
+            : {}),
+        },
       })
       .onConflictDoNothing({
         target: [telegramMediaTable.channelId, telegramMediaTable.messageId],

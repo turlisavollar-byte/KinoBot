@@ -505,6 +505,51 @@ export function hasApiConfig(): boolean {
     process.env.NEXT_PUBLIC_API_URL || typeof window !== "undefined",
   );
 }
+export type TelegramMediaItem = {
+  id: string;
+  fileName: string | null;
+  mimeType: string;
+  fileSize: number;
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  caption: string | null;
+  uploadedAt: string | null;
+  thumbnailUrl: string | null;
+  viewsCount: number;
+};
+
+export async function listTelegramMedia(): Promise<TelegramMediaItem[]> {
+  const result = await request<{ media: TelegramMediaItem[] }>("/telegram/media");
+  return result.media;
+}
+
+export async function recordTelegramMediaView(id: string): Promise<{ viewsCount: number }> {
+  return request(`/telegram/media/${encodeURIComponent(id)}/view`, { method: "POST" });
+}
+
+export type TelegramMediaStreamTicket = {
+  streamUrl: string;
+  expiresAt: string;
+  media: {
+    id: string;
+    fileName: string | null;
+    mimeType: string;
+    fileSize: number;
+    duration: number | null;
+    width: number | null;
+    height: number | null;
+    caption: string | null;
+    viewsCount: number;
+  };
+};
+
+export async function getTelegramMediaStream(
+  id: string,
+): Promise<TelegramMediaStreamTicket> {
+  return request(`/telegram/media/${encodeURIComponent(id)}/stream`);
+}
+
 export async function getStream(
   id: string,
 ): Promise<{ streamUrl: string; expiresAt: string; quality: string }> {
