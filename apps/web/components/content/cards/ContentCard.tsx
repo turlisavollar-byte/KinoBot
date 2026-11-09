@@ -61,6 +61,7 @@ export function ContentCard({
               src={image}
               alt={title}
               fill
+              unoptimized={image.startsWith("https://placehold.co/")}
               className={cn(
                 "object-cover transition-all duration-500",
                 isHovered && "scale-110 opacity-50",
@@ -140,6 +141,7 @@ export function ContentCard({
             src={image}
             alt={title}
             fill
+            unoptimized={image.startsWith("https://placehold.co/")}
             className={cn(
               "object-cover transition-all duration-500",
               isHovered && "scale-110 opacity-50",
