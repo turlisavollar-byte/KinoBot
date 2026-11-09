@@ -14,6 +14,7 @@ import { registerCatalogHandler } from "@/bot/handlers/catalog";
 import { registerSubscriptionHandler } from "@/bot/handlers/subscription";
 import { registerStorageHandler } from "@/bot/handlers/storage";
 import { registerActorHandler } from "@/bot/handlers/actor";
+import { startTelegramMediaPipeline, stopTelegramMediaPipeline } from "@/modules/telegram-media/telegram-media.pipeline";
 
 export interface SessionData {
   step?: string;
@@ -113,7 +114,14 @@ async function closeSessionRedis(): Promise<void> {
 }
 
 export function buildBot(token: string): Bot<BotContext> {
-  const bot = new Bot<BotContext>(token);
+  const apiRoot =
+    process.env.TELEGRAM_LOCAL === "true"
+      ? process.env.TELEGRAM_API_URL ?? "http://telegram-bot-api:8081"
+      : undefined;
+  const bot = new Bot<BotContext>(
+    token,
+    apiRoot ? { client: { apiRoot } } : undefined,
+  );
 
   bot.use(
     session({
@@ -186,6 +194,7 @@ export async function startBot(): Promise<void> {
       }
 
       _bot = buildBot(config.botToken);
+      if (process.env.REDIS_URL) await startTelegramMediaPipeline(_bot);
 
       _isRunning = true;
 
@@ -248,6 +257,7 @@ export async function stopBot(): Promise<void> {
   _bot = null;
   _isRunning = false;
 
+  stopTelegramMediaPipeline();
   if (bot) {
     try {
       await bot.stop();

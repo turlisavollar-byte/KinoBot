@@ -14,6 +14,7 @@ import {
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 import { Logger } from "@/shared/utils/logger";
 
 const logger = Logger.getInstance("Storage");
@@ -24,6 +25,13 @@ export interface StorageClient {
     key: string,
     data: Buffer,
     contentType: string,
+  ): Promise<string>;
+  uploadStream(
+    bucket: string,
+    key: string,
+    data: Readable,
+    contentType: string,
+    contentLength: number,
   ): Promise<string>;
   getUrl(bucket: string, key: string): Promise<string>;
   delete(bucket: string, key: string): Promise<void>;
@@ -124,6 +132,26 @@ class S3Storage implements StorageClient {
     }
   }
 
+  async uploadStream(
+    bucket: string,
+    key: string,
+    data: Readable,
+    contentType: string,
+    contentLength: number,
+  ): Promise<string> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: data,
+        ContentType: contentType,
+        ContentLength: contentLength,
+      }),
+    );
+    logger.info("Streamed media uploaded to S3", { bucket, key, contentLength });
+    return `${bucket}/${key}`;
+  }
+
   async getUrl(bucket: string, key: string): Promise<string> {
     if (this.endpoint) {
       // For MinIO/S3-compatible storage
@@ -212,6 +240,15 @@ class StubStorage implements StorageClient {
   ): Promise<string> {
     logger.warn("Storage: S3 not configured, upload skipped (stub)", { key });
     return `stub://${key}`;
+  }
+  async uploadStream(
+    _bucket: string,
+    _key: string,
+    _data: Readable,
+    _contentType: string,
+    _contentLength: number,
+  ): Promise<string> {
+    throw new Error("S3 storage is not configured; media upload is unavailable");
   }
   async getUrl(_bucket: string, key: string): Promise<string> {
     return `stub://${key}`;

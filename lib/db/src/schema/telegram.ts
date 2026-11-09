@@ -5,6 +5,9 @@ import {
   integer,
   bigint,
   timestamp,
+  jsonb,
+  uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -62,6 +65,45 @@ export const telegramMessagesTable = pgTable("telegram_messages", {
     .defaultNow(),
 });
 
+export const telegramMediaTable = pgTable(
+  "telegram_media",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    channelId: text("channel_id").notNull(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
+    fileId: text("file_id").notNull(),
+    fileUniqueId: text("file_unique_id").notNull(),
+    fileName: text("file_name"),
+    mimeType: text("mime_type").notNull(),
+    fileSize: bigint("file_size", { mode: "number" }).notNull(),
+    duration: integer("duration"),
+    width: integer("width"),
+    height: integer("height"),
+    caption: text("caption"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    status: text("status").notNull().default("pending"),
+    storageBucket: text("storage_bucket"),
+    storageKey: text("storage_key"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+  },
+  (table) => ({
+    channelMessageUnique: uniqueIndex("telegram_media_channel_message_uidx").on(
+      table.channelId,
+      table.messageId,
+    ),
+    statusCreatedIdx: index("telegram_media_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+  }),
+);
+
 export const insertTelegramConfigSchema = createInsertSchema(
   telegramConfigTable,
 ).omit({
@@ -79,3 +121,5 @@ export const insertTelegramChannelSchema = createInsertSchema(
 
 export type TelegramConfig = typeof telegramConfigTable.$inferSelect;
 export type TelegramChannel = typeof telegramChannelsTable.$inferSelect;
+
+export type TelegramMedia = typeof telegramMediaTable.$inferSelect;

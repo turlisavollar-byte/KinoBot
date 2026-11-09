@@ -6,6 +6,7 @@ import {
   telegramChannelsTable,
   usersTable,
   telegramMessagesTable,
+  telegramMediaTable,
 } from "@workspace/db";
 import {
   UpdateTelegramConfigBody,
@@ -16,6 +17,7 @@ import { Permission } from "@/shared/constants/permissions";
 import { startBot, stopBot, isBotRunning } from "@/bot/index";
 import { getRecentFileIds } from "@/bot/handlers/storage";
 import { serializeRequiredChannelIds } from "@/bot/required-channels";
+import { storage } from "@/infrastructure/storage/minio";
 
 const router: IRouter = Router();
 
@@ -155,6 +157,31 @@ router.get(
   requirePermission(Permission.READ_TELEGRAM),
   (_req, res): void => {
     res.json(getRecentFileIds());
+  },
+);
+
+router.get(
+  "/telegram/media/:id/url",
+  requirePermission(Permission.READ_TELEGRAM),
+  async (req, res): Promise<void> => {
+    const mediaId = req.params.id;
+    if (typeof mediaId !== "string") {
+      res.status(400).json({ error: "Invalid media ID" });
+      return;
+    }
+
+    const [media] = await db
+      .select()
+      .from(telegramMediaTable)
+      .where(eq(telegramMediaTable.id, mediaId))
+      .limit(1);
+    if (!media || media.status !== "uploaded" || !media.storageBucket || !media.storageKey) {
+      res.status(404).json({ error: "Uploaded media not found" });
+      return;
+    }
+
+    const url = await storage.getPresignedUrl(media.storageBucket, media.storageKey);
+    res.json({ url, expiresIn: 3600 });
   },
 );
 

@@ -16,7 +16,7 @@ import { Logger } from "@/shared/utils/logger";
 const logger = Logger.getInstance("BullQueue");
 
 export interface JobQueue {
-  add<T>(name: string, data: T, opts?: { delay?: number; attempts?: number }): Promise<void>;
+  add<T>(name: string, data: T, opts?: { delay?: number; attempts?: number; jobId?: string }): Promise<void>;
   register<T>(name: string, handler: (data: T) => Promise<void>): void;
   process(queueName: string): void;
   close(): Promise<void>;
@@ -76,13 +76,14 @@ class BullMQQueue implements JobQueue {
   async add<T>(
     name: string,
     data: T,
-    opts?: { delay?: number; attempts?: number }
+    opts?: { delay?: number; attempts?: number; jobId?: string }
   ): Promise<void> {
     try {
       const queue = this.getQueue(name);
       await queue.add(name, data, {
         delay: opts?.delay,
         attempts: opts?.attempts,
+        jobId: opts?.jobId,
       });
       logger.debug(`Job added to queue ${name}`);
     } catch (error) {

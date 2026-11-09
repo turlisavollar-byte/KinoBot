@@ -138,6 +138,28 @@ services:
     networks:
       - kinobot-network
 
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    restart: always
+    command:
+      - --api-id=${TELEGRAM_API_ID:?TELEGRAM_API_ID is required}
+      - --api-hash=${TELEGRAM_API_HASH:?TELEGRAM_API_HASH is required}
+      - --local
+      - --http-port=8081
+      - --dir=/var/lib/telegram-bot-api
+    volumes:
+      - telegram_bot_api_data:/var/lib/telegram-bot-api
+    expose:
+      - "8081"
+    mem_limit: 2g
+    networks:
+      - kinobot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   api-server:
     build:
       context: .
@@ -157,6 +179,8 @@ services:
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
       VIDEO_BUCKET: ${VIDEO_BUCKET:-videos}
       TELEGRAM_POLLING_ENABLED: ${TELEGRAM_POLLING_ENABLED:-true}
+      TELEGRAM_LOCAL: "true"
+      TELEGRAM_API_URL: http://telegram-bot-api:8081
       PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
       PAYME_KEY: ${PAYME_KEY:-}
       PAYME_IS_TEST: "false"
@@ -177,12 +201,15 @@ services:
       - "127.0.0.1:3001:8080"  # Only accessible locally
     volumes:
       - upload_data:/var/uploads
+      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
       - ./logs/api:/app/logs
     depends_on:
       db-seed:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      telegram-bot-api:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/healthz', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
@@ -324,4 +351,6 @@ volumes:
   redis_data:
     driver: local
   upload_data:
+    driver: local
+  telegram_bot_api_data:
     driver: local
