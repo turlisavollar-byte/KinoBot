@@ -225,8 +225,11 @@ export const auth = {
   async resetPassword(_email: string): Promise<void> {
     throw new Error("Password reset is not available for Web accounts yet");
   },
-  async updatePassword(_password: string): Promise<void> {
-    throw new Error("Password change is not available for Web accounts yet");
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await request("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   },
   onAuthStateChange(callback: (session: AuthSession | null) => void) {
     listeners.add(callback);

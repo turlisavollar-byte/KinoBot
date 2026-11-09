@@ -72,7 +72,7 @@ export default function SettingsPage() {
   };
 
   const handleChangePassword = () => {
-    router.push(routes.forgotPassword);
+    router.push("/profile/change-password");
   };
 
   const handleManagePayments = () => {

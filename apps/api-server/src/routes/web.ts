@@ -314,6 +314,68 @@ router.post("/auth/login", authRateLimit, async (req, res, next) => {
   }
 });
 
+router.post("/auth/change-password", authRateLimit, requireWebAuth, async (req, res, next) => {
+  try {
+    const parsed = z
+      .object({
+        currentPassword: z.string().min(1).max(128),
+        newPassword: z.string().min(12).max(128),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      sendError(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        parsed.error.issues[0]?.message ?? "Invalid password change request",
+      );
+      return;
+    }
+
+    const [user] = await db
+      .select({ passwordHash: usersTable.passwordHash })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, req.user!.id), isNull(usersTable.deletedAt)))
+      .limit(1);
+    if (!user?.passwordHash) {
+      sendError(res, 409, "PASSWORD_NOT_SET", "This account has no password set");
+      return;
+    }
+    if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
+      sendError(res, 401, "INVALID_CURRENT_PASSWORD", "Current password is incorrect");
+      return;
+    }
+    if (parsed.data.currentPassword === parsed.data.newPassword) {
+      sendError(res, 400, "PASSWORD_UNCHANGED", "New password must be different");
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(
+      parsed.data.newPassword,
+      Number(process.env.BCRYPT_SALT_ROUNDS || 12),
+    );
+    const revokedAt = new Date();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(usersTable)
+        .set({ passwordHash })
+        .where(eq(usersTable.id, req.user!.id));
+      await tx
+        .update(webRefreshSessionsTable)
+        .set({ revokedAt })
+        .where(
+          and(
+            eq(webRefreshSessionsTable.userId, req.user!.id),
+            isNull(webRefreshSessionsTable.revokedAt),
+          ),
+        );
+    });
+    res.json({ success: true, message: "Password updated. Please sign in again." });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/auth/refresh", authRateLimit, async (req, res, next) => {
   try {
     const parsed = z
