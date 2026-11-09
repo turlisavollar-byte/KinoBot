@@ -104,6 +104,7 @@ export default function MoviesList() {
               <TableHead>{t("movies.year")}</TableHead>
               <TableHead>{t("movies.duration")}</TableHead>
               <TableHead>{t("movies.status")}</TableHead>
+              <TableHead>{t("movies.mediaStatus")}</TableHead>
               <TableHead className="text-right">{t("common.edit")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -111,7 +112,7 @@ export default function MoviesList() {
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-muted-foreground"
                 >
                   {t("common.loading")}
@@ -120,7 +121,7 @@ export default function MoviesList() {
             ) : movies?.data?.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-muted-foreground"
                 >
                   {t("movies.noMovies")}
@@ -154,6 +155,25 @@ export default function MoviesList() {
                       {movie.isPublished
                         ? t("movies.published")
                         : t("movies.draft")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        movie.storageKey &&
+                        ["s3", "minio"].includes(
+                          String(movie.sourceType).toLowerCase(),
+                        )
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {movie.storageKey &&
+                      ["s3", "minio"].includes(
+                        String(movie.sourceType).toLowerCase(),
+                      )
+                        ? t("movies.mediaUploaded")
+                        : t("movies.mediaMissing")}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">

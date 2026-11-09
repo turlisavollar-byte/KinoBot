@@ -78,6 +78,10 @@ export default function MovieDetail() {
   const [selectedTelegramMediaId, setSelectedTelegramMediaId] = useState("");
   const [loadingTelegramMedia, setLoadingTelegramMedia] = useState(false);
   const [linkingTelegramMedia, setLinkingTelegramMedia] = useState(false);
+  const [moviePreviewUrl, setMoviePreviewUrl] = useState<string | null>(null);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [uploadingPoster, setUploadingPoster] = useState(false);
+  const posterInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -120,14 +124,17 @@ export default function MovieDetail() {
     if (!movie?.id) return;
     let cancelled = false;
     setLoadingTelegramMedia(true);
-    void apiFetch<{ media: TelegramMovieMedia[] }>(
-      "/api/catalog/telegram-media",
-    )
-      .then(({ media }) => {
+    void apiFetch<{
+      media: TelegramMovieMedia[];
+      movieMediaStatus: "uploaded" | "missing";
+      previewUrl: string | null;
+    }>(`/api/catalog/movies/${encodeURIComponent(movie.id)}/media`)
+      .then(({ media, previewUrl }) => {
         if (!Array.isArray(media))
           throw new Error("Invalid Telegram media response");
         if (cancelled) return;
         setTelegramMedia(media);
+        setMoviePreviewUrl(previewUrl);
         setSelectedTelegramMediaId((current) =>
           media.some((item) => item.id === current)
             ? current
@@ -202,6 +209,32 @@ export default function MovieDetail() {
     }
   };
 
+  const handlePosterUpload = async () => {
+    if (!params.id || !posterFile) return;
+    setUploadingPoster(true);
+    try {
+      const body = new FormData();
+      body.append("poster", posterFile);
+      const result = await apiFetch<{ posterUrl: string }>(
+        `/api/catalog/movies/${encodeURIComponent(params.id)}/poster`,
+        { method: "POST", body },
+      );
+      form.setValue("posterUrl", result.posterUrl, { shouldDirty: true });
+      await queryClient.invalidateQueries({
+        queryKey: getGetMovieQueryKey(params.id),
+      });
+      setPosterFile(null);
+      if (posterInputRef.current) posterInputRef.current.value = "";
+      toast.success(t("movies.uploadPosterSuccess"));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("movies.uploadPosterError"),
+      );
+    } finally {
+      setUploadingPoster(false);
+    }
+  };
+
   const handleTelegramMediaLink = async () => {
     if (!params.id || !selectedTelegramMediaId) return;
     setLinkingTelegramMedia(true);
@@ -211,18 +244,19 @@ export default function MovieDetail() {
         sourceType: string;
         storageKey: string;
         telegramFileId: string;
-      }>(
-        `/api/catalog/movies/${encodeURIComponent(params.id)}/link-telegram-media`,
-        {
-          method: "POST",
-          body: JSON.stringify({ mediaId: selectedTelegramMediaId }),
-        },
-      );
+      }>(`/api/catalog/movies/${encodeURIComponent(params.id)}/link-media`, {
+        method: "POST",
+        body: JSON.stringify({ mediaId: selectedTelegramMediaId }),
+      });
       form.setValue("sourceType", result.sourceType, { shouldDirty: true });
       form.setValue("storageKey", result.storageKey, { shouldDirty: true });
       form.setValue("telegramFileId", result.telegramFileId, {
         shouldDirty: true,
       });
+      const mediaState = await apiFetch<{ previewUrl: string | null }>(
+        `/api/catalog/movies/${encodeURIComponent(params.id)}/media`,
+      );
+      setMoviePreviewUrl(mediaState.previewUrl);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: getGetMovieQueryKey(params.id),
@@ -494,12 +528,57 @@ export default function MovieDetail() {
 
           <Card>
             <CardHeader>
+              <CardTitle>{t("movies.uploadPosterTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t("movies.uploadPosterHelp")}
+              </p>
+              {movie?.posterUrl && (
+                <img
+                  src={movie.posterUrl}
+                  alt={movie.title}
+                  className="max-h-64 max-w-sm rounded-md object-contain"
+                />
+              )}
+              <Input
+                ref={posterInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                onChange={(event) =>
+                  setPosterFile(event.target.files?.[0] ?? null)
+                }
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePosterUpload}
+                disabled={!params.id || !posterFile || uploadingPoster}
+              >
+                {uploadingPoster
+                  ? t("movies.uploadingPoster")
+                  : t("movies.uploadPosterButton")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>{t("movies.linkTelegramMediaTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 {t("movies.linkTelegramMediaHelp")}
               </p>
+              {moviePreviewUrl && (
+                <video
+                  key={moviePreviewUrl}
+                  className="w-full max-h-[28rem] rounded-md bg-black"
+                  controls
+                  preload="metadata"
+                  src={moviePreviewUrl}
+                />
+              )}
               <Select
                 value={selectedTelegramMediaId}
                 onValueChange={setSelectedTelegramMediaId}

@@ -35,6 +35,12 @@ import {
   movieMediaUploadMiddleware,
 } from "../movie-media-upload";
 import {
+  createMoviePosterStorageKey,
+  hasMoviePosterSignature,
+  MAX_MOVIE_POSTER_UPLOAD_BYTES,
+  moviePosterUploadMiddleware,
+} from "../movie-poster-upload";
+import {
   CreateEpisodeBody,
   CreateEpisodeParams,
   CreateSeasonBody,
@@ -148,6 +154,73 @@ router.get(
   "/catalog/movies/:id",
   requirePermission(Permission.READ_CONTENT),
   (req, res, next) => getController().getMovie(req, res, next),
+);
+router.get(
+  "/catalog/movies/:id/media",
+  requirePermission(Permission.READ_CONTENT),
+  async (req, res, next): Promise<void> => {
+    try {
+      const movieId = String(req.params.id);
+      const [movie] = await db
+        .select({
+          id: moviesTable.id,
+          storageKey: moviesTable.storageKey,
+          sourceType: moviesTable.sourceType,
+        })
+        .from(moviesTable)
+        .where(and(eq(moviesTable.id, movieId), isNull(moviesTable.deletedAt)))
+        .limit(1);
+      if (!movie) {
+        res.status(404).json({
+          error: { code: "MOVIE_NOT_FOUND", message: "Movie not found" },
+        });
+        return;
+      }
+
+      const media = await db
+        .select({
+          id: telegramMediaTable.id,
+          fileName: telegramMediaTable.fileName,
+          fileSize: telegramMediaTable.fileSize,
+          duration: telegramMediaTable.duration,
+          uploadedAt: telegramMediaTable.uploadedAt,
+        })
+        .from(telegramMediaTable)
+        .where(
+          and(
+            eq(telegramMediaTable.status, "uploaded"),
+            eq(telegramMediaTable.mimeType, "video/mp4"),
+            gt(telegramMediaTable.fileSize, 0),
+            lte(telegramMediaTable.fileSize, MAX_MOVIE_UPLOAD_BYTES),
+            isNotNull(telegramMediaTable.storageBucket),
+            isNotNull(telegramMediaTable.storageKey),
+          ),
+        )
+        .orderBy(
+          desc(telegramMediaTable.uploadedAt),
+          desc(telegramMediaTable.createdAt),
+        )
+        .limit(100);
+
+      const mediaAvailable =
+        Boolean(movie.storageKey) &&
+        ["s3", "minio"].includes(movie.sourceType.toLowerCase());
+      const previewUrl = mediaAvailable
+        ? await storage.getPresignedUrl(
+            process.env.VIDEO_BUCKET || "videos",
+            movie.storageKey!.replace(/^\/+/, ""),
+            300,
+          )
+        : null;
+      res.json({
+        media,
+        movieMediaStatus: mediaAvailable ? "uploaded" : "missing",
+        previewUrl,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 router.get(
   "/catalog/telegram-media",
@@ -326,7 +399,126 @@ router.post(
 );
 
 router.post(
-  "/catalog/movies/:id/link-telegram-media",
+  "/catalog/movies/:id/poster",
+  requirePermission(Permission.UPDATE_CONTENT),
+  moviePosterUploadMiddleware,
+  async (req, res, next): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: {
+          code: "POSTER_FILE_REQUIRED",
+          message: "Select a JPEG, PNG, or WebP poster",
+        },
+      });
+      return;
+    }
+
+    let uploadedKey: string | null = null;
+    let metadataUpdated = false;
+    const posterBucket = process.env.VIDEO_BUCKET || "videos";
+    try {
+      const movieId = String(req.params.id);
+      const [movie] = await db
+        .select({ id: moviesTable.id, posterUrl: moviesTable.posterUrl })
+        .from(moviesTable)
+        .where(and(eq(moviesTable.id, movieId), isNull(moviesTable.deletedAt)))
+        .limit(1);
+      if (!movie) {
+        res.status(404).json({
+          error: { code: "MOVIE_NOT_FOUND", message: "Movie not found" },
+        });
+        return;
+      }
+
+      const fileHandle = await open(file.path, "r");
+      const header = Buffer.alloc(12);
+      let bytesRead: number;
+      try {
+        ({ bytesRead } = await fileHandle.read(header, 0, header.length, 0));
+      } finally {
+        await fileHandle.close();
+      }
+      if (
+        bytesRead < 12 ||
+        !hasMoviePosterSignature(header.subarray(0, bytesRead), file.mimetype)
+      ) {
+        res.status(415).json({
+          error: {
+            code: "INVALID_POSTER_FILE",
+            message: "Poster file signature does not match its image type",
+          },
+        });
+        return;
+      }
+
+      const key = createMoviePosterStorageKey(movie.id, file.originalname);
+      await storage.uploadStream(
+        posterBucket,
+        key,
+        createReadStream(file.path),
+        file.mimetype,
+        file.size,
+        120_000,
+      );
+      uploadedKey = key;
+      const posterUrl = await storage.getUrl(posterBucket, key);
+      const [updated] = await db
+        .update(moviesTable)
+        .set({ posterUrl, updatedAt: new Date() })
+        .where(
+          and(
+            eq(moviesTable.id, movie.id),
+            isNull(moviesTable.deletedAt),
+            movie.posterUrl
+              ? eq(moviesTable.posterUrl, movie.posterUrl)
+              : isNull(moviesTable.posterUrl),
+          ),
+        )
+        .returning({ id: moviesTable.id });
+      if (!updated) {
+        await storage.delete(posterBucket, key);
+        uploadedKey = null;
+        res.status(409).json({
+          error: {
+            code: "MOVIE_POSTER_CHANGED",
+            message: "Movie poster changed during upload; refresh and retry",
+          },
+        });
+        return;
+      }
+      metadataUpdated = true;
+      res.json({ id: movie.id, posterUrl });
+    } catch (error) {
+      if (uploadedKey && !metadataUpdated) {
+        try {
+          await storage.delete(posterBucket, uploadedKey);
+        } catch (cleanupError) {
+          logger.error(
+            "Failed to clean up an unlinked movie poster",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+      next(error);
+    } finally {
+      try {
+        await unlink(file.path);
+      } catch (cleanupError) {
+        if ((cleanupError as NodeJS.ErrnoException).code !== "ENOENT") {
+          logger.error(
+            "Failed to remove temporary movie poster",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+    }
+  },
+);
+router.post(
+  ["/catalog/movies/:id/link-telegram-media", "/catalog/movies/:id/link-media"],
   requirePermission(Permission.UPDATE_CONTENT),
   async (req, res, next): Promise<void> => {
     const movieId = String(req.params.id);
