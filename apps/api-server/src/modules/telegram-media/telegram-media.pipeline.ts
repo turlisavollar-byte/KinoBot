@@ -9,6 +9,7 @@ import type { BotContext } from "@/bot/index";
 import { queue } from "@/infrastructure/queue/bull";
 import { storage } from "@/infrastructure/storage/minio";
 import { Logger } from "@/shared/utils/logger";
+import { sendTelegramMediaFailureAlert } from "./telegram-media.alerts";
 import {
   generateTelegramVideoPoster,
   generateTelegramVideoPosterFromStream,
@@ -25,6 +26,8 @@ const LOCAL_FILES_DIRECTORY = "/var/lib/telegram-bot-api";
 let recoveryTimer: NodeJS.Timeout | undefined;
 let posterBackfillTimer: NodeJS.Timeout | undefined;
 let pipelineBot: Bot<BotContext> | undefined;
+let mediaFailureAlertsRegistered = false;
+let missingAlertDestinationLogged = false;
 
 export function isTelegramMediaPipelineRunning(): boolean {
   return pipelineBot !== undefined && recoveryTimer !== undefined;
@@ -352,6 +355,38 @@ export async function startTelegramMediaPipeline(
   bot: Bot<BotContext>,
 ): Promise<void> {
   pipelineBot = bot;
+  if (!process.env.TELEGRAM_MEDIA_ALERT_CHAT_ID && !missingAlertDestinationLogged) {
+    logger.warn("Telegram media alerts are disabled: destination is not configured");
+    missingAlertDestinationLogged = true;
+  }
+  if (!mediaFailureAlertsRegistered) {
+    queue.onFinalFailure(async ({ queueName, jobId }) => {
+      if (queueName !== QUEUE_NAME) return;
+      const destination = process.env.TELEGRAM_MEDIA_ALERT_CHAT_ID;
+      if (!destination) {
+        if (!missingAlertDestinationLogged) {
+          logger.warn("Telegram media alerts are disabled: destination is not configured");
+          missingAlertDestinationLogged = true;
+        }
+        return;
+      }
+      const activeBot = pipelineBot;
+      if (!activeBot) return;
+      try {
+        await sendTelegramMediaFailureAlert(
+          { sendMessage: (chatId, text) => activeBot.api.sendMessage(chatId, text) },
+          destination,
+          jobId,
+        );
+      } catch (error) {
+        logger.error("Telegram media failure alert delivery failed", {
+          jobId,
+          err: error instanceof Error ? error.name : "UnknownError",
+        });
+      }
+    });
+    mediaFailureAlertsRegistered = true;
+  }
   queue.register<{ mediaId: string }>(QUEUE_NAME, uploadMedia);
   queue.process(QUEUE_NAME);
   await enqueuePending();

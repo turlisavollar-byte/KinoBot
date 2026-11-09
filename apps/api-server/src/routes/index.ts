@@ -25,6 +25,7 @@ import userModule from "@/modules/user";
 import { analyticsRouter } from "@/modules/analytics";
 import billingModule from "@/modules/billing";
 import webRouter from "@/routes/web";
+import adminSubscribersRouter from "@/routes/admin-subscribers";
 
 const router: IRouter = Router();
 
@@ -95,6 +96,7 @@ router.get("/series", async (_req, res, next) => {
 // ─── Core business routes (legacy - to be migrated to DDD) ───────────────────
 router.use(telegramRouter);
 router.use("/video-codes", videoCodesRouter());
+router.use("/admin/subscribers", adminSubscribersRouter);
 router.use("/admin/users", adminUsersRouter);
 router.use("/admin-users", adminUsersRouter);
 

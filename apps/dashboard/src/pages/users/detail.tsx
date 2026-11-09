@@ -42,6 +42,8 @@ import {
   UsersRound,
   CalendarPlus,
   Ban,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -92,6 +94,9 @@ export default function UserDetail() {
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [trialDays, setTrialDays] = useState("30");
   const [trialSaving, setTrialSaving] = useState(false);
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -141,6 +146,32 @@ export default function UserDetail() {
         onError: () => toast.error(t("users.statusUpdateFailed")),
       },
     );
+  };
+
+  const handlePasswordReset = async () => {
+    setPasswordResetPending(true);
+    try {
+      const result = await apiFetch<{ temporaryPassword: string }>(
+        `/api/admin/subscribers/${encodeURIComponent(userId)}/password-reset`,
+        { method: "POST" },
+      );
+      setTemporaryPassword(result.temporaryPassword);
+      toast.success(t("users.passwordResetSuccess"));
+    } catch {
+      toast.error(t("users.passwordResetFailed"));
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const handleCopyTemporaryPassword = async () => {
+    if (!temporaryPassword) return;
+    try {
+      await navigator.clipboard.writeText(temporaryPassword);
+      toast.success(t("users.passwordCopied"));
+    } catch {
+      toast.error(t("users.passwordCopyFailed"));
+    }
   };
 
   const handleSaveAccess = () => {
@@ -331,14 +362,26 @@ export default function UserDetail() {
             </p>
           </div>
         </div>
-        <Button
-          variant={user.isBlocked ? "outline" : "destructive"}
-          onClick={handleBlockToggle}
-          disabled={blockUser.isPending}
-        >
-          <ShieldAlert className="h-4 w-4 mr-2" />
-          {user.isBlocked ? t("users.unblockUser") : t("users.blockUser")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTemporaryPassword(null);
+              setPasswordResetOpen(true);
+            }}
+          >
+            <KeyRound className="h-4 w-4 mr-2" />
+            {t("users.resetPassword")}
+          </Button>
+          <Button
+            variant={user.isBlocked ? "outline" : "destructive"}
+            onClick={handleBlockToggle}
+            disabled={blockUser.isPending}
+          >
+            <ShieldAlert className="h-4 w-4 mr-2" />
+            {user.isBlocked ? t("users.unblockUser") : t("users.blockUser")}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -801,6 +844,59 @@ export default function UserDetail() {
             <Button onClick={() => void handleExtendTrial()} disabled={trialSaving}>
               {trialSaving ? t("settings.saving") : t("users.extendTrial")}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={passwordResetOpen}
+        onOpenChange={(open) => {
+          setPasswordResetOpen(open);
+          if (!open) setTemporaryPassword(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-120">
+          <DialogHeader>
+            <DialogTitle>{t("users.resetPassword")}</DialogTitle>
+            <DialogDescription>
+              {temporaryPassword
+                ? t("users.passwordResetOneTimeNotice")
+                : t("users.passwordResetConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          {temporaryPassword ? (
+            <div className="space-y-2 py-2">
+              <Label htmlFor="temporary-password">{t("users.temporaryPassword")}</Label>
+              <div className="flex gap-2">
+                <Input id="temporary-password" readOnly value={temporaryPassword} />
+                <Button type="button" variant="outline" onClick={() => void handleCopyTemporaryPassword()}>
+                  <Copy className="h-4 w-4" />
+                  <span className="sr-only">{t("users.copyPassword")}</span>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("users.passwordResetSecureDelivery")}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPasswordResetOpen(false);
+                setTemporaryPassword(null);
+              }}
+              disabled={passwordResetPending}
+            >
+              {temporaryPassword ? t("users.closePasswordReset") : t("common.cancel")}
+            </Button>
+            {!temporaryPassword && (
+              <Button onClick={() => void handlePasswordReset()} disabled={passwordResetPending}>
+                {passwordResetPending
+                  ? t("settings.saving")
+                  : t("users.confirmPasswordReset")}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

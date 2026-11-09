@@ -15,7 +15,13 @@ import { Logger } from "@/shared/utils/logger";
 
 const logger = Logger.getInstance("BullQueue");
 
+export interface FinalQueueFailure {
+  queueName: string;
+  jobId: string;
+}
+
 export interface JobQueue {
+  onFinalFailure(handler: (failure: FinalQueueFailure) => void | Promise<void>): void;
   add<T>(name: string, data: T, opts?: { delay?: number; attempts?: number; jobId?: string }): Promise<void>;
   register<T>(name: string, handler: (data: T) => Promise<void>): void;
   process(queueName: string): void;
@@ -40,6 +46,9 @@ class BullMQQueue implements JobQueue {
   private queues: Map<string, Queue> = new Map();
   private workers: Map<string, Worker> = new Map();
   private handlers: Map<string, (data: unknown) => Promise<void>> = new Map();
+  private finalFailureHandlers = new Set<
+    (failure: FinalQueueFailure) => void | Promise<void>
+  >();
   private connection: Redis;
 
   constructor() {
@@ -99,6 +108,10 @@ class BullMQQueue implements JobQueue {
     }
   }
 
+  onFinalFailure(handler: (failure: FinalQueueFailure) => void | Promise<void>): void {
+    this.finalFailureHandlers.add(handler);
+  }
+
   register<T>(name: string, handler: (data: T) => Promise<void>): void {
     this.handlers.set(name, handler as (data: unknown) => Promise<void>);
   }
@@ -142,6 +155,17 @@ class BullMQQueue implements JobQueue {
 
     worker.on("failed", (job, error) => {
       logger.error(`Job ${job?.id} failed in queue ${queueName}:`, undefined, error);
+      if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
+      const failure = { queueName, jobId: String(job.id ?? "unknown") };
+      for (const handler of this.finalFailureHandlers) {
+        void Promise.resolve(handler(failure)).catch((handlerError: unknown) => {
+          logger.error("Final queue failure handler failed", {
+            queueName,
+            jobId: failure.jobId,
+            err: handlerError instanceof Error ? handlerError.name : "UnknownError",
+          });
+        });
+      }
     });
 
     this.workers.set(queueName, worker);
@@ -189,11 +213,28 @@ class BullMQQueue implements JobQueue {
 
 class SyncQueue implements JobQueue {
   private handlers = new Map<string, (data: unknown) => Promise<void>>();
+  private finalFailureHandlers = new Set<
+    (failure: FinalQueueFailure) => void | Promise<void>
+  >();
+
+  onFinalFailure(handler: (failure: FinalQueueFailure) => void | Promise<void>): void {
+    this.finalFailureHandlers.add(handler);
+  }
 
   async add<T>(name: string, data: T): Promise<void> {
     const handler = this.handlers.get(name);
     if (handler) {
-      handler(data).catch((err) => logger.error("Queue job failed", { err, name }));
+      handler(data).catch((err: unknown) => {
+        logger.error("Queue job failed", { name, err: err instanceof Error ? err.name : "UnknownError" });
+        for (const failureHandler of this.finalFailureHandlers) {
+          void Promise.resolve(failureHandler({ queueName: name, jobId: "sync" })).catch(
+            (handlerError: unknown) => logger.error("Final queue failure handler failed", {
+              name,
+              err: handlerError instanceof Error ? handlerError.name : "UnknownError",
+            }),
+          );
+        }
+      });
     } else {
       logger.warn("Queue: no handler registered, job dropped (stub mode)", { name });
     }
