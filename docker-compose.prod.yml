@@ -141,12 +141,13 @@ services:
   telegram-bot-api:
     image: aiogram/telegram-bot-api:latest
     restart: always
-    command:
-      - --api-id=${TELEGRAM_API_ID:?TELEGRAM_API_ID is required}
-      - --api-hash=${TELEGRAM_API_HASH:?TELEGRAM_API_HASH is required}
-      - --local
-      - --http-port=8081
-      - --dir=/var/lib/telegram-bot-api
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?TELEGRAM_API_ID is required}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?TELEGRAM_API_HASH is required}
+      TELEGRAM_LOCAL: "true"
+      TELEGRAM_HTTP_PORT: "8081"
+      TELEGRAM_WORK_DIR: /var/lib/telegram-bot-api
+      TELEGRAM_TEMP_DIR: /tmp/telegram-bot-api
     volumes:
       - telegram_bot_api_data:/var/lib/telegram-bot-api
     expose:
@@ -161,6 +162,8 @@ services:
         max-file: "3"
 
   api-server:
+    group_add:
+      - "101"
     build:
       context: .
       dockerfile: apps/api-server/Dockerfile

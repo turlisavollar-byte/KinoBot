@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import type { Bot } from "grammy";
@@ -44,6 +44,60 @@ async function enqueuePending(): Promise<void> {
   }
 }
 
+async function resolveLocalMediaPath(filePath: string): Promise<string> {
+  const volumeRoot = resolve(LOCAL_FILES_DIRECTORY);
+  const directPath = resolve(volumeRoot, filePath);
+  const relativePath = relative(volumeRoot, directPath);
+  if (
+    relativePath === "" ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`)
+  ) {
+    throw new Error("Telegram Bot API media path is outside the shared local volume");
+  }
+
+  const candidates = [directPath];
+  const directories = await readdir(volumeRoot, { withFileTypes: true });
+  for (const directory of directories) {
+    if (directory.isDirectory()) {
+      candidates.push(resolve(volumeRoot, directory.name, relativePath));
+    }
+  }
+
+  const existingFiles: string[] = [];
+  for (const candidate of candidates) {
+    const pathFromVolume = relative(volumeRoot, candidate);
+    if (
+      pathFromVolume === ".." ||
+      pathFromVolume.startsWith(`..${sep}`)
+    ) {
+      continue;
+    }
+    try {
+      if ((await stat(candidate)).isFile()) existingFiles.push(candidate);
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (existingFiles.length !== 1) {
+    throw new Error(
+      existingFiles.length === 0
+        ? "Telegram Bot API media file is missing from the shared local volume"
+        : "Telegram Bot API media path is ambiguous in the shared local volume",
+    );
+  }
+  return existingFiles[0];
+}
+
 async function uploadMedia(data: { mediaId: string }): Promise<void> {
   if (!pipelineBot) throw new Error("Telegram media pipeline is not initialized");
   const [media] = await db
@@ -78,16 +132,7 @@ async function uploadMedia(data: { mediaId: string }): Promise<void> {
     const filePath = telegramFile.file_path;
     if (!filePath) throw new Error("Telegram did not return a local media path");
 
-    const absolutePath = resolve(filePath);
-    const pathFromVolume = relative(LOCAL_FILES_DIRECTORY, absolutePath);
-    if (
-      pathFromVolume === "" ||
-      pathFromVolume === ".." ||
-      pathFromVolume.startsWith(`..${sep}`) ||
-      resolve(LOCAL_FILES_DIRECTORY, pathFromVolume) !== absolutePath
-    ) {
-      throw new Error("Telegram Bot API media path is outside the shared local volume");
-    }
+    const absolutePath = await resolveLocalMediaPath(filePath);
 
     const fileSize = (await stat(absolutePath)).size;
     if (media.fileSize > 0 && fileSize !== media.fileSize) {
