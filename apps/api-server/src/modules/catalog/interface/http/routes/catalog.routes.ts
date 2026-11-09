@@ -1,8 +1,24 @@
 import { Router } from "express";
+import { createReadStream } from "node:fs";
+import { open, unlink } from "node:fs/promises";
 import { getAnalyticsCacheService } from "@/modules/analytics";
-import { and, count, eq, ilike, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import {
   db,
+  moviesTable,
+  telegramMediaTable,
   episodesTable,
   actorsTable,
   genresTable,
@@ -10,6 +26,14 @@ import {
   seriesGenresTable,
   seriesTable,
 } from "@workspace/db";
+import { storage } from "@/infrastructure/storage/minio";
+import { Logger } from "@/shared/utils/logger";
+import {
+  createMovieStorageKey,
+  hasMp4Signature,
+  MAX_MOVIE_UPLOAD_BYTES,
+  movieMediaUploadMiddleware,
+} from "../movie-media-upload";
 import {
   CreateEpisodeBody,
   CreateEpisodeParams,
@@ -69,6 +93,7 @@ import { DrizzleVideoCodeRepository } from "@/modules/video-content/infrastructu
 import { ListMovieVideoCodesUseCase } from "@/modules/video-content/domain/use-cases/list-movie-video-codes.use-case";
 
 const router = Router();
+const logger = Logger.getInstance("CatalogMovieUpload");
 const actorRepository = new DrizzleCatalogRepository();
 const getActorDetail = new GetActorDetailUseCase(actorRepository);
 const attachActorToMovie = new AttachActorToMovieUseCase(actorRepository);
@@ -123,6 +148,341 @@ router.get(
   "/catalog/movies/:id",
   requirePermission(Permission.READ_CONTENT),
   (req, res, next) => getController().getMovie(req, res, next),
+);
+router.get(
+  "/catalog/telegram-media",
+  requirePermission(Permission.READ_CONTENT),
+  async (_req, res, next): Promise<void> => {
+    try {
+      const media = await db
+        .select({
+          id: telegramMediaTable.id,
+          fileName: telegramMediaTable.fileName,
+          fileSize: telegramMediaTable.fileSize,
+          duration: telegramMediaTable.duration,
+          uploadedAt: telegramMediaTable.uploadedAt,
+        })
+        .from(telegramMediaTable)
+        .where(
+          and(
+            eq(telegramMediaTable.status, "uploaded"),
+            eq(telegramMediaTable.mimeType, "video/mp4"),
+            gt(telegramMediaTable.fileSize, 0),
+            lte(telegramMediaTable.fileSize, MAX_MOVIE_UPLOAD_BYTES),
+            isNotNull(telegramMediaTable.storageBucket),
+            isNotNull(telegramMediaTable.storageKey),
+          ),
+        )
+        .orderBy(
+          desc(telegramMediaTable.uploadedAt),
+          desc(telegramMediaTable.createdAt),
+        )
+        .limit(100);
+      res.json({ media });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+router.post(
+  "/catalog/movies/:id/upload",
+  requirePermission(Permission.UPDATE_CONTENT),
+  movieMediaUploadMiddleware,
+  async (req, res, next): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: {
+          code: "MOVIE_FILE_REQUIRED",
+          message: "Select an MP4 video file",
+        },
+      });
+      return;
+    }
+
+    let uploadedKey: string | null = null;
+    let uploadedBucket: string | null = null;
+    let metadataUpdated = false;
+    try {
+      const movieId = String(req.params.id);
+      const [movie] = await db
+        .select({
+          id: moviesTable.id,
+          storageKey: moviesTable.storageKey,
+          sourceType: moviesTable.sourceType,
+        })
+        .from(moviesTable)
+        .where(and(eq(moviesTable.id, movieId), isNull(moviesTable.deletedAt)))
+        .limit(1);
+      if (!movie) {
+        res.status(404).json({
+          error: { code: "MOVIE_NOT_FOUND", message: "Movie not found" },
+        });
+        return;
+      }
+
+      const fileHandle = await open(file.path, "r");
+      const header = Buffer.alloc(12);
+      let bytesRead: number;
+      try {
+        ({ bytesRead } = await fileHandle.read(header, 0, header.length, 0));
+      } finally {
+        await fileHandle.close();
+      }
+      if (bytesRead < header.length || !hasMp4Signature(header)) {
+        res.status(415).json({
+          error: {
+            code: "INVALID_MP4_FILE",
+            message: "The uploaded file is not a valid MP4 video",
+          },
+        });
+        return;
+      }
+
+      const bucket = process.env.VIDEO_BUCKET || "videos";
+      const storageKey = createMovieStorageKey(movie.id);
+      await storage.uploadStream(
+        bucket,
+        storageKey,
+        createReadStream(file.path),
+        "video/mp4",
+        file.size,
+        30 * 60 * 1000,
+      );
+      uploadedKey = storageKey;
+      uploadedBucket = bucket;
+
+      const [updated] = await db
+        .update(moviesTable)
+        .set({ storageKey, sourceType: "s3", updatedAt: new Date() })
+        .where(
+          and(
+            eq(moviesTable.id, movie.id),
+            isNull(moviesTable.deletedAt),
+            movie.storageKey
+              ? eq(moviesTable.storageKey, movie.storageKey)
+              : isNull(moviesTable.storageKey),
+          ),
+        )
+        .returning({ id: moviesTable.id });
+      if (!updated) {
+        await storage.delete(bucket, storageKey);
+        uploadedKey = null;
+        uploadedBucket = null;
+        res.status(409).json({
+          error: {
+            code: "MOVIE_MEDIA_CHANGED",
+            message: "Movie media changed during upload; retry the upload",
+          },
+        });
+        return;
+      }
+      metadataUpdated = true;
+
+      if (
+        movie.storageKey &&
+        ["s3", "minio"].includes(movie.sourceType.toLowerCase()) &&
+        movie.storageKey !== storageKey
+      ) {
+        try {
+          await storage.delete(bucket, movie.storageKey);
+        } catch (cleanupError) {
+          logger.error(
+            "Replaced movie object could not be removed",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+
+      res.json({ id: movie.id, sourceType: "s3", storageKey });
+    } catch (error) {
+      if (uploadedKey && uploadedBucket && !metadataUpdated) {
+        try {
+          await storage.delete(uploadedBucket, uploadedKey);
+        } catch (cleanupError) {
+          logger.error(
+            "Failed to clean up an unlinked movie upload",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+      next(error);
+    } finally {
+      try {
+        await unlink(file.path);
+      } catch (cleanupError) {
+        if ((cleanupError as NodeJS.ErrnoException).code !== "ENOENT") {
+          logger.error(
+            "Failed to remove temporary movie upload",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+    }
+  },
+);
+
+router.post(
+  "/catalog/movies/:id/link-telegram-media",
+  requirePermission(Permission.UPDATE_CONTENT),
+  async (req, res, next): Promise<void> => {
+    const movieId = String(req.params.id);
+    const mediaId =
+      typeof req.body?.mediaId === "string" ? req.body.mediaId.trim() : "";
+    if (!mediaId || mediaId.length > 128) {
+      res.status(400).json({
+        error: {
+          code: "INVALID_TELEGRAM_MEDIA_ID",
+          message: "Select an uploaded Telegram video",
+        },
+      });
+      return;
+    }
+
+    let uploadedKey: string | null = null;
+    let metadataUpdated = false;
+    const bucket = process.env.VIDEO_BUCKET || "videos";
+    const transferTimeoutMs = 30 * 60 * 1000;
+    try {
+      const [movie] = await db
+        .select({
+          id: moviesTable.id,
+          storageKey: moviesTable.storageKey,
+          sourceType: moviesTable.sourceType,
+        })
+        .from(moviesTable)
+        .where(and(eq(moviesTable.id, movieId), isNull(moviesTable.deletedAt)))
+        .limit(1);
+      if (!movie) {
+        res.status(404).json({
+          error: { code: "MOVIE_NOT_FOUND", message: "Movie not found" },
+        });
+        return;
+      }
+
+      const [media] = await db
+        .select({
+          id: telegramMediaTable.id,
+          fileUniqueId: telegramMediaTable.fileUniqueId,
+          mimeType: telegramMediaTable.mimeType,
+          fileSize: telegramMediaTable.fileSize,
+          storageBucket: telegramMediaTable.storageBucket,
+          storageKey: telegramMediaTable.storageKey,
+        })
+        .from(telegramMediaTable)
+        .where(
+          and(
+            eq(telegramMediaTable.id, mediaId),
+            eq(telegramMediaTable.status, "uploaded"),
+            eq(telegramMediaTable.mimeType, "video/mp4"),
+            gt(telegramMediaTable.fileSize, 0),
+            lte(telegramMediaTable.fileSize, MAX_MOVIE_UPLOAD_BYTES),
+            isNotNull(telegramMediaTable.storageBucket),
+            isNotNull(telegramMediaTable.storageKey),
+          ),
+        )
+        .limit(1);
+      if (!media?.storageBucket || !media.storageKey) {
+        res.status(404).json({
+          error: {
+            code: "TELEGRAM_MEDIA_NOT_AVAILABLE",
+            message: "Uploaded MP4 video not found",
+          },
+        });
+        return;
+      }
+
+      const storageKey = createMovieStorageKey(movie.id);
+      const sourceStream = await storage.getObjectStream(
+        media.storageBucket,
+        media.storageKey,
+        transferTimeoutMs,
+      );
+      try {
+        await storage.uploadStream(
+          bucket,
+          storageKey,
+          sourceStream,
+          "video/mp4",
+          media.fileSize,
+          transferTimeoutMs,
+        );
+      } finally {
+        sourceStream.destroy();
+      }
+      uploadedKey = storageKey;
+
+      const [updated] = await db
+        .update(moviesTable)
+        .set({
+          storageKey,
+          sourceType: "s3",
+          telegramFileId: media.fileUniqueId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(moviesTable.id, movie.id),
+            isNull(moviesTable.deletedAt),
+            movie.storageKey
+              ? eq(moviesTable.storageKey, movie.storageKey)
+              : isNull(moviesTable.storageKey),
+          ),
+        )
+        .returning({ id: moviesTable.id });
+      if (!updated) {
+        await storage.delete(bucket, storageKey);
+        uploadedKey = null;
+        res.status(409).json({
+          error: {
+            code: "MOVIE_MEDIA_CHANGED",
+            message: "Movie media changed during linking; refresh and retry",
+          },
+        });
+        return;
+      }
+      metadataUpdated = true;
+
+      if (
+        movie.storageKey &&
+        ["s3", "minio"].includes(movie.sourceType.toLowerCase()) &&
+        movie.storageKey !== storageKey
+      ) {
+        try {
+          await storage.delete(bucket, movie.storageKey);
+        } catch (cleanupError) {
+          logger.error(
+            "Replaced movie object could not be removed",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+
+      res.json({
+        id: movie.id,
+        sourceType: "s3",
+        storageKey,
+        telegramFileId: media.fileUniqueId,
+      });
+    } catch (error) {
+      if (uploadedKey && !metadataUpdated) {
+        try {
+          await storage.delete(bucket, uploadedKey);
+        } catch (cleanupError) {
+          logger.error(
+            "Failed to clean up an unlinked Telegram movie copy",
+            undefined,
+            cleanupError,
+          );
+        }
+      }
+      next(error);
+    }
+  },
 );
 router.patch(
   "/catalog/movies/:id",

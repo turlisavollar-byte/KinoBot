@@ -23,7 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
+
+type TelegramMovieMedia = {
+  id: string;
+  fileName: string | null;
+  fileSize: number;
+  duration: number | null;
+  uploadedAt: string | null;
+};
 
 export default function MovieDetail() {
   const { t } = useI18n();
@@ -62,6 +71,13 @@ export default function MovieDetail() {
   });
   const updateMovie = useUpdateMovie();
   const deleteMovie = useDeleteMovie();
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [telegramMedia, setTelegramMedia] = useState<TelegramMovieMedia[]>([]);
+  const [selectedTelegramMediaId, setSelectedTelegramMediaId] = useState("");
+  const [loadingTelegramMedia, setLoadingTelegramMedia] = useState(false);
+  const [linkingTelegramMedia, setLinkingTelegramMedia] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -100,6 +116,35 @@ export default function MovieDetail() {
     }
   }, [movie, form]);
 
+  useEffect(() => {
+    if (!movie?.id) return;
+    let cancelled = false;
+    setLoadingTelegramMedia(true);
+    void apiFetch<{ media: TelegramMovieMedia[] }>(
+      "/api/catalog/telegram-media",
+    )
+      .then(({ media }) => {
+        if (!Array.isArray(media))
+          throw new Error("Invalid Telegram media response");
+        if (cancelled) return;
+        setTelegramMedia(media);
+        setSelectedTelegramMediaId((current) =>
+          media.some((item) => item.id === current)
+            ? current
+            : (media[0]?.id ?? ""),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) toast.error(t("movies.loadTelegramMediaError"));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTelegramMedia(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [movie?.id, t]);
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (!params.id) return;
     updateMovie.mutate(
@@ -119,6 +164,81 @@ export default function MovieDetail() {
         },
       },
     );
+  };
+
+  const handleVideoUpload = async () => {
+    if (!params.id || !movie || !videoFile) return;
+    if (videoFile.size > 1024 * 1024 * 1024) {
+      toast.error(t("movies.uploadVideoTooLarge"));
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      const body = new FormData();
+      body.append("video", videoFile);
+      const result = await apiFetch<{
+        id: string;
+        sourceType: string;
+        storageKey: string;
+      }>(`/api/catalog/movies/${encodeURIComponent(params.id)}/upload`, {
+        method: "POST",
+        body,
+      });
+      form.setValue("sourceType", result.sourceType, { shouldDirty: true });
+      form.setValue("storageKey", result.storageKey, { shouldDirty: true });
+      await queryClient.invalidateQueries({
+        queryKey: getGetMovieQueryKey(params.id),
+      });
+      toast.success(t("movies.uploadVideoSuccess"));
+      setVideoFile(null);
+      if (videoInputRef.current) videoInputRef.current.value = "";
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("movies.uploadVideoError"),
+      );
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const handleTelegramMediaLink = async () => {
+    if (!params.id || !selectedTelegramMediaId) return;
+    setLinkingTelegramMedia(true);
+    try {
+      const result = await apiFetch<{
+        id: string;
+        sourceType: string;
+        storageKey: string;
+        telegramFileId: string;
+      }>(
+        `/api/catalog/movies/${encodeURIComponent(params.id)}/link-telegram-media`,
+        {
+          method: "POST",
+          body: JSON.stringify({ mediaId: selectedTelegramMediaId }),
+        },
+      );
+      form.setValue("sourceType", result.sourceType, { shouldDirty: true });
+      form.setValue("storageKey", result.storageKey, { shouldDirty: true });
+      form.setValue("telegramFileId", result.telegramFileId, {
+        shouldDirty: true,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: getGetMovieQueryKey(params.id),
+        }),
+        queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() }),
+      ]);
+      toast.success(t("movies.linkTelegramMediaSuccess"));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("movies.linkTelegramMediaError"),
+      );
+    } finally {
+      setLinkingTelegramMedia(false);
+    }
   };
 
   const handleDelete = () => {
@@ -341,6 +461,87 @@ export default function MovieDetail() {
                   )}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("movies.uploadVideoTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t("movies.uploadVideoHelp")}
+              </p>
+              <Input
+                ref={videoInputRef}
+                type="file"
+                accept=".mp4,video/mp4"
+                onChange={(event) =>
+                  setVideoFile(event.target.files?.[0] ?? null)
+                }
+              />
+              <Button
+                type="button"
+                onClick={handleVideoUpload}
+                disabled={!movie || !params.id || !videoFile || uploadingVideo}
+              >
+                {uploadingVideo
+                  ? t("movies.uploadingVideo")
+                  : t("movies.uploadVideoButton")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("movies.linkTelegramMediaTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t("movies.linkTelegramMediaHelp")}
+              </p>
+              <Select
+                value={selectedTelegramMediaId}
+                onValueChange={setSelectedTelegramMediaId}
+                disabled={
+                  loadingTelegramMedia ||
+                  linkingTelegramMedia ||
+                  telegramMedia.length === 0
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingTelegramMedia
+                        ? t("common.loading")
+                        : telegramMedia.length === 0
+                          ? t("movies.noTelegramMedia")
+                          : t("movies.selectTelegramMedia")
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {telegramMedia.map((media) => (
+                    <SelectItem key={media.id} value={media.id}>
+                      {media.fileName || t("movies.unnamedTelegramMedia")} (
+                      {(media.fileSize / (1024 * 1024)).toFixed(1)} MB
+                      {media.duration ? ` · ${media.duration}s` : ""})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleTelegramMediaLink}
+                disabled={
+                  !params.id || !selectedTelegramMediaId || linkingTelegramMedia
+                }
+              >
+                {linkingTelegramMedia
+                  ? t("movies.linkingTelegramMedia")
+                  : t("movies.linkTelegramMediaButton")}
+              </Button>
             </CardContent>
           </Card>
 

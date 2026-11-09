@@ -57,4 +57,21 @@ describe("apiFetch forced-password handling", () => {
     const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(new Headers(requestInit.headers).get("Authorization")).toBe("Bearer access-token");
   });
+
+  it("does not set JSON content type for FormData", async () => {
+    const formData = new FormData();
+    formData.append("video", new Blob(["video"]), "video.mp4");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/catalog/movies/movie-1/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).has("Content-Type")).toBe(false);
+  });
 });

@@ -33,9 +33,14 @@ export interface StorageClient {
     data: Readable,
     contentType: string,
     contentLength: number,
+    timeoutMs?: number,
   ): Promise<string>;
   getUrl(bucket: string, key: string): Promise<string>;
-  getObjectStream(bucket: string, key: string): Promise<Readable>;
+  getObjectStream(
+    bucket: string,
+    key: string,
+    timeoutMs?: number,
+  ): Promise<Readable>;
   delete(bucket: string, key: string): Promise<void>;
   exists(bucket: string, key: string): Promise<boolean>;
   checkBucket(bucket: string): Promise<void>;
@@ -141,6 +146,7 @@ class S3Storage implements StorageClient {
     data: Readable,
     contentType: string,
     contentLength: number,
+    timeoutMs: number = 120_000,
   ): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
@@ -150,16 +156,24 @@ class S3Storage implements StorageClient {
         ContentType: contentType,
         ContentLength: contentLength,
       }),
-      { abortSignal: AbortSignal.timeout(120_000) },
+      { abortSignal: AbortSignal.timeout(timeoutMs) },
     );
-    logger.info("Streamed media uploaded to S3", { bucket, key, contentLength });
+    logger.info("Streamed media uploaded to S3", {
+      bucket,
+      key,
+      contentLength,
+    });
     return `${bucket}/${key}`;
   }
 
-  async getObjectStream(bucket: string, key: string): Promise<Readable> {
+  async getObjectStream(
+    bucket: string,
+    key: string,
+    timeoutMs: number = 120_000,
+  ): Promise<Readable> {
     const response = await this.client.send(
       new GetObjectCommand({ Bucket: bucket, Key: key }),
-      { abortSignal: AbortSignal.timeout(120_000) },
+      { abortSignal: AbortSignal.timeout(timeoutMs) },
     );
     if (!response.Body) {
       throw new Error("S3 returned no object body");
@@ -204,10 +218,9 @@ class S3Storage implements StorageClient {
   }
 
   async checkBucket(bucket: string): Promise<void> {
-    await this.client.send(
-      new HeadBucketCommand({ Bucket: bucket }),
-      { abortSignal: AbortSignal.timeout(5_000) },
-    );
+    await this.client.send(new HeadBucketCommand({ Bucket: bucket }), {
+      abortSignal: AbortSignal.timeout(5_000),
+    });
   }
 
   async delete(bucket: string, key: string): Promise<void> {
@@ -271,11 +284,16 @@ class StubStorage implements StorageClient {
     _data: Readable,
     _contentType: string,
     _contentLength: number,
+    _timeoutMs?: number,
   ): Promise<string> {
-    throw new Error("S3 storage is not configured; media upload is unavailable");
+    throw new Error(
+      "S3 storage is not configured; media upload is unavailable",
+    );
   }
   async getObjectStream(_bucket: string, _key: string): Promise<Readable> {
-    throw new Error("S3 storage is not configured; media download is unavailable");
+    throw new Error(
+      "S3 storage is not configured; media download is unavailable",
+    );
   }
   async getUrl(_bucket: string, key: string): Promise<string> {
     return `stub://${key}`;

@@ -105,7 +105,15 @@ export const requestSizeLimit = (
   res: Response,
   next: NextFunction,
 ): void => {
-  const maxSize = parseInt(process.env.MAX_FILE_SIZE || "52428800"); // 50MB default
+  const isMovieUpload = /^\/(?:api\/)?catalog\/movies\/[^/]+\/upload\/?$/.test(
+    req.path,
+  );
+  const maxSize = isMovieUpload
+    ? parseInt(
+        process.env.MAX_MOVIE_UPLOAD_SIZE || String(1024 * 1024 * 1024),
+        10,
+      )
+    : parseInt(process.env.MAX_FILE_SIZE || "52428800", 10); // 50MB default
 
   // Check Content-Length header
   const contentLength = req.headers["content-length"];
