@@ -111,7 +111,7 @@ jobs:
 
           GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
           sudo docker compose -f docker-compose.prod.yml config -q
-          sudo docker compose -f docker-compose.prod.yml build api-server dashboard web landing
+          sudo docker compose -f docker-compose.prod.yml build --no-cache api-server dashboard web landing
           if [ "$ROLLBACK_TEST" != "true" ]; then
             sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
           else
