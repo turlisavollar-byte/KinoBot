@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: false
+      verify_nginx_dashboard:
+        description: Check and, only if stale, refresh staging nginx/dashboard config
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
@@ -19,6 +24,158 @@ concurrency:
   group: v2-staging-deploy
   cancel-in-progress: false
 jobs:
+  verify_nginx_dashboard:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.verify_nginx_dashboard == true && inputs.confirm_staging == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Check and conditionally refresh staging nginx and dashboard via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          check_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'CHECK'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+
+          nginx_cap_ok() {
+            sudo docker exec nginx nginx -t >/dev/null 2>&1 &&
+              sudo docker exec nginx nginx -T 2>&1 | awk '
+                index($0, "location ~ ^/api/catalog/movies/[^/]+/upload") { upload = 1 }
+                upload && /client_max_body_size 1025M;/ { found = 1 }
+                upload && /^[[:space:]]*}/ { upload = 0 }
+                END { exit !found }
+              '
+          }
+
+          dashboard_csp_ok() {
+            headers="$(mktemp)"
+            page="$(mktemp)"
+            if ! curl --insecure --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused \
+              --dump-header "$headers" --output "$page" https://127.0.0.1:8443/admin/; then
+              rm -f "$headers" "$page"
+              return 1
+            fi
+            header_ok=false
+            page_style_ok=false
+            page_font_ok=false
+            if grep -i '^content-security-policy:' "$headers" | grep -Fq 'https://fonts.googleapis.com' &&
+              grep -i '^content-security-policy:' "$headers" | grep -Fq 'https://fonts.gstatic.com'; then
+              header_ok=true
+            fi
+            if grep -F 'style-src' "$page" | grep -Fq 'https://fonts.googleapis.com'; then
+              page_style_ok=true
+            fi
+            if grep -F 'font-src' "$page" | grep -Fq 'https://fonts.gstatic.com'; then
+              page_font_ok=true
+            fi
+            rm -f "$headers" "$page"
+            [ "$header_ok" = true ] && [ "$page_style_ok" = true ] && [ "$page_font_ok" = true ]
+          }
+
+          if nginx_cap_ok; then
+            echo "BEFORE nginx_upload_client_max_body_size=1025M"
+          else
+            echo "BEFORE nginx_upload_client_max_body_size=missing_or_stale"
+          fi
+          if dashboard_csp_ok; then
+            echo "BEFORE dashboard_google_fonts_csp=present"
+          else
+            echo "BEFORE dashboard_google_fonts_csp=missing_or_stale"
+          fi
+
+          if ! nginx_cap_ok || ! dashboard_csp_ok; then
+            GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
+            sudo docker compose -f docker-compose.prod.yml config -q
+            sudo docker compose -f docker-compose.prod.yml build --no-cache dashboard
+            sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate dashboard nginx
+            sudo docker exec nginx nginx -t
+            sudo docker exec nginx nginx -s reload
+          fi
+
+          verified=false
+          for attempt in $(seq 1 10); do
+            if nginx_cap_ok && dashboard_csp_ok; then
+              verified=true
+              break
+            fi
+            sleep 6
+          done
+          test "$verified" = true
+          echo "AFTER nginx_upload_client_max_body_size=1025M"
+          echo "AFTER dashboard_google_fonts_csp=present"
+          CHECK
+          SSM
+          )
+          parameters=$(jq -cn --arg commands "$check_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging nginx and dashboard config verification ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 1200 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+
+          completed=false
+          for attempt in $(seq 1 27); do
+            if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+            case "$status" in
+              Pending|InProgress|Delayed) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" \
+                  --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          test "$completed" = true
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
   deploy:
     if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
     runs-on: ubuntu-24.04
