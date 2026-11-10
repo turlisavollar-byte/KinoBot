@@ -131,7 +131,7 @@ jobs:
               --output json
             exit 1
           fi
-      - name: Health check v2 staging via SSM
+      - name: Verify v2 staging media routes and database via SSM
         env:
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
         run: |
@@ -139,20 +139,38 @@ jobs:
           test "$AWS_REGION" = "ap-southeast-2"
           test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
 
-          health_script=$(cat <<'SSM'
+          verify_script=$(cat <<'SSM'
           set -eu
-          sudo -u ubuntu bash -se <<'HEALTH'
+          sudo -u ubuntu bash -se <<'VERIFY'
           set -euo pipefail
-          curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused http://127.0.0.1:3001/api/healthz >/dev/null
-          curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused https://127.0.0.1:8443/ >/dev/null
-          HEALTH
+          cd /opt/kinobot-v2-git
+
+          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
+          telegram_media_http="$(curl --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/catalog/telegram-media)"
+          dashboard_http="$(curl --insecure --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/admin/telegram-media)"
+          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
+          telegram_media_count="$(sudo docker compose -f docker-compose.prod.yml exec -T postgres sh -ec 'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT count(*) FROM public.telegram_media"')"
+
+          printf 'VERIFY api_health_http=%s\n' "$api_health_http"
+          printf 'VERIFY telegram_media_route_http=%s\n' "$telegram_media_http"
+          printf 'VERIFY dashboard_telegram_media_http=%s\n' "$dashboard_http"
+          printf 'VERIFY telegram_media_count=%s\n' "$telegram_media_count"
+          printf 'VERIFY nginx_root_http=%s\n' "$nginx_root_http"
+
+          test "$api_health_http" = "200"
+          test "$telegram_media_http" = "401"
+          case "$dashboard_http" in 200|302) ;; *) exit 1 ;; esac
+          case "$telegram_media_count" in ''|*[!0-9]*) exit 1 ;; esac
+          test "$telegram_media_count" -ge 1
+          test "$nginx_root_http" = "200"
+          VERIFY
           SSM
           )
-          parameters=$(jq -cn --arg commands "$health_script" '{commands: [$commands]}')
+          parameters=$(jq -cn --arg commands "$verify_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "Kinobot v2 staging health check ${GITHUB_SHA}" \
+            --comment "Kinobot v2 staging media verification ${GITHUB_SHA}" \
             --max-concurrency "1" \
             --max-errors "0" \
             --timeout-seconds 300 \
