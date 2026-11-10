@@ -14,6 +14,7 @@ import {
   HeadObjectCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "node:stream";
 import { Logger } from "@/shared/utils/logger";
@@ -58,7 +59,7 @@ export const Buckets = {
   TEMP: "temp",
 } as const;
 
-class S3Storage implements StorageClient {
+export class S3Storage implements StorageClient {
   private client: S3Client;
   private presignClient: S3Client;
   private endpoint?: string;
@@ -90,6 +91,7 @@ class S3Storage implements StorageClient {
       },
       region,
       forcePathStyle,
+      requestStreamBufferSize: 64 * 1024,
     });
 
     this.presignClient = new S3Client({
@@ -148,16 +150,34 @@ class S3Storage implements StorageClient {
     contentLength: number,
     timeoutMs: number = 120_000,
   ): Promise<string> {
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: data,
-        ContentType: contentType,
-        ContentLength: contentLength,
-      }),
-      { abortSignal: AbortSignal.timeout(timeoutMs) },
-    );
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+    try {
+      const upload = new Upload({
+        client: this.client,
+        params: {
+          Bucket: bucket,
+          Key: key,
+          Body: data,
+          ContentType: contentType,
+          ContentLength: contentLength,
+        },
+        queueSize: 2,
+        partSize: 8 * 1024 * 1024,
+        leavePartsOnError: false,
+        abortController,
+      });
+      await upload.done();
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        throw new Error(`S3 upload exceeded timeout of ${timeoutMs} ms`, {
+          cause: error,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     logger.info("Streamed media uploaded to S3", {
       bucket,
       key,
