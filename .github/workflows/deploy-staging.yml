@@ -176,6 +176,12 @@ jobs:
               --output json
             exit 1
           fi
+          output=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "StandardOutputContent" \
+            --output text)
+          printf '%s\n' "$output" | grep -E '^(BEFORE|AFTER) (nginx_upload_client_max_body_size|dashboard_google_fonts_csp)='
   deploy:
     if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
     runs-on: ubuntu-24.04
