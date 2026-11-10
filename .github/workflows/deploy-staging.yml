@@ -58,8 +58,8 @@ jobs:
           flock -x 9
 
           nginx_cap_ok() {
-            sudo docker exec nginx nginx -t >/dev/null 2>&1 &&
-              sudo docker exec nginx nginx -T 2>&1 | awk '
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -t >/dev/null 2>&1 &&
+              sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -T 2>&1 | awk '
                 index($0, "location ~ ^/api/catalog/movies/[^/]+/upload") { upload = 1 }
                 upload && /client_max_body_size 1025M;/ { found = 1 }
                 upload && /^[[:space:]]*}/ { upload = 0 }
@@ -108,8 +108,8 @@ jobs:
             sudo docker compose -f docker-compose.prod.yml config -q
             sudo docker compose -f docker-compose.prod.yml build --no-cache dashboard
             sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate dashboard nginx
-            sudo docker exec nginx nginx -t
-            sudo docker exec nginx nginx -s reload
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
           fi
 
           verified=false
