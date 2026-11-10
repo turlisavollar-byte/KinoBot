@@ -17,6 +17,11 @@ on:
         required: true
         type: boolean
         default: false
+      movie_upload_test:
+        description: Run the disposable staging movie S3 upload and cleanup test
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
@@ -182,6 +187,268 @@ jobs:
             --query "StandardOutputContent" \
             --output text)
           printf '%s\n' "$output" | grep -E '^(BEFORE|AFTER) (nginx_upload_client_max_body_size|dashboard_google_fonts_csp)='
+  movie_upload_test:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.movie_upload_test == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging object cleanup
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Upload and verify disposable staging movie files
+        id: upload_test
+        env:
+          API_BASE_URL: https://3.105.228.88
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          TEST_EMAIL: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+          test -n "$TEST_EMAIL"
+          test -n "$TEST_PASSWORD"
+
+          work_dir="$(mktemp -d)"
+          movie_id=""
+          expected_title="test-upload-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          api_token=""
+          cleanup_failed=false
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            if [ -n "$movie_id" ] && [ -n "$api_token" ]; then
+              movie_response="$work_dir/cleanup-movie.json"
+              movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+                --output "$movie_response" --write-out '%{http_code}' \
+                --header "Authorization: Bearer $api_token" \
+                "$API_BASE_URL/api/catalog/movies/$movie_id")"
+              current_key=""
+              if [ "$movie_status" = "200" ] &&
+                [ "$(jq -r '.title // empty' "$movie_response")" = "$expected_title" ]; then
+                current_key="$(jq -r '.storageKey // empty' "$movie_response")"
+                delete_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+                  --output /dev/null --write-out '%{http_code}' \
+                  --request DELETE \
+                  --header "Authorization: Bearer $api_token" \
+                  "$API_BASE_URL/api/catalog/movies/$movie_id")"
+                if [ "$delete_status" != "204" ]; then
+                  echo "CLEANUP movie_delete_failed http=$delete_status"
+                  cleanup_failed=true
+                else
+                  echo "CLEANUP movie_deleted=true"
+                fi
+              else
+                echo "CLEANUP movie_identity_check_failed http=$movie_status"
+                cleanup_failed=true
+              fi
+
+              if [ -n "$current_key" ]; then
+                if ! printf '%s' "$current_key" | grep -Eq "^movies/${movie_id}/[0-9a-f-]{36}\\.mp4$"; then
+                  echo "CLEANUP storage_key_validation_failed"
+                  cleanup_failed=true
+                else
+                  cleanup_script=$(cat <<'SSM'
+          set -eu
+                  sudo -u ubuntu env MOVIE_TEST_STORAGE_KEY=__MOVIE_TEST_STORAGE_KEY__ bash -se <<'REMOTE'
+          set -eu
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+          test "$(git remote get-url origin)" = "https://github.com/turlisavollar-byte/KinoBot.git"
+          key="${MOVIE_TEST_STORAGE_KEY:?}"
+          sudo docker compose -f docker-compose.prod.yml exec -T -e MOVIE_TEST_STORAGE_KEY="$key" api-server node <<'NODE'
+          const {
+            DeleteObjectCommand,
+            HeadObjectCommand,
+            S3Client,
+          } = require("@aws-sdk/client-s3");
+
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const bucket = process.env.VIDEO_BUCKET || "videos";
+            const key = process.env.MOVIE_TEST_STORAGE_KEY;
+            if (!key || !/^movies\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(key)) {
+              throw new Error("storage key is outside the disposable movie namespace");
+            }
+            await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+            try {
+              await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+              throw new Error("test object still exists after deletion");
+            } catch (error) {
+              if (error.message === "test object still exists after deletion") throw error;
+              if (error.name !== "NotFound" && error.$metadata?.httpStatusCode !== 404) throw error;
+            }
+            console.log("OBJECT_REMOVED=true");
+            client.destroy();
+          }
+
+          main().catch((error) => {
+            console.error(`OBJECT_REMOVED=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          REMOTE
+          SSM
+          )
+                  cleanup_script="${cleanup_script//__MOVIE_TEST_STORAGE_KEY__/$current_key}"
+                  parameters="$(jq -cn --arg commands "$cleanup_script" '{commands: [$commands]}')"
+                  command_id="$(aws ssm send-command \
+                    --instance-ids "$STAGING_INSTANCE_ID" \
+                    --document-name AWS-RunShellScript \
+                    --comment "Kinobot v2 staging disposable movie object cleanup ${GITHUB_RUN_ID}" \
+                    --max-concurrency 1 --max-errors 0 --timeout-seconds 300 \
+                    --parameters "$parameters" \
+                    --query Command.CommandId --output text)"
+                  if [ -z "$command_id" ] || [ "$command_id" = "None" ]; then
+                    echo "CLEANUP object_delete_command_failed"
+                    cleanup_failed=true
+                  else
+                    completed=false
+                    for attempt in $(seq 1 20); do
+                      if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+                        completed=true
+                        break
+                      fi
+                      command_status="$(aws ssm get-command-invocation \
+                        --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                        --query Status --output text 2>/dev/null)"
+                      case "$command_status" in
+                        Pending|InProgress|Delayed) ;;
+                        *) break ;;
+                      esac
+                    done
+                    if [ "$completed" = true ] &&
+                      [ "$(aws ssm get-command-invocation --command-id "$command_id" \
+                        --instance-id "$STAGING_INSTANCE_ID" --query Status --output text)" = "Success" ]; then
+                      echo "CLEANUP s3_object_deleted=true"
+                    else
+                      echo "CLEANUP s3_object_delete_failed"
+                      cleanup_failed=true
+                    fi
+                  fi
+                fi
+              fi
+            fi
+            rm -rf "$work_dir"
+            if [ "$cleanup_failed" = true ]; then
+              result=1
+            fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          health_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' "$API_BASE_URL/api/healthz")"
+          test "$health_status" = "200"
+          echo "PRECHECK api_health=http_${health_status}"
+
+          jq -cn --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" \
+            '{email: $email, password: $password}' > "$work_dir/login.json"
+          login_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/login-response.json" --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' --data-binary @"$work_dir/login.json" \
+            "$API_BASE_URL/api/identity/auth/login")"
+          test "$login_status" = "200"
+          api_token="$(jq -er '.accessToken' "$work_dir/login-response.json")"
+          echo "::add-mask::$api_token"
+          rm -f "$work_dir/login.json" "$work_dir/login-response.json"
+
+          jq -cn --arg title "$expected_title" '{title: $title}' > "$work_dir/movie.json"
+          create_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/movie-response.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $api_token" --header 'Content-Type: application/json' \
+            --data-binary @"$work_dir/movie.json" "$API_BASE_URL/api/catalog/movies")"
+          test "$create_status" = "201"
+          movie_id="$(jq -er '.id' "$work_dir/movie-response.json")"
+          test "$(jq -r '.title' "$work_dir/movie-response.json")" = "$expected_title"
+          echo "MOVIE created=true id=$movie_id"
+
+          command -v ffmpeg >/dev/null 2>&1 || {
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          }
+          ffmpeg -v error -f lavfi -i 'color=c=black:s=320x240:r=1' -frames:v 1 \
+            -an -c:v mpeg4 -q:v 31 -movflags +faststart -y "$work_dir/base.mp4"
+          for size in 1000000 10000000 100000000; do
+            case "$size" in
+              1000000) label="1MB" ;;
+              10000000) label="10MB" ;;
+              100000000) label="100MB" ;;
+            esac
+            file="$work_dir/$label.mp4"
+            python3 - "$work_dir/base.mp4" "$file" "$size" <<'PY'
+          import shutil
+          import struct
+          import sys
+          from pathlib import Path
+
+          source, destination, requested = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          base_size = Path(source).stat().st_size
+          free_size = requested - base_size
+          if free_size < 8:
+              raise SystemExit("base MP4 exceeds requested fixture size")
+          with open(source, "rb") as src, open(destination, "wb") as dst:
+              shutil.copyfileobj(src, dst)
+              dst.write(struct.pack(">I", free_size))
+              dst.write(b"free")
+              remaining = free_size - 8
+              zeroes = b"\0" * min(1024 * 1024, remaining)
+              while remaining:
+                  chunk = zeroes[:min(len(zeroes), remaining)]
+                  dst.write(chunk)
+                  remaining -= len(chunk)
+          if Path(destination).stat().st_size != requested:
+              raise SystemExit("fixture size mismatch")
+          PY
+            ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
+              -of default=noprint_wrappers=1:nokey=1 "$file" >/dev/null
+            started_at="$(date +%s)"
+            upload_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 1800 \
+              --output "$work_dir/upload-response.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" \
+              --form "video=@$file;type=video/mp4" \
+              "$API_BASE_URL/api/catalog/movies/$movie_id/upload")"
+            elapsed="$(( $(date +%s) - started_at ))"
+            test "$upload_status" = "200"
+            uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
+            test "$(jq -r '.id' "$work_dir/upload-response.json")" = "$movie_id"
+            test "$(jq -r '.sourceType' "$work_dir/upload-response.json")" = "s3"
+
+            movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/movie-verify.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$API_BASE_URL/api/catalog/movies/$movie_id")"
+            test "$movie_status" = "200"
+            test "$(jq -r '.storageKey' "$work_dir/movie-verify.json")" = "$uploaded_key"
+            test "$(jq -r '.sourceType' "$work_dir/movie-verify.json")" = "s3"
+
+            media_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/media.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$API_BASE_URL/api/catalog/movies/$movie_id/media")"
+            test "$media_status" = "200"
+            preview_url="$(jq -er '.previewUrl' "$work_dir/media.json")"
+            echo "::add-mask::$preview_url"
+            object_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 180 \
+              --range 0-0 --output /dev/null --write-out '%{http_code}' "$preview_url")"
+            case "$object_status" in 200|206) ;; *) echo "S3 check failed: HTTP $object_status"; exit 1 ;; esac
+            echo "UPLOAD size=$label status=$upload_status elapsed_seconds=$elapsed database_key=verified s3_object=verified"
+          done
   deploy:
     if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
     runs-on: ubuntu-24.04
