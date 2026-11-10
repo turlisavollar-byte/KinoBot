@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ChangePassword from "./change-password";
+import { I18nProvider } from "@/lib/i18n";
 import { setMustChangePasswordRequired } from "@/lib/password-change-flow";
 
 const mocks = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ vi.mock("wouter", () => ({ useLocation: () => ["/change-password", mocks.setLoca
 describe("ChangePassword", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.setItem("streamops-locale", "uz");
     setMustChangePasswordRequired(true);
     mocks.apiFetch.mockReset();
     mocks.apiFetch.mockResolvedValue({ success: true });
@@ -32,7 +34,7 @@ describe("ChangePassword", () => {
 
   it("validates matching strong passwords before making the request", async () => {
     const user = userEvent.setup();
-    render(<ChangePassword />);
+    render(<ChangePassword />, { wrapper: I18nProvider });
     await user.type(screen.getByLabelText("Joriy parol"), "Temporary123!");
     await user.type(screen.getByLabelText("Yangi parol"), "Weak");
     await user.type(screen.getByLabelText("Yangi parolni tasdiqlang"), "Weak");
@@ -44,7 +46,7 @@ describe("ChangePassword", () => {
 
   it("submits password change, clears the forced flag, and returns to dashboard", async () => {
     const user = userEvent.setup();
-    render(<ChangePassword />);
+    render(<ChangePassword />, { wrapper: I18nProvider });
     await user.type(screen.getByLabelText("Joriy parol"), "Temporary123!");
     await user.type(screen.getByLabelText("Yangi parol"), "NewSecure123!");
     await user.type(screen.getByLabelText("Yangi parolni tasdiqlang"), "NewSecure123!");

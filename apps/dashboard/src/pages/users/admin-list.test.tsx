@@ -64,11 +64,11 @@ describe("AdminUsersList", () => {
     expect(screen.getByText("morgan@example.com")).toBeInTheDocument();
     expect(screen.getByText("MM")).toBeInTheDocument();
 
-    await user.click(screen.getByTitle("Edit admin account"));
-    const nameField = screen.getByLabelText("Name");
+    await user.click(screen.getByTitle("users.editAdminAccount"));
+    const nameField = screen.getByLabelText("users.name");
     await user.clear(nameField);
     await user.type(nameField, "Morgan Lee");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "users.saveChanges" }));
 
     await waitFor(() => expect(mocks.updateAsync).toHaveBeenCalledWith({
       id: "admin-1",
@@ -97,7 +97,7 @@ describe("AdminUsersList", () => {
     const user = userEvent.setup();
     render(<AdminUsersList />);
 
-    await user.click(screen.getByRole("button", { name: "Add Admin" }));
+    await user.click(screen.getByRole("button", { name: "users.addAdmin" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Invite a new administrator with a one-time password.")).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("AdminUsersList", () => {
     mocks.role = "moderator";
     render(<AdminUsersList />);
 
-    expect(screen.queryByRole("button", { name: "Add Admin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "users.addAdmin" })).not.toBeInTheDocument();
   });
 
   it("opens user details when an admin name is selected", async () => {
