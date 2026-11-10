@@ -79,7 +79,7 @@ jobs:
           sudo -u ubuntu bash -se <<'DEPLOY'
           set -euo pipefail
           DEPLOY_ID=__DEPLOY_ID__
-          ROLLBACK_TEST=__ROLLBACK_TEST__
+          ROLLBACK_TEST=${{ inputs.rollback_test }}
           cd /opt/kinobot-v2-git
           test "$(git branch --show-current)" = "feature/v2-web-integration"
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -119,15 +119,13 @@ jobs:
           fi
           sudo docker compose -f docker-compose.prod.yml up -d --no-deps api-server dashboard web landing nginx
           sudo docker compose -f docker-compose.prod.yml ps
-          if [ "$ROLLBACK_TEST" = "true" ]; then
-            echo "Intentional app-only rollback test failure"
-            exit 1
-          fi
           DEPLOY
           SSM
           )
           deploy_script="${deploy_script//__DEPLOY_ID__/$deploy_id}"
-          deploy_script="${deploy_script//__ROLLBACK_TEST__/$rollback_test}"
+          if [ "$rollback_test" = "true" ]; then
+            printf '%s\n' "$deploy_script" | grep -Fq 'ROLLBACK_TEST=true'
+          fi
           parameters=$(jq -cn --arg commands "$deploy_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
@@ -176,6 +174,19 @@ jobs:
               --instance-id "$STAGING_INSTANCE_ID" \
               --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
               --output json
+            exit 1
+          fi
+          if [ "$rollback_test" = "true" ]; then
+            output="$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "StandardOutputContent" \
+              --output text)"
+            if ! printf '%s\n' "$output" | grep -Fq 'Rollback test: database migration skipped'; then
+              echo "SSM did not confirm that database migration was skipped" >&2
+              exit 1
+            fi
+            echo "Intentional app-only rollback test failure"
             exit 1
           fi
       - name: Verify v2 staging media routes and database via SSM
@@ -266,7 +277,7 @@ jobs:
           sudo -u ubuntu bash -se <<'ROLLBACK'
           set -euo pipefail
           DEPLOY_ID=__DEPLOY_ID__
-          ROLLBACK_TEST=__ROLLBACK_TEST__
+          ROLLBACK_TEST=${{ inputs.rollback_test }}
           state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
           exec 9>/tmp/kinobot-v2-deploy.lock
           flock -x 9
@@ -328,7 +339,6 @@ jobs:
           SSM
           )
           rollback_script="${rollback_script//__DEPLOY_ID__/$deploy_id}"
-          rollback_script="${rollback_script//__ROLLBACK_TEST__/$rollback_test}"
           parameters=$(jq -cn --arg commands "$rollback_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
