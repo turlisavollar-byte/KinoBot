@@ -7,6 +7,11 @@ on:
         required: true
         type: boolean
         default: false
+      rollback_test:
+        description: Test app-only rollback; skips migrations and database restore
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
@@ -61,17 +66,20 @@ jobs:
         id: deploy_staging
         env:
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          ROLLBACK_TEST: ${{ inputs.rollback_test }}
         run: |
           set -euo pipefail
           test "$AWS_REGION" = "ap-southeast-2"
           test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
 
           deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rollback_test="$ROLLBACK_TEST"
           deploy_script=$(cat <<'SSM'
           set -eu
           sudo -u ubuntu bash -se <<'DEPLOY'
           set -euo pipefail
           DEPLOY_ID=__DEPLOY_ID__
+          ROLLBACK_TEST=__ROLLBACK_TEST__
           cd /opt/kinobot-v2-git
           test "$(git branch --show-current)" = "feature/v2-web-integration"
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -105,13 +113,22 @@ jobs:
           GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
           sudo docker compose -f docker-compose.prod.yml config -q
           sudo docker compose -f docker-compose.prod.yml build api-server dashboard web landing
-          sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
+          if [ "$ROLLBACK_TEST" != "true" ]; then
+            sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
+          else
+            echo "Rollback test: database migration skipped"
+          fi
           sudo docker compose -f docker-compose.prod.yml up -d --no-deps api-server dashboard web landing nginx
           sudo docker compose -f docker-compose.prod.yml ps
+          if [ "$ROLLBACK_TEST" = "true" ]; then
+            echo "Intentional app-only rollback test failure"
+            exit 1
+          fi
           DEPLOY
           SSM
           )
           deploy_script="${deploy_script//__DEPLOY_ID__/$deploy_id}"
+          deploy_script="${deploy_script//__ROLLBACK_TEST__/$rollback_test}"
           parameters=$(jq -cn --arg commands "$deploy_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
@@ -237,17 +254,20 @@ jobs:
         continue-on-error: true
         env:
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          ROLLBACK_TEST: ${{ inputs.rollback_test }}
         run: |
           set -euo pipefail
           test "$AWS_REGION" = "ap-southeast-2"
           test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
 
           deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rollback_test="$ROLLBACK_TEST"
           rollback_script=$(cat <<'SSM'
           set -eu
           sudo -u ubuntu bash -se <<'ROLLBACK'
           set -euo pipefail
           DEPLOY_ID=__DEPLOY_ID__
+          ROLLBACK_TEST=__ROLLBACK_TEST__
           state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
           exec 9>/tmp/kinobot-v2-deploy.lock
           flock -x 9
@@ -263,7 +283,9 @@ jobs:
           test "${#previous_sha}" -eq 40
 
           sudo docker compose --project-directory /opt/kinobot-v2-git -f "$compose_file" stop api-server
-          if [ -s "$state_dir/db-backup-name" ]; then
+          if [ "$ROLLBACK_TEST" = "true" ]; then
+            echo "Rollback test: database restore explicitly skipped"
+          elif [ -s "$state_dir/db-backup-name" ]; then
             backup_name="$(cat "$state_dir/db-backup-name")"
             case "$backup_name" in ''|*/*|*..*) echo "Invalid saved database backup name" >&2; exit 1 ;; esac
             backup_path="$PWD/backups/$backup_name"
@@ -307,6 +329,7 @@ jobs:
           SSM
           )
           rollback_script="${rollback_script//__DEPLOY_ID__/$deploy_id}"
+          rollback_script="${rollback_script//__ROLLBACK_TEST__/$rollback_test}"
           parameters=$(jq -cn --arg commands "$rollback_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
