@@ -97,11 +97,10 @@ jobs:
           for service in api-server dashboard web landing nginx; do
             container_id="$(sudo docker compose -f docker-compose.prod.yml ps -q "$service" | head -n 1)"
             test -n "$container_id"
-            image_id="$(sudo docker inspect --format '{{.Image}}' "$container_id")"
             image_ref="$(sudo docker inspect --format '{{.Config.Image}}' "$container_id")"
             rollback_tag="kinobot-v2-rollback:${DEPLOY_ID}-${service}"
-            sudo docker image tag "$image_id" "$rollback_tag"
-            printf '%s\t%s\t%s\t%s\n' "$service" "$image_id" "$image_ref" "$rollback_tag" >> "$state_dir/images.tsv"
+            sudo docker commit "$container_id" "$rollback_tag" >/dev/null
+            printf '%s\t%s\t%s\n' "$service" "$image_ref" "$rollback_tag" >> "$state_dir/images.tsv"
           done
 
           backup_output="$(sudo docker compose -f docker-compose.prod.yml run --rm db-backup)"
@@ -307,20 +306,20 @@ jobs:
           git reset --hard "$previous_sha"
           cp "$compose_file" docker-compose.prod.yml
           if [ -s "$state_dir/images.tsv" ]; then
-            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
               test -n "$service"
               sudo docker image tag "$rollback_tag" "$image_ref"
             done < "$state_dir/images.tsv"
           fi
           sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api-server dashboard web landing nginx
-          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
-          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
+          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --retry-all-errors --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
+          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --retry-all-errors --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
           printf 'ROLLBACK api_health_http=%s nginx_root_http=%s\n' "$api_health_http" "$nginx_root_http"
           test "$api_health_http" = "200"
           test "$nginx_root_http" = "200"
           sudo docker compose -f docker-compose.prod.yml ps
           if [ -s "$state_dir/images.tsv" ]; then
-            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
               sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
             done < "$state_dir/images.tsv"
           fi
@@ -400,7 +399,7 @@ jobs:
           flock -x 9
           state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
           if [ -s "$state_dir/images.tsv" ]; then
-            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
               sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
             done < "$state_dir/images.tsv"
           fi
@@ -437,7 +436,7 @@ jobs:
             const body = [
               `The v2 staging deployment failed in run ${context.runId}.`,
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              `Rollback step outcome: ${{ steps.rollback_staging.outcome || 'not-run' }}.`,
+              `Rollback step conclusion: ${{ steps.rollback_staging.conclusion || 'not-run' }}.`,
               'Inspect the workflow logs and staging health before retrying.'
             ].join('\n\n');
             const { data: issues } = await github.rest.issues.listForRepo({
