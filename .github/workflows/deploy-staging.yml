@@ -9,6 +9,7 @@ on:
         default: false
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: v2-staging-deploy
   cancel-in-progress: false
@@ -57,6 +58,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
       - name: Deploy to v2 staging via SSM
+        id: deploy_staging
         env:
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
         run: |
@@ -64,23 +66,52 @@ jobs:
           test "$AWS_REGION" = "ap-southeast-2"
           test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
 
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           deploy_script=$(cat <<'SSM'
           set -eu
           sudo -u ubuntu bash -se <<'DEPLOY'
           set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
           cd /opt/kinobot-v2-git
           test "$(git branch --show-current)" = "feature/v2-web-integration"
           test -z "$(git status --porcelain --untracked-files=no)"
+
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          umask 077
+          mkdir -p "$state_dir"
+          previous_sha="$(git rev-parse HEAD)"
+          cp docker-compose.prod.yml "$state_dir/docker-compose.prod.yml"
+          printf '%s\n' "$previous_sha" > "$state_dir/previous-sha"
+          : > "$state_dir/images.tsv"
+          for service in api-server dashboard web landing nginx; do
+            container_id="$(sudo docker compose -f docker-compose.prod.yml ps -q "$service" | head -n 1)"
+            test -n "$container_id"
+            image_id="$(sudo docker inspect --format '{{.Image}}' "$container_id")"
+            image_ref="$(sudo docker inspect --format '{{.Config.Image}}' "$container_id")"
+            rollback_tag="kinobot-v2-rollback:${DEPLOY_ID}-${service}"
+            sudo docker image tag "$image_id" "$rollback_tag"
+            printf '%s\t%s\t%s\t%s\n' "$service" "$image_id" "$image_ref" "$rollback_tag" >> "$state_dir/images.tsv"
+          done
+
+          backup_output="$(sudo docker compose -f docker-compose.prod.yml run --rm db-backup)"
+          backup_name="$(printf '%s\n' "$backup_output" | sed -n 's#^Verified backup: /backups/##p' | tail -n 1)"
+          case "$backup_name" in ''|*/*|*..*) echo "Verified database backup path was not returned" >&2; exit 1 ;; esac
+          test -s "backups/$backup_name"
+          printf '%s\n' "$backup_name" > "$state_dir/db-backup-name"
+
           GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
           sudo docker compose -f docker-compose.prod.yml config -q
           sudo docker compose -f docker-compose.prod.yml build api-server dashboard web landing
-          sudo docker compose -f docker-compose.prod.yml run --rm db-backup
           sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
           sudo docker compose -f docker-compose.prod.yml up -d --no-deps api-server dashboard web landing nginx
           sudo docker compose -f docker-compose.prod.yml ps
           DEPLOY
           SSM
           )
+          deploy_script="${deploy_script//__DEPLOY_ID__/$deploy_id}"
           parameters=$(jq -cn --arg commands "$deploy_script" '{commands: [$commands]}')
           command_id=$(aws ssm send-command \
             --instance-ids "$STAGING_INSTANCE_ID" \
@@ -132,6 +163,7 @@ jobs:
             exit 1
           fi
       - name: Verify v2 staging media routes and database via SSM
+        id: verify_staging
         env:
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
         run: |
@@ -199,3 +231,211 @@ jobs:
               --output json
             exit 1
           fi
+      - name: Roll back failed v2 staging deployment via SSM
+        id: rollback_staging
+        if: failure() && (steps.deploy_staging.outcome == 'failure' || steps.verify_staging.outcome == 'failure')
+        continue-on-error: true
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rollback_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'ROLLBACK'
+          set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+          if [ ! -s "$state_dir/previous-sha" ]; then
+            echo "No staging rollback state is available"
+            exit 0
+          fi
+
+          cd /opt/kinobot-v2-git
+          compose_file="$state_dir/docker-compose.prod.yml"
+          previous_sha="$(cat "$state_dir/previous-sha")"
+          case "$previous_sha" in *[!0-9a-f]*|'') echo "Invalid saved deployment revision" >&2; exit 1 ;; esac
+          test "${#previous_sha}" -eq 40
+
+          sudo docker compose --project-directory /opt/kinobot-v2-git -f "$compose_file" stop api-server
+          if [ -s "$state_dir/db-backup-name" ]; then
+            backup_name="$(cat "$state_dir/db-backup-name")"
+            case "$backup_name" in ''|*/*|*..*) echo "Invalid saved database backup name" >&2; exit 1 ;; esac
+            backup_path="$PWD/backups/$backup_name"
+            test -s "$backup_path"
+            postgres_id="$(sudo docker compose --project-directory /opt/kinobot-v2-git -f "$compose_file" ps -q postgres | head -n 1)"
+            test -n "$postgres_id"
+            container_backup="/tmp/kinobot-rollback-${DEPLOY_ID}.dump"
+            sudo docker cp "$backup_path" "$postgres_id:$container_backup"
+            sudo docker exec "$postgres_id" sh -ec '
+              PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --clean --if-exists --no-owner --no-acl \
+                -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$1"
+            ' sh "$container_backup"
+            sudo docker exec "$postgres_id" rm -f "$container_backup"
+            echo "Database restored from the pre-deployment backup"
+          else
+            echo "No verified pre-deployment database backup is available; database was not changed"
+          fi
+
+          git reset --hard "$previous_sha"
+          cp "$compose_file" docker-compose.prod.yml
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+              test -n "$service"
+              sudo docker image tag "$rollback_tag" "$image_ref"
+            done < "$state_dir/images.tsv"
+          fi
+          sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api-server dashboard web landing nginx
+          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
+          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
+          printf 'ROLLBACK api_health_http=%s nginx_root_http=%s\n' "$api_health_http" "$nginx_root_http"
+          test "$api_health_http" = "200"
+          test "$nginx_root_http" = "200"
+          sudo docker compose -f docker-compose.prod.yml ps
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+              sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
+            done < "$state_dir/images.tsv"
+          fi
+          rm -rf "$state_dir"
+          ROLLBACK
+          SSM
+          )
+          rollback_script="${rollback_script//__DEPLOY_ID__/$deploy_id}"
+          parameters=$(jq -cn --arg commands "$rollback_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging rollback ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 2400 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+
+          completed=false
+          for attempt in $(seq 1 27); do
+            if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+            case "$status" in
+              Pending|InProgress|Delayed) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" \
+                  --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          test "$completed" = "true"
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+      - name: Clean successful staging rollback state via SSM
+        if: success()
+        continue-on-error: true
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'CLEANUP'
+          set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_id image_ref rollback_tag; do
+              sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
+            done < "$state_dir/images.tsv"
+          fi
+          rm -rf "$state_dir"
+          CLEANUP
+          SSM
+          )
+          cleanup_script="${cleanup_script//__DEPLOY_ID__/$deploy_id}"
+          parameters=$(jq -cn --arg commands "$cleanup_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging rollback state cleanup ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 300 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          test "$status" = "Success"
+      - name: Create staging deployment failure issue
+        if: failure() && (steps.deploy_staging.outcome == 'failure' || steps.verify_staging.outcome == 'failure')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Staging deployment failed: run ${context.runId}`;
+            const body = [
+              `The v2 staging deployment failed in run ${context.runId}.`,
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `Rollback step outcome: ${{ steps.rollback_staging.outcome || 'not-run' }}.`,
+              'Inspect the workflow logs and staging health before retrying.'
+            ].join('\n\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
