@@ -37,7 +37,7 @@ jobs:
           test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
 
           monitor_script=$(cat <<'SSM'
-          set -euo pipefail
+          set -eu
           sudo -u ubuntu bash -se <<'REMOTE'
           set -euo pipefail
           cd /opt/kinobot-v2-git
