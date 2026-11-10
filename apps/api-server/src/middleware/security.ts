@@ -6,6 +6,11 @@
 import { type Request, type Response, type NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import {
+  formatMovieUploadLimit,
+  MAX_MOVIE_UPLOAD_BYTES,
+  MAX_MOVIE_UPLOAD_MULTIPART_OVERHEAD_BYTES,
+} from "@/config/upload-limits";
 
 export function getClientIp(req: Request): string {
   const forwardedFor = req.headers["x-forwarded-for"];
@@ -108,19 +113,28 @@ export const requestSizeLimit = (
   const isMovieUpload = /^\/(?:api\/)?catalog\/movies\/[^/]+\/upload\/?$/.test(
     req.path,
   );
-  const maxSize = isMovieUpload
-    ? parseInt(
-        process.env.MAX_MOVIE_UPLOAD_SIZE || String(1024 * 1024 * 1024),
-        10,
-      )
-    : parseInt(process.env.MAX_FILE_SIZE || "52428800", 10); // 50MB default
-
   // Check Content-Length header
   const contentLength = req.headers["content-length"];
-  if (contentLength && parseInt(contentLength) > maxSize) {
+  const requestSize =
+    typeof contentLength === "string" ? Number(contentLength) : NaN;
+  const maxRequestSize = isMovieUpload
+    ? MAX_MOVIE_UPLOAD_BYTES + MAX_MOVIE_UPLOAD_MULTIPART_OVERHEAD_BYTES
+    : Number.parseInt(process.env.MAX_FILE_SIZE || "52428800", 10);
+  if (Number.isSafeInteger(requestSize) && requestSize > maxRequestSize) {
+    if (isMovieUpload) {
+      res.status(413).json({
+        error: {
+          code: "MOVIE_UPLOAD_TOO_LARGE",
+          message: `Movie upload exceeds the ${formatMovieUploadLimit()} file limit`,
+          maxFileSizeBytes: MAX_MOVIE_UPLOAD_BYTES,
+        },
+      });
+      return;
+    }
+
     res.status(413).json({
       error: "Request entity too large",
-      maxSize: `${maxSize / 1024 / 1024}MB`,
+      maxSize: `${maxRequestSize / 1024 / 1024}MB`,
     });
     return;
   }
