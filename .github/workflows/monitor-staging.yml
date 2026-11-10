@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
-      name: staging
+      name: staging-monitoring
     steps:
       - name: Configure AWS credentials
         id: aws-credentials
