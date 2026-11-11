@@ -22,6 +22,11 @@ on:
         required: true
         type: boolean
         default: false
+      disk_cleanup:
+        description: Prune staging build cache and old logs without touching Docker volumes
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
@@ -449,6 +454,117 @@ jobs:
             case "$object_status" in 200|206) ;; *) echo "S3 check failed: HTTP $object_status"; exit 1 ;; esac
             echo "UPLOAD size=$label status=$upload_status elapsed_seconds=$elapsed database_key=verified s3_object=verified"
           done
+  disk_cleanup:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.disk_cleanup == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false && inputs.movie_upload_test == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging maintenance
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Clean staging cache and old logs via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          maintenance_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'REMOTE'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+
+          echo "DISK_BEFORE"
+          df -h /
+          echo "DOCKER_BEFORE"
+          sudo docker system df
+          used_before="$(df -B1 / | awk 'NR == 2 {print $3}')"
+
+          sudo docker image prune -f
+          sudo docker builder prune -a -f
+          sudo journalctl --vacuum-size=100M
+          sudo find /var/log -type f -name '*.log' -mtime +7 -delete
+          sudo find /var/lib/docker/containers -type f -name '*.log' -size +100M -delete
+          sudo apt-get clean
+          sudo apt-get autoclean
+
+          used_after="$(df -B1 / | awk 'NR == 2 {print $3}')"
+          freed_mb="$(( (used_before - used_after) / 1048576 ))"
+          echo "DISK_FREED_MB=$freed_mb"
+          echo "DISK_AFTER"
+          df -h /
+          echo "DOCKER_AFTER"
+          sudo docker system df
+
+          compose_file=docker-compose.prod.yml
+          mapfile -t container_ids < <(sudo docker compose -f "$compose_file" ps -q)
+          test "${#container_ids[@]}" -gt 0
+          for container_id in "${container_ids[@]}"; do
+            name="$(sudo docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')"
+            read -r state health < <(sudo docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_id")
+            echo "CONTAINER name=$name state=$state health=$health"
+            test "$state" = "running"
+            test "$health" = "healthy" || test "$health" = "no-healthcheck"
+          done
+          sudo docker compose -f "$compose_file" ps
+          REMOTE
+          SSM
+          )
+          parameters="$(jq -cn --arg commands "$maintenance_script" '{commands: [$commands]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Kinobot v2 staging cache and log cleanup ${GITHUB_RUN_ID}" \
+            --max-concurrency 1 --max-errors 0 --timeout-seconds 300 \
+            --parameters "$parameters" \
+            --query Command.CommandId --output text)"
+          test -n "$command_id"
+          test "$command_id" != "None"
+
+          completed=false
+          for attempt in $(seq 1 5); do
+            if aws ssm wait command-executed \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status="$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in
+              Success) completed=true; break ;;
+              Pending|InProgress|Delayed|Cancelling) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          status="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query Status --output text)"
+          if [ "$completed" != "true" ] || [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+          aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query StandardOutputContent --output text
   deploy:
     if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
     runs-on: ubuntu-24.04
