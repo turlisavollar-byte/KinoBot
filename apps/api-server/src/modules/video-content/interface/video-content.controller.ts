@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import * as fs from "node:fs";
 import { VideoContentService } from "../application/services/video-content.service";
 import type { VideoCodeEntity } from "../domain/entities/video-code.entity";
+import { UpdateVideoCodeBody } from "@workspace/api-zod";
+import { ListMovieVideoCodesUseCase } from "../domain/use-cases/list-movie-video-codes.use-case";
 
 function toResponse(video: VideoCodeEntity) {
   return {
@@ -9,6 +11,7 @@ function toResponse(video: VideoCodeEntity) {
     code: video.code.toString(),
     title: video.title,
     description: video.description,
+    movieId: video.movieId,
     telegramFileId: video.telegramFileId,
     channelId: video.channelId,
     messageId: video.messageId,
@@ -24,7 +27,10 @@ function toResponse(video: VideoCodeEntity) {
 }
 
 export class VideoContentController {
-  constructor(private readonly service: VideoContentService) {}
+  constructor(
+    private readonly service: VideoContentService,
+    private readonly listMovieVideoCodes: ListMovieVideoCodesUseCase,
+  ) {}
 
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -48,6 +54,7 @@ export class VideoContentController {
           file: req.file,
           title: String(req.body.title ?? ""),
           description: req.body.description,
+          movieId: req.body.movieId,
           channelId: req.body.channelId,
           accessPolicy: req.body.accessPolicy,
           requiredChannelIds: req.body.requiredChannelIds,
@@ -72,11 +79,41 @@ export class VideoContentController {
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const body = UpdateVideoCodeBody.safeParse(req.body);
+      if (!body.success) {
+        res.status(400).json({ error: body.error.message });
+        return;
+      }
       const id = Array.isArray(req.params.id)
         ? req.params.id[0]
         : req.params.id;
-      res.json(toResponse(await this.service.updateVideo(id, req.body)));
+      res.json(toResponse(await this.service.updateVideo(id, body.data)));
     } catch (error) {
+      if (error instanceof Error && error.message === "Movie not found") {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      next(error);
+    }
+  }
+
+  async listMovie(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const movieId = Array.isArray(req.params.movieId)
+        ? req.params.movieId[0]
+        : req.params.movieId;
+      res.json(
+        (await this.listMovieVideoCodes.execute(movieId)).map(toResponse),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "Movie not found") {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   }

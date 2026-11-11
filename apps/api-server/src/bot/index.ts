@@ -13,6 +13,8 @@ import { registerStartHandler } from "@/bot/handlers/start";
 import { registerCatalogHandler } from "@/bot/handlers/catalog";
 import { registerSubscriptionHandler } from "@/bot/handlers/subscription";
 import { registerStorageHandler } from "@/bot/handlers/storage";
+import { registerActorHandler } from "@/bot/handlers/actor";
+import { startTelegramMediaPipeline, stopTelegramMediaPipeline } from "@/modules/telegram-media/telegram-media.pipeline";
 
 export interface SessionData {
   step?: string;
@@ -27,7 +29,6 @@ let _bot: Bot<BotContext> | null = null;
 let _isRunning = false;
 let _startPromise: Promise<void> | null = null;
 let _sessionRedis: Redis | null = null;
-let _shutdownHandlersRegistered = false;
 
 const SESSION_TTL_SECONDS = 60 * 60;
 
@@ -112,22 +113,15 @@ async function closeSessionRedis(): Promise<void> {
   }
 }
 
-function registerShutdownHandlers(): void {
-  if (_shutdownHandlersRegistered) return;
-  _shutdownHandlersRegistered = true;
-
-  const shutdown = async (signal: string) => {
-    logger.info(`Stopping Telegram bot on ${signal}`);
-    await stopBot();
-    process.exit(0);
-  };
-
-  process.once("SIGTERM", () => void shutdown("SIGTERM"));
-  process.once("SIGINT", () => void shutdown("SIGINT"));
-}
-
 export function buildBot(token: string): Bot<BotContext> {
-  const bot = new Bot<BotContext>(token);
+  const apiRoot =
+    process.env.TELEGRAM_LOCAL === "true"
+      ? process.env.TELEGRAM_API_URL ?? "http://telegram-bot-api:8081"
+      : undefined;
+  const bot = new Bot<BotContext>(
+    token,
+    apiRoot ? { client: { apiRoot } } : undefined,
+  );
 
   bot.use(
     session({
@@ -141,6 +135,7 @@ export function buildBot(token: string): Bot<BotContext> {
   registerStorageHandler(bot);
   registerStartHandler(bot);
   registerCatalogHandler(bot);
+  registerActorHandler(bot);
   registerSubscriptionHandler(bot);
 
   bot.catch((err) => {
@@ -199,7 +194,7 @@ export async function startBot(): Promise<void> {
       }
 
       _bot = buildBot(config.botToken);
-      registerShutdownHandlers();
+      if (process.env.REDIS_URL) await startTelegramMediaPipeline(_bot);
 
       _isRunning = true;
 
@@ -213,7 +208,18 @@ export async function startBot(): Promise<void> {
             "channel_post",
           ],
           drop_pending_updates: true,
-          onStart: (info) => {
+          onStart: async (info) => {
+            try {
+              await db
+                .update(telegramConfigTable)
+                .set({ botUsername: info.username })
+                .where(eq(telegramConfigTable.id, config.id));
+            } catch (error) {
+              logger.error(
+                { err: errorSummary(error) },
+                "Failed to persist Telegram bot username",
+              );
+            }
             logger.info(
               { botUsername: info.username },
               "Telegram bot started (polling)",
@@ -251,6 +257,7 @@ export async function stopBot(): Promise<void> {
   _bot = null;
   _isRunning = false;
 
+  stopTelegramMediaPipeline();
   if (bot) {
     try {
       await bot.stop();

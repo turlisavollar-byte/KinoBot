@@ -11,14 +11,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -45,7 +45,6 @@ jobs:
           pnpm --dir apps/landing run test:unit
       - name: Workspace tests (known failures are temporarily non-blocking)
         id: workspace-tests
-        continue-on-error: true
         run: |
           pnpm test
       - name: Report known workspace test failures

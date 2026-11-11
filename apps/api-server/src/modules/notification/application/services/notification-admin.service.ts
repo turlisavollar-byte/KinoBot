@@ -5,6 +5,10 @@ import {
   notificationTemplatesTable,
   usersTable,
 } from "@workspace/db";
+import {
+  resolveBroadcastAudience,
+  type BroadcastRecipientType,
+} from "./broadcast-audience";
 
 export class NotificationAdminService {
   async listTemplates() {
@@ -118,44 +122,36 @@ export class NotificationAdminService {
   async createBroadcast(input: {
     templateId: string;
     recipients?: string[];
-    recipientType?: "users" | "channels";
+    recipientType?: BroadcastRecipientType;
     data?: Record<string, unknown>;
   }) {
-    const recipients = input.recipients?.filter(Boolean) ?? [];
     const recipientType = input.recipientType ?? "users";
-    if (recipientType === "channels" && recipients.length === 0) {
-      throw new Error("At least one Telegram channel is required");
-    }
+    const audience = resolveBroadcastAudience(recipientType, input.recipients);
     const [{ estimatedRecipients }] = await db
       .select({ estimatedRecipients: count() })
       .from(usersTable)
       .where(
-        recipientType === "channels"
+        audience.recipientType === "channels"
           ? sql`false`
-          : recipients.length
+          : audience.recipientType === "users"
             ? and(
                 or(
-                  inArray(usersTable.id, recipients),
-                  inArray(usersTable.telegramId, recipients),
+                  inArray(usersTable.id, audience.recipients),
+                  inArray(usersTable.telegramId, audience.recipients),
                 ),
                 eq(usersTable.isActive, true),
               )
             : eq(usersTable.isActive, true),
       );
     const recipientCount =
-      recipientType === "channels"
-        ? recipients.length
+      audience.recipientType === "channels"
+        ? audience.recipients.length
         : Number(estimatedRecipients);
     const [job] = await db
       .insert(broadcastJobsTable)
       .values({
         templateId: input.templateId,
-        targetAudience:
-          recipientType === "channels"
-            ? JSON.stringify({ type: "channels", ids: recipients })
-            : recipients.length
-              ? JSON.stringify(recipients)
-              : "all",
+        targetAudience: audience.targetAudience,
         variables: input.data ? JSON.stringify(input.data) : null,
         totalRecipients: recipientCount,
         status: "pending",

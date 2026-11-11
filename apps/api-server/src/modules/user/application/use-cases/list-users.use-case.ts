@@ -4,6 +4,7 @@ import { inject, injectable } from 'tsyringe';
 import type { IUserRepository, UserFilters, UserPaginationResult } from '../../domain/repositories/user.repository.interface';
 import { Logger } from '@/shared/utils/logger';
 import { AppError } from '@/shared/errors/AppError';
+import { getCustomerUserScope } from '@/shared/constants/user-access';
 
 @injectable()
 export class ListUsersUseCase {
@@ -14,11 +15,17 @@ export class ListUsersUseCase {
     private readonly repository: IUserRepository,
   ) {}
 
-  async execute(filters: UserFilters): Promise<UserPaginationResult> {
+  async execute(
+    filters: UserFilters,
+    actor: { id: string; role: string },
+  ): Promise<UserPaginationResult> {
     const startTime = Date.now();
 
     // Validate and set defaults
-    const validatedFilters = this.validateFilters(filters);
+    const validatedFilters = this.validateFilters({
+      ...filters,
+      accessScope: getCustomerUserScope(actor.id, actor.role),
+    });
 
     this.logger.debug('Listing users', { filters: validatedFilters });
 

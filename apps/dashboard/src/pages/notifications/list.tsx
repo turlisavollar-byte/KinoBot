@@ -47,7 +47,7 @@ import { useI18n } from "@/lib/i18n";
 type TemplateButton = { text: string; url: string };
 
 export default function NotificationsList() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const { data: templates, isLoading } = useListNotificationTemplates();
   const createTemplate = useCreateNotificationTemplate();
   const updateTemplate = useUpdateNotificationTemplate();
@@ -73,9 +73,9 @@ export default function NotificationsList() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [recipients, setRecipients] = useState<string[]>([]);
-  const [recipientType, setRecipientType] = useState<"users" | "channels">(
-    "users",
-  );
+  const [recipientType, setRecipientType] = useState<
+    "users" | "all_users" | "channels"
+  >("users");
   const [selectedChannel, setSelectedChannel] = useState("");
 
   const resetForm = () => {
@@ -111,7 +111,10 @@ export default function NotificationsList() {
   const handleSave = () => {
     if (!name || !content) return;
     if (contentType !== "text" && !mediaFileId.trim()) {
-      toast({ title: "Media File ID is required", variant: "destructive" });
+      toast({
+        title: t("notifications.mediaFileIdRequired"),
+        variant: "destructive",
+      });
       return;
     }
     const data = {
@@ -139,7 +142,19 @@ export default function NotificationsList() {
         });
         setIsOpen(false);
         resetForm();
+        toast({
+          title: editingTemplateId
+            ? t("notifications.updated")
+            : t("notifications.created"),
+        });
       },
+      onError: () =>
+        toast({
+          title: editingTemplateId
+            ? t("notifications.updateError")
+            : t("notifications.createError"),
+          variant: "destructive",
+        }),
     };
     if (editingTemplateId) {
       updateTemplate.mutate({ id: editingTemplateId, data }, options);
@@ -158,7 +173,13 @@ export default function NotificationsList() {
             queryKey: getListNotificationTemplatesQueryKey(),
           });
           if (selectedTemplate === id) setSelectedTemplate("");
+          toast({ title: t("notifications.deleted") });
         },
+        onError: () =>
+          toast({
+            title: t("notifications.deleteError"),
+            variant: "destructive",
+          }),
       },
     );
   };
@@ -177,27 +198,38 @@ export default function NotificationsList() {
         onSuccess: (res) => {
           setBroadcastOpen(false);
           toast({
-            title: "Broadcast Scheduled",
+            title: t("notifications.broadcast.scheduled"),
             description:
               recipientType === "channels"
-                ? `Message ${res.data?.messageId || "created"} queued for ${recipients.length} channels.`
-                : `Message ${res.data?.messageId || "created"} queued for ${res.data?.recipientCount ?? recipients.length} users.`,
+                ? t("notifications.broadcast.queuedChannels", {
+                    count: formatNumber(
+                      res.data?.recipientCount ?? recipients.length,
+                    ),
+                  })
+                : t("notifications.broadcast.queuedUsers", {
+                    count: formatNumber(res.data?.recipientCount ?? 0),
+                  }),
           });
         },
+        onError: () =>
+          toast({
+            title: t("notifications.broadcast.error"),
+            variant: "destructive",
+          }),
       },
     );
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("notifications.title")}
           </h1>
           <p className="text-muted-foreground">{t("notifications.list")}</p>
         </div>
-        <div className="space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
             {t("notifications.add")}
@@ -214,37 +246,39 @@ export default function NotificationsList() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {isLoading ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground">
+          <div className="col-span-full text-center py-12 text-muted-foreground">
             {t("common.loading")}
           </div>
         ) : templates?.length === 0 ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground border rounded-md border-dashed">
+          <div className="col-span-full rounded-md border border-dashed py-12 text-center text-muted-foreground">
             {t("notifications.noNotifications")}
           </div>
         ) : (
-          templates?.map((t) => (
-            <Card key={t.id}>
+          templates?.map((template) => (
+            <Card key={template.id}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex justify-between">
-                  <span>{t.name}</span>
+                  <span>{template.name}</span>
                   <span className="flex items-center gap-2">
                     <span className="text-xs uppercase bg-muted px-2 py-1 rounded text-muted-foreground">
-                      {t.channel}
+                      {template.channel}
                     </span>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => openEdit(t)}
-                      aria-label="Edit notification template"
+                      onClick={() => openEdit(template)}
+                      aria-label={t("notifications.edit")}
+                      title={t("notifications.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => handleDelete(t.id)}
+                      onClick={() => handleDelete(template.id)}
                       disabled={deleteTemplate.isPending}
-                      aria-label="Delete notification template"
+                      aria-label={t("notifications.delete")}
+                      title={t("notifications.delete")}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -253,7 +287,7 @@ export default function NotificationsList() {
               </CardHeader>
               <CardContent>
                 <div className="bg-muted p-4 rounded-md font-mono text-sm whitespace-pre-wrap text-muted-foreground">
-                  {t.content}
+                  {template.content}
                 </div>
               </CardContent>
             </Card>
@@ -413,19 +447,20 @@ export default function NotificationsList() {
                             ),
                       )
                     }
-                    aria-label="Remove button"
+                    aria-label={t("notifications.removeButton")}
+                    title={t("notifications.removeButton")}
                   >
                     ×
                   </Button>
                 </div>
               ))}
             </div>
-            <div className="rounded-lg border border-sky-500/20 bg-sky-950/20 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-sky-300 mb-3">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/20 dark:bg-sky-950/20">
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-sky-800 dark:text-sky-300">
                 <Eye className="h-3.5 w-3.5" />{" "}
                 {t("notifications.telegramPreview")}
               </div>
-              <div className="rounded-md bg-slate-900/80 p-3 text-sm whitespace-pre-wrap">
+              <div className="whitespace-pre-wrap rounded-md bg-white p-3 text-sm text-slate-900 shadow-sm dark:bg-slate-900/80 dark:text-slate-100">
                 {content || t("notifications.previewPlaceholder")}
               </div>
               {buttons.some(
@@ -437,7 +472,7 @@ export default function NotificationsList() {
                     .map((button, index) => (
                       <div
                         key={index}
-                        className="rounded bg-sky-500/15 px-3 py-1.5 text-center text-xs text-sky-300"
+                        className="rounded bg-sky-100 px-3 py-1.5 text-center text-xs text-sky-800 dark:bg-sky-500/15 dark:text-sky-300"
                       >
                         {button.text}
                       </div>
@@ -446,7 +481,16 @@ export default function NotificationsList() {
               )}
               {contentType !== "text" && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Image className="h-3.5 w-3.5" /> {contentType}{" "}
+                  <Image className="h-3.5 w-3.5" />{" "}
+                  {t(
+                    `notifications.${contentType === "animation" ? "animation" : contentType}` as
+                      | "notifications.photo"
+                      | "notifications.video"
+                      | "notifications.animation"
+                      | "notifications.audio"
+                      | "notifications.voice"
+                      | "notifications.document",
+                  )}{" "}
                   {t("notifications.mediaAttached")}
                 </div>
               )}
@@ -471,55 +515,88 @@ export default function NotificationsList() {
       <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Broadcast</DialogTitle>
+            <DialogTitle>{t("notifications.broadcast.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Select Template</Label>
+              <Label>{t("notifications.broadcast.template")}</Label>
               <Select
                 value={selectedTemplate}
                 onValueChange={setSelectedTemplate}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a template..." />
+                  <SelectValue
+                    placeholder={t("notifications.broadcast.chooseTemplate")}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates?.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
+                  {templates?.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Recipient type</Label>
+              <Label>{t("notifications.broadcast.recipientType")}</Label>
               <Select
                 value={recipientType}
                 onValueChange={(value) => {
-                  setRecipientType(value as "users" | "channels");
-                  setRecipients([]);
-                  setSelectedChannel("");
+                  if (
+                    value === "users" ||
+                    value === "all_users" ||
+                    value === "channels"
+                  ) {
+                    setRecipientType(value);
+                    setRecipients([]);
+                    setSelectedChannel("");
+                  }
                 }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="users">Telegram users</SelectItem>
-                  <SelectItem value="channels">Telegram channels</SelectItem>
+                  <SelectItem value="users">
+                    {t("notifications.broadcast.singleUser")}
+                  </SelectItem>
+                  <SelectItem value="all_users">
+                    {t("notifications.broadcast.allUsers")}
+                  </SelectItem>
+                  <SelectItem value="channels">
+                    {t("notifications.broadcast.channels")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>
-                {recipientType === "channels"
-                  ? "Recipients (Telegram channels)"
-                  : "Recipients (User IDs)"}
-              </Label>
-              {recipientType === "channels" &&
-                channels &&
-                channels.length > 0 && (
+            {recipientType === "users" && (
+              <div className="space-y-2">
+                <Label>{t("notifications.broadcast.telegramUserId")}</Label>
+                <Input
+                  value={recipients[0] ?? ""}
+                  inputMode="numeric"
+                  onChange={(event) => {
+                    const value = event.target.value.trim();
+                    setRecipients(value ? [value] : []);
+                  }}
+                  placeholder={t("notifications.broadcast.userIdPlaceholder")}
+                  aria-label={t("notifications.broadcast.telegramUserId")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("notifications.broadcast.singleUserHint")}
+                </p>
+              </div>
+            )}
+            {recipientType === "all_users" && (
+              <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                {t("notifications.broadcast.allUsersHint")}
+              </p>
+            )}
+            {recipientType === "channels" && (
+              <div className="space-y-2">
+                <Label>{t("notifications.broadcast.channelRecipients")}</Label>
+                {channels && channels.length > 0 && (
                   <Select
                     value={selectedChannel}
                     onValueChange={(value) => {
@@ -530,7 +607,11 @@ export default function NotificationsList() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose a registered channel" />
+                      <SelectValue
+                        placeholder={t(
+                          "notifications.broadcast.chooseRegisteredChannel",
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {channels
@@ -546,44 +627,44 @@ export default function NotificationsList() {
                     </SelectContent>
                   </Select>
                 )}
-              <Input
-                value={recipients.join(",")}
-                onChange={(e) =>
-                  setRecipients(
-                    e.target.value
-                      .split(",")
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder={
-                  recipientType === "channels"
-                    ? "-1001234567890,@channelname"
-                    : "user1,user2,user3"
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                {recipientType === "channels"
-                  ? "Choose registered channels or enter Telegram channel IDs separated by commas."
-                  : "Comma-separated user IDs. Leave empty for all users."}
-              </p>
-            </div>
+                <Input
+                  value={recipients.join(",")}
+                  onChange={(event) =>
+                    setRecipients(
+                      event.target.value
+                        .split(",")
+                        .map((value) => value.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                  placeholder={t(
+                    "notifications.broadcast.channelIdsPlaceholder",
+                  )}
+                  aria-label={t("notifications.broadcast.channelRecipients")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("notifications.broadcast.channelsHint")}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleBroadcast}
               disabled={
                 broadcast.isPending ||
                 !selectedTemplate ||
+                (recipientType === "users" &&
+                  (!recipients[0] || !/^[1-9]\d*$/.test(recipients[0]))) ||
                 (recipientType === "channels" && recipients.length === 0)
               }
               className="bg-primary text-primary-foreground"
             >
               <Send className="w-4 h-4 mr-2" />
-              Send Now
+              {t("notifications.broadcast.sendNow")}
             </Button>
           </div>
         </DialogContent>

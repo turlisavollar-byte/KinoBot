@@ -1,4 +1,6 @@
 import {
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getListSeriesQueryKey,
   useCreateSeries,
 } from "@workspace/api-client-react";
@@ -21,16 +23,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 
-const formSchema = z.object({
-  title: z.string().min(1, "series.titleRequired"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-});
-
 export default function NewSeries() {
   const { t } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("series.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+  });
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const createSeries = useCreateSeries();
@@ -52,6 +53,12 @@ export default function NewSeries() {
         onSuccess: (data) => {
           queryClient.invalidateQueries({
             queryKey: getListSeriesQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetAnalyticsOverviewQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetTopContentQueryKey(),
           });
           toast.success(t("series.createSuccess"));
           setLocation(`/catalog/series/${data.id}`);
@@ -116,7 +123,7 @@ export default function NewSeries() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="releaseYear"

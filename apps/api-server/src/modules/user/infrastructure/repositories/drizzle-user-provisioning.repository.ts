@@ -22,7 +22,7 @@ export class DrizzleUserProvisioningRepository implements IUserProvisioningRepos
     await db.transaction(async (tx) => {
       await tx.insert(usersTable).values({
         id: user.id,
-        telegramId: user.telegramId,
+        telegramId: user.telegramId ?? null,
         email: user.email?.toString(),
         phone: user.phone?.toString(),
         username: user.username,

@@ -42,14 +42,18 @@ import {
   UsersRound,
   CalendarPlus,
   Ban,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { UserDetail } from "@workspace/api-client-react";
 import { useI18n } from "@/lib/i18n";
+import { apiFetch } from "@/lib/api-fetch";
 
 type DialogMode = "grant" | "extend" | null;
 type UserDetailWithLimits = UserDetail & {
+  trialExpiresAt?: string | null;
   weeklyCodeLimit?: number | null;
   weeklyCodeUsed?: number | null;
   monthlyCodeLimit?: number | null;
@@ -58,7 +62,7 @@ type UserDetailWithLimits = UserDetail & {
 };
 
 export default function UserDetail() {
-  const { t } = useI18n();
+  const { t, formatDate, formatNumber } = useI18n();
   const params = useParams<{ id: string }>();
   const userId = params.id as string;
   const queryClient = useQueryClient();
@@ -87,6 +91,12 @@ export default function UserDetail() {
   const [accountStatus, setAccountStatus] = useState<"active" | "blocked">(
     "active",
   );
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
+  const [trialDays, setTrialDays] = useState("30");
+  const [trialSaving, setTrialSaving] = useState(false);
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -130,12 +140,38 @@ export default function UserDetail() {
         onSuccess: () => {
           refreshUser();
           toast.success(
-            user.isBlocked ? t("users.unblocked") : t("users.blocked"),
+            user.isBlocked ? t("users.unblocked") : t("users.blockedToast"),
           );
         },
         onError: () => toast.error(t("users.statusUpdateFailed")),
       },
     );
+  };
+
+  const handlePasswordReset = async () => {
+    setPasswordResetPending(true);
+    try {
+      const result = await apiFetch<{ temporaryPassword: string }>(
+        `/api/admin/subscribers/${encodeURIComponent(userId)}/password-reset`,
+        { method: "POST" },
+      );
+      setTemporaryPassword(result.temporaryPassword);
+      toast.success(t("users.passwordResetSuccess"));
+    } catch {
+      toast.error(t("users.passwordResetFailed"));
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const handleCopyTemporaryPassword = async () => {
+    if (!temporaryPassword) return;
+    try {
+      await navigator.clipboard.writeText(temporaryPassword);
+      toast.success(t("users.passwordCopied"));
+    } catch {
+      toast.error(t("users.passwordCopyFailed"));
+    }
   };
 
   const handleSaveAccess = () => {
@@ -181,6 +217,30 @@ export default function UserDetail() {
         onError: () => toast.error(t("users.profileUpdateFailed")),
       },
     );
+  };
+
+  const handleExtendTrial = async () => {
+    if (!user) return;
+    const days = Number(trialDays);
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      toast.error(t("users.trialInvalidDuration"));
+      return;
+    }
+
+    setTrialSaving(true);
+    try {
+      await apiFetch(`/api/users/${user.id}/extend-trial`, {
+        method: "POST",
+        body: JSON.stringify({ days }),
+      });
+      refreshUser();
+      setTrialDialogOpen(false);
+      toast.success(t("users.trialExtended"));
+    } catch {
+      toast.error(t("users.trialExtendFailed"));
+    } finally {
+      setTrialSaving(false);
+    }
   };
 
   const openGrant = () => {
@@ -236,7 +296,9 @@ export default function UserDetail() {
         onSuccess: () => {
           refreshUser();
           setDialogMode(null);
-          toast.success(t("users.subscriptionExtended", { days }));
+          toast.success(
+            t("users.subscriptionExtended", { days: formatNumber(days) }),
+          );
         },
         onError: () => toast.error(t("users.extendFailed")),
       },
@@ -296,18 +358,30 @@ export default function UserDetail() {
             <p className="text-muted-foreground font-mono">
               {user.username
                 ? `@${user.username}`
-                : `Telegram ID: ${user.telegramId}`}
+                : t("users.telegramIdValue", { id: user.telegramId })}
             </p>
           </div>
         </div>
-        <Button
-          variant={user.isBlocked ? "outline" : "destructive"}
-          onClick={handleBlockToggle}
-          disabled={blockUser.isPending}
-        >
-          <ShieldAlert className="h-4 w-4 mr-2" />
-          {user.isBlocked ? t("users.unblockUser") : t("users.blockUser")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTemporaryPassword(null);
+              setPasswordResetOpen(true);
+            }}
+          >
+            <KeyRound className="h-4 w-4 mr-2" />
+            {t("users.resetPassword")}
+          </Button>
+          <Button
+            variant={user.isBlocked ? "outline" : "destructive"}
+            onClick={handleBlockToggle}
+            disabled={blockUser.isPending}
+          >
+            <ShieldAlert className="h-4 w-4 mr-2" />
+            {user.isBlocked ? t("users.unblockUser") : t("users.blockUser")}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -315,7 +389,7 @@ export default function UserDetail() {
           <CardHeader>
             <CardTitle>{t("users.profileDetails")}</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-5">
+          <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
             <Info label={t("users.telegramId")} value={user.telegramId} mono />
             <Info
               label={t("users.status")}
@@ -328,15 +402,34 @@ export default function UserDetail() {
             />
             <Info
               label={t("users.joined")}
-              value={new Date(user.createdAt).toLocaleDateString()}
+              value={formatDate(user.createdAt, { dateStyle: "medium" })}
             />
             <Info
+              label={t("users.trialExpires")}
+              value={
+                user.trialExpiresAt
+                  ? formatDate(user.trialExpiresAt, { dateStyle: "medium" })
+                  : "—"
+              }
+            />
+            <Button
+              variant="outline"
+              className="w-fit self-end"
+              onClick={() => {
+                setTrialDays("30");
+                setTrialDialogOpen(true);
+              }}
+            >
+              <CalendarPlus className="mr-2 h-4 w-4" />
+              {t("users.extendTrial")}
+            </Button>
+            <Info
               label={t("users.watchSessions")}
-              value={String(user.watchCount || 0)}
+              value={formatNumber(user.watchCount || 0)}
             />
             <Info
               label={t("users.watchTime")}
-              value={`${user.totalWatchMinutes || 0} ${t("users.minutes")}`}
+              value={`${formatNumber(user.totalWatchMinutes || 0)} ${t("users.minutes")}`}
             />
             <Info
               label={t("users.referralCode")}
@@ -370,7 +463,7 @@ export default function UserDetail() {
                 >
                   {user.activeSubscription.planName ||
                     activePlan?.name ||
-                    "Premium"}
+                    t("users.premium")}
                 </Badge>
                 <div>
                   <div className="text-sm text-muted-foreground">
@@ -378,10 +471,10 @@ export default function UserDetail() {
                   </div>
                   <div className="font-medium">
                     {user.activeSubscription.endDate
-                      ? new Date(
-                          user.activeSubscription.endDate,
-                        ).toLocaleDateString()
-                      : "N/A"}
+                      ? formatDate(user.activeSubscription.endDate, {
+                          dateStyle: "medium",
+                        })
+                      : t("common.unknown")}
                   </div>
                 </div>
                 <div>
@@ -425,7 +518,7 @@ export default function UserDetail() {
             {user.activeSubscription && (
               <Button
                 variant="secondary"
-                className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words px-3 py-2 text-left leading-tight"
+                className="mt-4 h-auto min-h-10 w-full whitespace-normal wrap-break-word px-3 py-2 text-left leading-tight"
                 onClick={openGrant}
               >
                 <Gift className="w-4 h-4 mr-2" />
@@ -435,7 +528,9 @@ export default function UserDetail() {
             {user.subscriptions && user.subscriptions.length > 0 && (
               <div className="mt-5 space-y-3 border-t pt-4">
                 <div className="text-sm font-medium">
-                  All active subscriptions ({user.subscriptions.length})
+                  {t("users.allActiveSubscriptions", {
+                    count: formatNumber(user.subscriptions.length),
+                  })}
                 </div>
                 {user.subscriptions.map((subscription) => (
                   <div
@@ -444,13 +539,15 @@ export default function UserDetail() {
                   >
                     <div>
                       <div className="font-medium">
-                        {subscription.planName || "Subscription"}
+                        {subscription.planName || t("users.subscription")}
                       </div>
                       <div className="text-muted-foreground">
-                        Until{" "}
+                        {t("users.until")}{" "}
                         {subscription.endDate
-                          ? new Date(subscription.endDate).toLocaleDateString()
-                          : "N/A"}
+                          ? formatDate(subscription.endDate, {
+                              dateStyle: "medium",
+                            })
+                          : t("common.unknown")}
                       </div>
                     </div>
                   </div>
@@ -487,7 +584,7 @@ export default function UserDetail() {
                 onChange={(event) =>
                   setLanguageCode(event.target.value.toLowerCase())
                 }
-                placeholder="en"
+                placeholder={t("users.languageCodePlaceholder")}
                 maxLength={2}
               />
             </div>
@@ -539,7 +636,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedToday", { count: user.dailyCodeUsed ?? 0 })}
+                {t("users.usedToday", {
+                  count: formatNumber(user.dailyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -555,7 +654,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedThisWeek", { count: user.weeklyCodeUsed ?? 0 })}
+                {t("users.usedThisWeek", {
+                  count: formatNumber(user.weeklyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -571,7 +672,9 @@ export default function UserDetail() {
                 placeholder={t("users.unlimited")}
               />
               <p className="text-xs text-muted-foreground">
-                {t("users.usedThisMonth", { count: user.monthlyCodeUsed ?? 0 })}
+                {t("users.usedThisMonth", {
+                  count: formatNumber(user.monthlyCodeUsed ?? 0),
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -608,7 +711,9 @@ export default function UserDetail() {
         <CardContent className="flex flex-wrap gap-8 text-sm">
           <Info
             label={t("users.rewardTier")}
-            value={`Tier ${user.referralRewardTier ?? 0}`}
+            value={t("users.referralTierValue", {
+              tier: formatNumber(user.referralRewardTier ?? 0),
+            })}
           />
           <Info
             label={t("users.referralCode")}
@@ -655,8 +760,9 @@ export default function UserDetail() {
                         {plan.name} ·{" "}
                         {plan.price === 0 || plan.price === undefined
                           ? t("users.free")
-                          : `${plan.price.toLocaleString()} ${plan.currency}`}{" "}
-                        · {plan.durationDays} {t("users.days")}
+                          : `${formatNumber(plan.price)} ${plan.currency}`}{" "}
+                        · {formatNumber(plan.durationDays ?? 0)}{" "}
+                        {t("users.days")}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -703,6 +809,94 @@ export default function UserDetail() {
                 ? t("users.extendSubscription")
                 : t("users.grantSubscriptionAccess")}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
+        <DialogContent className="sm:max-w-120">
+          <DialogHeader>
+            <DialogTitle>{t("users.extendTrial")}</DialogTitle>
+            <DialogDescription>
+              {t("users.trialExtendDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="trial-days">{t("users.daysToAdd")}</Label>
+            <Input
+              id="trial-days"
+              type="number"
+              min={1}
+              max={365}
+              step={1}
+              value={trialDays}
+              onChange={(event) => setTrialDays(event.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTrialDialogOpen(false)}
+              disabled={trialSaving}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={() => void handleExtendTrial()} disabled={trialSaving}>
+              {trialSaving ? t("settings.saving") : t("users.extendTrial")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={passwordResetOpen}
+        onOpenChange={(open) => {
+          setPasswordResetOpen(open);
+          if (!open) setTemporaryPassword(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-120">
+          <DialogHeader>
+            <DialogTitle>{t("users.resetPassword")}</DialogTitle>
+            <DialogDescription>
+              {temporaryPassword
+                ? t("users.passwordResetOneTimeNotice")
+                : t("users.passwordResetConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          {temporaryPassword ? (
+            <div className="space-y-2 py-2">
+              <Label htmlFor="temporary-password">{t("users.temporaryPassword")}</Label>
+              <div className="flex gap-2">
+                <Input id="temporary-password" readOnly value={temporaryPassword} />
+                <Button type="button" variant="outline" onClick={() => void handleCopyTemporaryPassword()}>
+                  <Copy className="h-4 w-4" />
+                  <span className="sr-only">{t("users.copyPassword")}</span>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("users.passwordResetSecureDelivery")}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPasswordResetOpen(false);
+                setTemporaryPassword(null);
+              }}
+              disabled={passwordResetPending}
+            >
+              {temporaryPassword ? t("users.closePasswordReset") : t("common.cancel")}
+            </Button>
+            {!temporaryPassword && (
+              <Button onClick={() => void handlePasswordReset()} disabled={passwordResetPending}>
+                {passwordResetPending
+                  ? t("settings.saving")
+                  : t("users.confirmPasswordReset")}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

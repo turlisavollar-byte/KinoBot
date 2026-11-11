@@ -3,7 +3,10 @@ import {
   useGetSeries,
   useUpdateSeries,
   useDeleteSeries,
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
   getGetSeriesQueryKey,
+  getListSeriesQueryKey,
   useListSeasons,
   getListSeasonsQueryKey,
   useCreateSeason,
@@ -25,23 +28,44 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function SeasonEpisodes({
   seriesId,
   seasonId,
   t,
+  formatNumber,
 }: {
   seriesId: string;
   seasonId: string;
   t: (key: string, params?: Record<string, string | number>) => string;
+  formatNumber: (value: number) => string;
 }) {
   const { data: episodes, isLoading } = useListEpisodes(seriesId, seasonId, {
     query: { queryKey: getListEpisodesQueryKey(seriesId, seasonId) },
@@ -70,7 +94,7 @@ function SeasonEpisodes({
           className="flex justify-between text-sm text-muted-foreground"
         >
           <span>
-            {episode.episodeNumber}. {episode.title}
+            {formatNumber(episode.episodeNumber ?? 0)}. {episode.title}
           </span>
           <span>
             {episode.telegramFileId
@@ -83,20 +107,19 @@ function SeasonEpisodes({
   );
 }
 
-const formSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-  posterUrl: z.string().optional(),
-  backgroundUrl: z.string().optional(),
-  trailerUrl: z.string().optional(),
-  telegramFileId: z.string().optional(),
-});
-
 export default function SeriesDetail() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("series.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+    posterUrl: z.string().optional(),
+    backgroundUrl: z.string().optional(),
+    trailerUrl: z.string().optional(),
+    telegramFileId: z.string().optional(),
+  });
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -124,6 +147,15 @@ export default function SeriesDetail() {
   const createSeason = useCreateSeason();
   const createEpisode = useCreateEpisode();
   const updateEpisode = useUpdateEpisode();
+  const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
+  const [episodeDialogOpen, setEpisodeDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [seasonNumber, setSeasonNumber] = useState("1");
+  const [seasonTitle, setSeasonTitle] = useState("");
+  const [episodeNumber, setEpisodeNumber] = useState("1");
+  const [episodeTitle, setEpisodeTitle] = useState("");
+  const [telegramFileId, setTelegramFileId] = useState("");
+  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -179,66 +211,91 @@ export default function SeriesDetail() {
 
   const handleDelete = () => {
     if (!params.id) return;
-    if (confirm(t("series.deleteConfirm"))) {
-      deleteSeries.mutate(
-        { id: params.id },
-        {
-          onSuccess: () => {
-            setLocation("/catalog/series");
-          },
-        },
-      );
-    }
-  };
-
-  const handleAddSeason = () => {
-    if (!params.id) return;
-    const seasonNumber = Number(
-      prompt(
-        t("series.seasonNumberPrompt"),
-        String((seasons?.length ?? 0) + 1),
-      ),
-    );
-    if (!Number.isInteger(seasonNumber) || seasonNumber < 1) return;
-    const title = prompt(
-      t("series.seasonTitlePrompt"),
-      `${seasonNumber}-${t("series.seasonTitleDefault")}`,
-    );
-    if (!title?.trim()) return;
-    createSeason.mutate(
-      { id: params.id, data: { seasonNumber, title: title.trim() } },
+    deleteSeries.mutate(
+      { id: params.id },
       {
-        onSuccess: () =>
+        onSuccess: () => {
           queryClient.invalidateQueries({
-            queryKey: getListSeasonsQueryKey(params.id as string),
-          }),
+            queryKey: getListSeriesQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetAnalyticsOverviewQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetTopContentQueryKey(),
+          });
+          setLocation("/catalog/series");
+        },
+        onError: () => toast.error(t("series.deleteError")),
       },
     );
   };
 
-  const handleAddEpisode = (seasonId: string) => {
+  const openSeasonDialog = () => {
+    const nextNumber = (seasons?.length ?? 0) + 1;
+    setSeasonNumber(String(nextNumber));
+    setSeasonTitle(`${nextNumber}-${t("series.seasonTitleDefault")}`);
+    setSeasonDialogOpen(true);
+  };
+
+  const handleAddSeason = () => {
     if (!params.id) return;
-    const episodeNumber = Number(prompt(t("series.episodeNumberPrompt"), "1"));
-    if (!Number.isInteger(episodeNumber) || episodeNumber < 1) return;
-    const title = prompt(
-      t("series.episodeTitlePrompt"),
-      `${episodeNumber}-${t("series.episodeTitleDefault")}`,
+    const parsedSeasonNumber = Number(seasonNumber);
+    if (!Number.isInteger(parsedSeasonNumber) || parsedSeasonNumber < 1) {
+      toast.error(t("series.seasonNumberPrompt"));
+      return;
+    }
+    if (!seasonTitle.trim()) return;
+    createSeason.mutate(
+      {
+        id: params.id,
+        data: { seasonNumber: parsedSeasonNumber, title: seasonTitle.trim() },
+      },
+      {
+        onSuccess: () => {
+          setSeasonDialogOpen(false);
+          toast.success(t("series.seasonCreated"));
+          queryClient.invalidateQueries({
+            queryKey: getListSeasonsQueryKey(params.id as string),
+          });
+        },
+        onError: () => toast.error(t("series.seasonCreateError")),
+      },
     );
-    const telegramFileId = prompt(t("series.telegramFileIdPrompt"));
-    if (!title?.trim() || !telegramFileId?.trim()) return;
+  };
+
+  const openEpisodeDialog = (seasonId: string) => {
+    setActiveSeasonId(seasonId);
+    setEpisodeNumber("1");
+    setEpisodeTitle(`1-${t("series.episodeTitleDefault")}`);
+    setTelegramFileId("");
+    setEpisodeDialogOpen(true);
+  };
+
+  const handleAddEpisode = () => {
+    if (!params.id) return;
+    const parsedEpisodeNumber = Number(episodeNumber);
+    if (!Number.isInteger(parsedEpisodeNumber) || parsedEpisodeNumber < 1) {
+      toast.error(t("series.episodeNumberPrompt"));
+      return;
+    }
+    if (!episodeTitle.trim() || !telegramFileId.trim() || !activeSeasonId)
+      return;
     createEpisode.mutate(
       {
         seriesId: params.id,
-        seasonId,
+        seasonId: activeSeasonId,
         data: {
-          episodeNumber,
-          title: title.trim(),
+          episodeNumber: parsedEpisodeNumber,
+          title: episodeTitle.trim(),
           telegramFileId: telegramFileId.trim(),
           sourceType: "telegram",
         },
       },
       {
         onSuccess: (episode) => {
+          setEpisodeDialogOpen(false);
+          toast.success(t("series.episodeCreated"));
           if (!episode.id) return;
           updateEpisode.mutate(
             { id: episode.id, data: { isPublished: true } },
@@ -247,12 +304,13 @@ export default function SeriesDetail() {
                 queryClient.invalidateQueries({
                   queryKey: getListEpisodesQueryKey(
                     params.id as string,
-                    seasonId,
+                    activeSeasonId,
                   ),
                 }),
             },
           );
         },
+        onError: () => toast.error(t("series.episodeCreateError")),
       },
     );
   };
@@ -266,7 +324,7 @@ export default function SeriesDetail() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("series.manage")}
@@ -275,7 +333,7 @@ export default function SeriesDetail() {
         </div>
         <Button
           variant="destructive"
-          onClick={handleDelete}
+          onClick={() => setDeleteDialogOpen(true)}
           disabled={deleteSeries.isPending}
         >
           {t("common.delete")}
@@ -297,7 +355,7 @@ export default function SeriesDetail() {
                   <CardTitle>{t("series.metadata")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="title"
@@ -335,7 +393,7 @@ export default function SeriesDetail() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="releaseYear"
@@ -373,7 +431,7 @@ export default function SeriesDetail() {
                   <CardTitle>{t("series.media")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="posterUrl"
@@ -428,7 +486,7 @@ export default function SeriesDetail() {
               <CardTitle>{t("series.seasons")}</CardTitle>
               <Button
                 size="sm"
-                onClick={handleAddSeason}
+                onClick={openSeasonDialog}
                 disabled={createSeason.isPending}
               >
                 <Plus className="w-4 h-4 mr-2" /> {t("series.addSeason")}
@@ -445,13 +503,14 @@ export default function SeriesDetail() {
                     <div key={season.id} className="border p-4 rounded-md">
                       <div className="flex justify-between items-center font-medium">
                         <span>
-                          {t("series.season")} {season.seasonNumber}{" "}
+                          {t("series.season")}{" "}
+                          {formatNumber(season.seasonNumber)}{" "}
                           {season.title && `- ${season.title}`}
                         </span>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleAddEpisode(season.id as string)}
+                          onClick={() => openEpisodeDialog(season.id as string)}
                         >
                           <Plus className="w-4 h-4 mr-1" />{" "}
                           {t("series.addEpisode")}
@@ -461,6 +520,7 @@ export default function SeriesDetail() {
                         seriesId={params.id as string}
                         seasonId={season.id as string}
                         t={t}
+                        formatNumber={formatNumber}
                       />
                     </div>
                   ))}
@@ -474,6 +534,130 @@ export default function SeriesDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+      <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("series.addSeason")}</DialogTitle>
+            <DialogDescription>
+              {t("series.seasonNumberPrompt")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="season-number">
+                {t("series.seasonNumberPrompt")}
+              </Label>
+              <Input
+                id="season-number"
+                type="number"
+                min="1"
+                value={seasonNumber}
+                onChange={(event) => setSeasonNumber(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="season-title">
+                {t("series.seasonTitlePrompt")}
+              </Label>
+              <Input
+                id="season-title"
+                value={seasonTitle}
+                onChange={(event) => setSeasonTitle(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSeasonDialogOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleAddSeason} disabled={createSeason.isPending}>
+              {t("series.addSeason")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={episodeDialogOpen} onOpenChange={setEpisodeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("series.addEpisode")}</DialogTitle>
+            <DialogDescription>
+              {t("series.episodeNumberPrompt")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="episode-number">
+                {t("series.episodeNumberPrompt")}
+              </Label>
+              <Input
+                id="episode-number"
+                type="number"
+                min="1"
+                value={episodeNumber}
+                onChange={(event) => setEpisodeNumber(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="episode-title">
+                {t("series.episodeTitlePrompt")}
+              </Label>
+              <Input
+                id="episode-title"
+                value={episodeTitle}
+                onChange={(event) => setEpisodeTitle(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="episode-file-id">
+                {t("series.telegramFileIdPrompt")}
+              </Label>
+              <Input
+                id="episode-file-id"
+                value={telegramFileId}
+                onChange={(event) => setTelegramFileId(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEpisodeDialogOpen(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleAddEpisode}
+              disabled={createEpisode.isPending}
+            >
+              {t("series.addEpisode")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("series.manage")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("series.deleteConfirm")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteSeries.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

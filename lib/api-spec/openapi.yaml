@@ -87,6 +87,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/Actor'
   /actors/{id}:
+    get:
+      operationId: getActor
+      tags:
+        - actors
+      summary: Get actor profile and filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Actor profile and movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActorDetail'
+        '404':
+          description: Actor not found
     patch:
       operationId: updateActor
       tags:
@@ -113,6 +135,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Actor'
+    delete:
+      operationId: deleteActor
+      tags:
+        - actors
+      summary: Delete actor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Actor deleted
+  /actors/{id}/movies:
+    post:
+      operationId: attachActorToMovie
+      tags:
+        - actors
+      summary: Add a movie to an actor filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachActorToMovieBody'
+      responses:
+        '204':
+          description: Movie attached
+        '404':
+          description: Actor or movie not found
+        '409':
+          description: Movie already attached
+  /actors/{id}/movies/{movieId}:
+    patch:
+      operationId: updateActorMovieRole
+      tags:
+        - actors
+      summary: Update an actor role in a movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActorMovieRoleBody'
+      responses:
+        '204':
+          description: Role updated
+        '404':
+          description: Actor/movie relation not found
+    delete:
+      operationId: detachActorFromMovie
+      tags:
+        - actors
+      summary: Remove a movie from an actor filmography
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Movie detached
+        '404':
+          description: Actor/movie relation not found
   /admin-users:
     get:
       operationId: listAdminUsers
@@ -139,6 +257,30 @@ paths:
         '403':
           description: Forbidden
   /admin-users/{id}:
+    get:
+      operationId: getLegacyAdminUser
+      tags:
+        - admin-users
+      summary: Get a scoped administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountDetailResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
     patch:
       operationId: updateAdminUser
       tags:
@@ -183,6 +325,207 @@ paths:
       responses:
         '200':
           description: Administrative account deleted
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin-users/{id}/ban:
+    post:
+      operationId: setLegacyAdminUserBan
+      tags:
+        - admin-users
+      summary: Ban or unban an administrative account (legacy path)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account status changed
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin/users:
+    get:
+      operationId: listScopedAdminUsers
+      tags:
+        - admin-users
+      summary: List administrative accounts visible to the caller
+      description: >-
+        Super admins see all accounts; admins see their own and moderator
+        accounts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Scoped administrative account list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+    post:
+      operationId: createAdminUser
+      tags:
+        - admin-users
+      summary: Create an administrative account as Super Admin
+      description: >-
+        The password is hashed server-side, never returned, and must be changed
+        on first login.
+      security:
+        - bearerAuth: []
+      x-rate-limit:
+        max: 5
+        windowSeconds: 3600
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminUserBody'
+      responses:
+        '201':
+          description: Administrative account created; no password or hash is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAdminUserResponse'
+        '400':
+          description: Invalid input or password policy failure
+        '401':
+          description: Unauthorized
+        '403':
+          description: Super Admin permission required
+        '409':
+          description: Email already exists
+        '429':
+          description: Rate limit exceeded
+  /admin/users/{id}:
+    get:
+      operationId: getScopedAdminUser
+      tags:
+        - admin-users
+      summary: Get a whitelisted administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Whitelisted administrative account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountDetailResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+    patch:
+      operationId: updateScopedAdminUser
+      tags:
+        - admin-users
+      summary: Update an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account updated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+    delete:
+      operationId: deleteScopedAdminUser
+      tags:
+        - admin-users
+      summary: Delete an administrative account within caller role scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Administrative account deleted
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /admin/users/{id}/ban:
+    post:
+      operationId: setScopedAdminUserBan
+      tags:
+        - admin-users
+      summary: Deactivate or reactivate an administrative account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanAdminUserBody'
+      responses:
+        '200':
+          description: Administrative account status changed
         '403':
           description: Forbidden
         '404':
@@ -1525,6 +1868,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Movie'
+  /movies/{id}/video-codes:
+    get:
+      operationId: getMovieVideoCodes
+      tags:
+        - catalog
+      summary: List video codes linked to a movie
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video codes linked to this movie
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovieVideoCode'
+        '404':
+          description: Movie not found
   /catalog/series:
     get:
       operationId: listSeries
@@ -2061,6 +2429,27 @@ paths:
                 properties:
                   success:
                     type: boolean
+  /identity/auth/change-password:
+    post:
+      operationId: identityChangePassword
+      tags:
+        - identity-auth
+      summary: Change the current password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordInput'
+      responses:
+        '200':
+          description: Password changed and forced-change state cleared
+        '400':
+          description: Invalid password or credentials
+        '401':
+          description: Unauthorized
   /notifications:
     get:
       operationId: listNotifications
@@ -2660,6 +3049,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/audit:
+    get:
+      operationId: getUserAuditHistory
+      tags:
+        - users
+      summary: Get up to ten safe audit summaries for a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User audit summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    maxItems: 10
+                    items:
+                      $ref: '#/components/schemas/UserAuditSummary'
+                  timestamp:
+                    type: string
+                    format: date-time
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
   /users/{id}:
     get:
       operationId: getUser
@@ -3339,6 +3768,8 @@ paths:
                   type: string
                 description:
                   type: string
+                movieId:
+                  type: string
                 channelId:
                   type: string
                 accessPolicy:
@@ -3436,6 +3867,112 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
+    ActorDetail:
+      type: object
+      required:
+        - id
+        - name
+        - movies
+        - stats
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        photoUrl:
+          type:
+            - string
+            - 'null'
+        bio:
+          type:
+            - string
+            - 'null'
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
+        movies:
+          type: array
+          items:
+            type: object
+            required:
+              - movieId
+              - title
+              - videoCodes
+            properties:
+              movieId:
+                type: string
+              title:
+                type: string
+              releaseYear:
+                type:
+                  - integer
+                  - 'null'
+              posterUrl:
+                type:
+                  - string
+                  - 'null'
+              role:
+                type:
+                  - string
+                  - 'null'
+              videoCodes:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - code
+                    - status
+                  properties:
+                    id:
+                      type: string
+                    code:
+                      type: string
+                    status:
+                      type: string
+        stats:
+          type: object
+          required:
+            - moviesCount
+            - totalViews
+          properties:
+            moviesCount:
+              type: integer
+            totalViews:
+              type: integer
+    AttachActorToMovieBody:
+      type: object
+      required:
+        - movieId
+      properties:
+        movieId:
+          type: string
+        role:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+    UpdateActorMovieRoleBody:
+      type: object
+      properties:
+        role:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
     CreateActorBody:
       type: object
       required:
@@ -3447,6 +3984,14 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
     UpdateActorBody:
       type: object
       properties:
@@ -3456,12 +4001,19 @@ components:
           type: string
         bio:
           type: string
+        birthDate:
+          type:
+            - string
+            - 'null'
+        birthPlace:
+          type:
+            - string
+            - 'null'
     AdminAccount:
       type: object
       required:
         - id
         - email
-        - name
         - role
         - status
         - isActive
@@ -3476,6 +4028,7 @@ components:
           format: email
         name:
           type: string
+          nullable: true
         role:
           type: string
           enum:
@@ -3527,6 +4080,70 @@ components:
         timestamp:
           type: string
           format: date-time
+    AdminAccountDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/AdminAccount'
+        timestamp:
+          type: string
+          format: date-time
+    CreateAdminUserBody:
+      type: object
+      required:
+        - email
+        - role
+        - password
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        role:
+          type: string
+          enum:
+            - admin
+            - moderator
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+    CreateAdminUserResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          allOf:
+            - $ref: '#/components/schemas/AdminAccount'
+            - type: object
+              required:
+                - mustChangePassword
+              properties:
+                mustChangePassword:
+                  type: boolean
+        timestamp:
+          type: string
+          format: date-time
+    BanAdminUserBody:
+      type: object
+      required:
+        - banned
+      properties:
+        banned:
+          type: boolean
     UpdateAdminUserBody:
       type: object
       properties:
@@ -4154,6 +4771,23 @@ components:
           type: string
         returnUrl:
           type: string
+    MovieVideoCode:
+      type: object
+      required:
+        - id
+        - code
+        - status
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        viewsCount:
+          type: integer
     MoviePage:
       type: object
       properties:
@@ -4586,6 +5220,7 @@ components:
         - refreshToken
         - expiresIn
         - user
+        - mustChangePassword
       properties:
         accessToken:
           type: string
@@ -4597,8 +5232,24 @@ components:
           type: integer
           description: Access token expiration time in seconds
           example: 3600
+        mustChangePassword:
+          type: boolean
+          description: Whether a temporary password must be changed before other actions
         user:
           $ref: '#/components/schemas/IdentityUser'
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 8
+          writeOnly: true
     IdentityUser:
       type: object
       required:
@@ -4834,8 +5485,11 @@ components:
           type: string
           enum:
             - users
+            - all_users
             - channels
-          description: Whether recipients are customer users or Telegram channels
+          description: >-
+            Selected Telegram users, all active Telegram users, or Telegram
+            channels
         recipients:
           type: array
           items:
@@ -5242,6 +5896,10 @@ components:
         - $ref: '#/components/schemas/User'
         - type: object
           properties:
+            avatar:
+              type: string
+              nullable: true
+              description: Existing user profile avatar URL
             profile:
               $ref: '#/components/schemas/UserProfile'
             stats:
@@ -5262,6 +5920,35 @@ components:
               type: integer
               nullable: true
               description: Total watch time in minutes (from stats)
+    UserAuditSummary:
+      type: object
+      required:
+        - id
+        - action
+        - actorType
+        - targetType
+        - createdAt
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+        actorId:
+          type: string
+          nullable: true
+        actorType:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          nullable: true
     UserProfile:
       type: object
       properties:
@@ -5798,6 +6485,10 @@ components:
           type: string
         description:
           type: string
+        movieId:
+          type:
+            - string
+            - 'null'
         status:
           type: string
         channelId:
@@ -5838,6 +6529,8 @@ components:
           type: string
         description:
           type: string
+        movieId:
+          type: string
         channelId:
           type: string
         duration:
@@ -5859,6 +6552,10 @@ components:
       properties:
         title:
           type: string
+        movieId:
+          type:
+            - string
+            - 'null'
         status:
           type: string
         channelId:

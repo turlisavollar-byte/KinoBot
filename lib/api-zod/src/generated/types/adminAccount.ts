@@ -11,7 +11,7 @@ import type { AdminAccountStatus } from './adminAccountStatus';
 export interface AdminAccount {
   id: string;
   email: string;
-  name: string;
+  name?: string | null;
   role: AdminAccountRole;
   status: AdminAccountStatus;
   isActive: boolean;

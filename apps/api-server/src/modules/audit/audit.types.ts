@@ -20,6 +20,8 @@ export type AuditAction =
   | "PAYMENT_REFUNDED"
   | "BOT_COMMAND"
   | "CONFIG_CHANGED"
+  | "TRIAL_EXTENDED"
+  | "TRIAL_RESET_ALL"
   | "ROLE_CHANGED"
   | "PERMISSION_CHANGED"
   | "EXPORT_DATA"
@@ -64,36 +66,36 @@ export type AuditSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface AuditLog {
   id: string;
-  
+
   // Actor
   actorId?: string;
   actorType: AuditActorType;
   actorEmail?: string;
-  
+
   // Action
   action: AuditAction;
-  
+
   // Target
   targetType: AuditTargetType;
   targetId?: string;
   targetName?: string;
-  
+
   // Changes
   oldValue?: Record<string, unknown>;
   newValue?: Record<string, unknown>;
   diff?: Record<string, { old: unknown; new: unknown }>;
-  
+
   // Context
   metadata?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   requestId?: string;
   sessionId?: string;
-  
+
   // Timestamps
   createdAt: Date;
   createdAtIso: string;
-  
+
   // Optional
   severity?: AuditSeverity;
   tags?: string[];
@@ -103,23 +105,23 @@ export interface CreateAuditLogDTO {
   actorId?: string;
   actorType: AuditActorType;
   actorEmail?: string;
-  
+
   action: AuditAction;
-  
+
   targetType: AuditTargetType;
   targetId?: string;
   targetName?: string;
-  
+
   oldValue?: Record<string, unknown>;
   newValue?: Record<string, unknown>;
   diff?: Record<string, { old: unknown; new: unknown }>;
-  
+
   metadata?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   requestId?: string;
   sessionId?: string;
-  
+
   severity?: AuditSeverity;
   tags?: string[];
 }

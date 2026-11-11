@@ -8,6 +8,8 @@
 
 export interface UpdateVideoCodeBody {
   title?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   expiresAt?: Date;

@@ -55,7 +55,8 @@ describe("RegisterUseCase", () => {
       email: "person@example.com",
       name: "Person",
       password: "StrongPassword1!",
-    });
+      role: "superadmin",
+    } as any);
 
     expect(result.user.role).toBe("user");
     expect(userRepo.create).toHaveBeenCalledWith(

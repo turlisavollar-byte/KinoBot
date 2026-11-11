@@ -12,6 +12,7 @@ export interface ImportVideoCodeBody {
   code?: string;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   duration?: number;
   accessPolicy?: ImportVideoCodeBodyAccessPolicy;

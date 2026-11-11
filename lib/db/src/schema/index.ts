@@ -10,3 +10,5 @@ export * from "./audit";
 export * from "./roles";
 export * from "./feature-flags";
 export * from "./devices";
+export * from "./web-auth";
+export * from "./system-settings";

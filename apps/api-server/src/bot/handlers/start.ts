@@ -10,6 +10,8 @@ import {
 import type { BotContext } from "@/bot/index";
 import { logger } from "@/lib/logger";
 import { deliverVideoCodeByDeeplink } from "@/bot/handlers/catalog";
+import { sendActorProfile } from "@/bot/handlers/actor";
+import { getTrialDurationDays } from "@/modules/settings/settings.service";
 
 // Deep-link payload formats (t.me/<bot>?start=<payload>):
 //   ig            — generic Instagram-sourced entry (tracked, no content)
@@ -17,8 +19,6 @@ import { deliverVideoCodeByDeeplink } from "@/bot/handlers/catalog";
 const DEEPLINK_SOURCE_PREFIXES: Record<string, string> = {
   ig: "instagram",
 };
-const TRIAL_DAYS = 30;
-
 function escapeHtml(value: string): string {
   return value.replace(
     /[&<>"']/g,
@@ -39,11 +39,17 @@ function resolveTelegramLanguage(
   return languageCode?.toLowerCase().startsWith("ru") ? "ru" : "uz";
 }
 
-function parseDeeplinkPayload(payload: string | undefined): {
+export function parseDeeplinkPayload(payload: string | undefined): {
   source: string | null;
   code: string | null;
+  actorId: string | null;
 } {
-  if (!payload) return { source: null, code: null };
+  if (!payload) return { source: null, code: null, actorId: null };
+
+  const actorMatch = /^actor_([0-9a-f-]{36})$/i.exec(payload);
+  if (actorMatch) {
+    return { source: null, code: null, actorId: actorMatch[1] };
+  }
 
   const separatorIndex = payload.indexOf("_");
   const prefix =
@@ -52,10 +58,10 @@ function parseDeeplinkPayload(payload: string | undefined): {
     separatorIndex === -1 ? null : payload.slice(separatorIndex + 1) || null;
   const source = DEEPLINK_SOURCE_PREFIXES[prefix.toLowerCase()] ?? null;
   if (!source || (code !== null && !code)) {
-    return { source: null, code: null };
+    return { source: null, code: null, actorId: null };
   }
 
-  return { source, code };
+  return { source, code, actorId: null };
 }
 
 async function registerOrGetUser(
@@ -64,6 +70,7 @@ async function registerOrGetUser(
 ) {
   const tg = ctx.from!;
   const telegramId = String(tg.id);
+  const trialDays = await getTrialDurationDays();
 
   const [user] = await db
     .insert(usersTable)
@@ -75,7 +82,7 @@ async function registerOrGetUser(
       languageCode: resolveTelegramLanguage(tg.language_code),
       isActive: true,
       acquisitionSource,
-      trialExpiresAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+      trialExpiresAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
     })
     .onConflictDoNothing({ target: usersTable.telegramId })
     .returning();
@@ -163,7 +170,7 @@ export function registerStartHandler(bot: Bot<BotContext>) {
   // ─── /start ────────────────────────────────────────────────────────────────
   bot.command("start", async (ctx) => {
     const payload = ctx.match ? String(ctx.match).trim() : undefined;
-    const { source, code } = parseDeeplinkPayload(payload);
+    const { source, code, actorId } = parseDeeplinkPayload(payload);
 
     const user = await registerOrGetUser(ctx, source);
     ctx.session.language = user.languageCode === "ru" ? "ru" : "uz";
@@ -202,6 +209,9 @@ export function registerStartHandler(bot: Bot<BotContext>) {
     // If the deeplink pointed at a specific video code, deliver it right away
     if (code) {
       await deliverVideoCodeByDeeplink(bot, ctx, code);
+    }
+    if (actorId) {
+      await sendActorProfile(bot, ctx, actorId);
     }
   });
 

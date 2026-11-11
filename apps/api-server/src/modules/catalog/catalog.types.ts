@@ -1,6 +1,31 @@
 export type ContentStatus = "draft" | "published" | "archived";
 export type ContentType = "movie" | "series";
 
+export interface ActorDetail {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  bio: string | null;
+  birthDate: string | null;
+  birthPlace: string | null;
+  movies: Array<{
+    movieId: string;
+    title: string;
+    releaseYear: number | null;
+    posterUrl: string | null;
+    role: string | null;
+    videoCodes: Array<{
+      id: string;
+      code: string;
+      status: string;
+    }>;
+  }>;
+  stats: {
+    moviesCount: number;
+    totalViews: number;
+  };
+}
+
 export interface ContentFilters {
   search?: string;
   genreId?: string;

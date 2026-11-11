@@ -3,6 +3,8 @@ import { eq, and, sql, ilike } from "drizzle-orm";
 import {
   db,
   moviesTable,
+  actorsTable,
+  movieActorsTable,
   seriesTable,
   seasonsTable,
   episodesTable,
@@ -78,6 +80,53 @@ function escapeHtml(value: string): string {
         "'": "&#39;",
       })[character] ?? character,
   );
+}
+
+interface MovieCastMember {
+  actorId: string;
+  name: string;
+  role: string | null;
+}
+
+async function getPublishedMovieCast(movieId: string): Promise<MovieCastMember[]> {
+  return db
+    .select({
+      actorId: actorsTable.id,
+      name: actorsTable.name,
+      role: movieActorsTable.role,
+    })
+    .from(movieActorsTable)
+    .innerJoin(actorsTable, eq(movieActorsTable.actorId, actorsTable.id))
+    .innerJoin(moviesTable, eq(movieActorsTable.movieId, moviesTable.id))
+    .where(
+      and(
+        eq(movieActorsTable.movieId, movieId),
+        eq(moviesTable.isPublished, true),
+        sql`${moviesTable.deletedAt} IS NULL`,
+        sql`${actorsTable.deletedAt} IS NULL`,
+      ),
+    )
+    .orderBy(actorsTable.name);
+}
+
+export function formatMovieCast(cast: MovieCastMember[], isUz: boolean): string {
+  if (cast.length === 0) return "";
+  const lines = cast.map(
+    (member) =>
+      `• ${escapeHtml(member.name)}${member.role ? ` — ${escapeHtml(member.role)}` : ""}`,
+  );
+  const heading = isUz ? "🎭 <b>Aktyorlar</b>" : "🎭 <b>Актёры</b>";
+  return `${heading}\n${lines.slice(0, 8).join("\n")}`.slice(0, 720);
+}
+
+function movieCastKeyboard(cast: MovieCastMember[], isUz: boolean): InlineKeyboard | undefined {
+  if (cast.length === 0) return undefined;
+  const keyboard = new InlineKeyboard();
+  for (const member of cast.slice(0, 6)) {
+    keyboard.text(`🎭 ${member.name.slice(0, 28)}`, `actor:view:${member.actorId}`).row();
+  }
+  keyboard.text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main");
+  return keyboard;
 }
 
 /**
@@ -199,29 +248,67 @@ async function getMissingRequiredChannels(
   return results.filter((channelId): channelId is string => channelId !== null);
 }
 
-async function hasRequiredChannelMembership(
-  bot: Bot<BotContext>,
-  userId: number,
+async function getRequiredChannelIds(
   additionalChannelIds?: string | null,
-): Promise<boolean> {
+): Promise<string[]> {
   const [config] = await db.select().from(telegramConfigTable).limit(1);
-  const requiredChannelIds = [
+  return [
     ...new Set([
       ...safeParseRequiredChannelIds(config?.requiredChannelId),
       ...safeParseRequiredChannelIds(additionalChannelIds),
     ]),
   ];
+}
 
-  if (requiredChannelIds.length === 0) return true;
-  return (
-    (
-      await getMissingRequiredChannels(
-        bot,
-        userId,
-        requiredChannelIds.join(","),
-      )
-    ).length === 0
+async function getMissingConfiguredChannels(
+  bot: Bot<BotContext>,
+  userId: number,
+  additionalChannelIds?: string | null,
+): Promise<string[]> {
+  const requiredChannelIds = await getRequiredChannelIds(additionalChannelIds);
+  if (requiredChannelIds.length === 0) return [];
+  return getMissingRequiredChannels(bot, userId, requiredChannelIds.join(","));
+}
+
+async function hasRequiredChannelMembership(
+  bot: Bot<BotContext>,
+  userId: number,
+  additionalChannelIds?: string | null,
+): Promise<boolean> {
+  return (await getMissingConfiguredChannels(bot, userId, additionalChannelIds))
+    .length === 0;
+}
+
+async function promptForRequiredChannels(
+  bot: Bot<BotContext>,
+  ctx: BotContext,
+  additionalChannelIds?: string | null,
+): Promise<boolean> {
+  const requiredChannelIds = await getRequiredChannelIds(additionalChannelIds);
+  if (requiredChannelIds.length === 0) return false;
+
+  const missing = await getMissingRequiredChannels(
+    bot,
+    ctx.from!.id,
+    requiredChannelIds.join(","),
   );
+  if (missing.length === 0) return false;
+
+  const isUz = ctx.session.language === "uz";
+  await ctx.reply(
+    isUz
+      ? `🔔 <b>${missing.length} ta kanalga obuna bo'ling</b>\n\nQuyidagi kanallarga a'zo bo'ling, so'ng tekshirish tugmasini bosing.`
+      : `🔔 <b>Подпишитесь на обязательные каналы (${missing.length})</b>\n\nПодпишитесь на указанные каналы, затем нажмите кнопку проверки.`,
+    {
+      parse_mode: "HTML",
+      reply_markup: requiredChannelKeyboard(
+        "channels:recheck",
+        missing,
+        isUz,
+      ),
+    },
+  );
+  return true;
 }
 
 async function sendVideoCode(
@@ -229,21 +316,34 @@ async function sendVideoCode(
   entry: typeof videoCodesTable.$inferSelect,
 ) {
   const isUz = ctx.session.language === "uz";
+  const cast = entry.movieId
+    ? await getPublishedMovieCast(entry.movieId)
+    : [];
+  const castText = formatMovieCast(cast, isUz);
+  const keyboard = new InlineKeyboard().text(
+    isUz ? "✅ Ko'rib bo'ldim — o'chirish" : "✅ Просмотрено — удалить",
+    `vidcode:del:${entry.code}`,
+  );
+  if (cast.length > 0) {
+    keyboard.row();
+    for (const member of cast.slice(0, 6)) {
+      keyboard
+        .text(`🎭 ${member.name.slice(0, 28)}`, `actor:view:${member.actorId}`)
+        .row();
+    }
+  }
+  keyboard
+    .text(isUz ? "🎬 Boshqa kod" : "🎬 Другой код", "videocodes:enter")
+    .text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main");
   const msg = await ctx.replyWithVideo(entry.telegramFileId!, {
     caption:
       `🎬 <b>${escapeHtml(entry.title)}</b>\n\n` +
       `📋 ${isUz ? "Kod" : "Код"}: <code>${escapeHtml(entry.code)}</code>\n\n` +
+      (castText ? `${castText}\n\n` : "") +
       `<i>${isUz ? "Ko'rib bo'lgach quyidagi tugmani bosing" : "После просмотра нажмите кнопку ниже"}</i>`,
     parse_mode: "HTML",
     protect_content: true,
-    reply_markup: new InlineKeyboard()
-      .text(
-        isUz ? "✅ Ko'rib bo'ldim — o'chirish" : "✅ Просмотрено — удалить",
-        `vidcode:del:${entry.code}`,
-      )
-      .row()
-      .text(isUz ? "🎬 Boshqa kod" : "🎬 Другой код", "videocodes:enter")
-      .text(isUz ? "📱 Menyu" : "📱 Меню", "menu:main"),
+    reply_markup: keyboard,
   });
 
   await db
@@ -255,14 +355,14 @@ async function sendVideoCode(
   return msg;
 }
 
-function channelLink(channelId: string): string {
+export function channelLink(channelId: string): string {
   return channelId.startsWith("@")
     ? `https://t.me/${channelId.slice(1)}`
     : `https://t.me/c/${channelId.replace("-100", "")}`;
 }
 
-function requiredChannelKeyboard(
-  code: string,
+export function requiredChannelKeyboard(
+  callbackData: string,
   channelIds: string[],
   isUz: boolean,
 ): InlineKeyboard {
@@ -279,7 +379,7 @@ function requiredChannelKeyboard(
   });
   keyboard.text(
     isUz ? "✅ Obuna bo'ldim — tekshirish" : "✅ Я подписался — проверить",
-    `vidcode:recheck:${code}`,
+    callbackData,
   );
   return keyboard;
 }
@@ -547,18 +647,22 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       return;
     }
 
-    if (!(await hasRequiredChannelMembership(bot, ctx.from.id))) {
-      await ctx.answerCallbackQuery(
-        isUz ? "Avval kanalga obuna bo'ling" : "Сначала подпишитесь на канал",
-      );
+    if (await promptForRequiredChannels(bot, ctx)) {
+      await ctx.answerCallbackQuery();
       return;
     }
 
     await ctx.answerCallbackQuery(isUz ? "Yuborilmoqda..." : "Отправляем...");
+    const cast = await getPublishedMovieCast(movieId);
+    const castText = formatMovieCast(cast, isUz);
+    const castKeyboard = movieCastKeyboard(cast, isUz);
     await ctx.replyWithVideo(movie.telegramFileId, {
-      caption: `🎬 <b>${escapeHtml(movie.title)}</b>${movie.releaseYear ? ` (${movie.releaseYear})` : ""}`,
+      caption:
+        `🎬 <b>${escapeHtml(movie.title)}</b>${movie.releaseYear ? ` (${movie.releaseYear})` : ""}` +
+        (castText ? `\n\n${castText}` : ""),
       parse_mode: "HTML",
       protect_content: true,
+      ...(castKeyboard && { reply_markup: castKeyboard }),
     });
 
     // Increment view count
@@ -751,10 +855,8 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       return;
     }
 
-    if (!(await hasRequiredChannelMembership(bot, ctx.from.id))) {
-      await ctx.answerCallbackQuery(
-        isUz ? "Avval kanalga obuna bo'ling" : "Сначала подпишитесь на канал",
-      );
+    if (await promptForRequiredChannels(bot, ctx)) {
+      await ctx.answerCallbackQuery();
       return;
     }
 
@@ -885,10 +987,8 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
       return;
     }
 
-    if (!(await hasRequiredChannelMembership(bot, ctx.from.id))) {
-      await ctx.answerCallbackQuery(
-        isUz ? "Avval kanalga obuna bo'ling" : "Сначала подпишитесь на канал",
-      );
+    if (await promptForRequiredChannels(bot, ctx)) {
+      await ctx.answerCallbackQuery();
       return;
     }
 
@@ -963,6 +1063,29 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
     await ctx.answerCallbackQuery(
       ctx.session.language === "uz" ? "O'chirildi ✓" : "Удалено ✓",
     );
+    await ctx.deleteMessage().catch(() => {});
+  });
+
+  bot.callbackQuery("channels:recheck", async (ctx) => {
+    const isUz = ctx.session.language === "uz";
+    const missing = await getMissingConfiguredChannels(bot, ctx.from.id);
+
+    if (missing.length > 0) {
+      await ctx.answerCallbackQuery({
+        text: isUz
+          ? "Hali barcha kanallarga obuna bo'lmagansiz"
+          : "Вы подписались ещё не на все каналы",
+        show_alert: true,
+      });
+      return;
+    }
+
+    await ctx.answerCallbackQuery({
+      text: isUz
+        ? "Obuna tasdiqlandi. Endi tomosha tugmasini qayta bosing."
+        : "Подписка подтверждена. Нажмите кнопку просмотра ещё раз.",
+      show_alert: true,
+    });
     await ctx.deleteMessage().catch(() => {});
   });
 
@@ -1139,7 +1262,7 @@ export function registerCatalogHandler(bot: Bot<BotContext>) {
             {
               parse_mode: "HTML",
               reply_markup: requiredChannelKeyboard(
-                text,
+                `vidcode:recheck:${text}`,
                 requiredChannelIds,
                 isUz,
               ),

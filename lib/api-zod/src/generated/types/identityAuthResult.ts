@@ -14,5 +14,7 @@ export interface IdentityAuthResult {
   refreshToken: string;
   /** Access token expiration time in seconds */
   expiresIn: number;
+  /** Whether a temporary password must be changed before other actions */
+  mustChangePassword: boolean;
   user: IdentityUser;
 }

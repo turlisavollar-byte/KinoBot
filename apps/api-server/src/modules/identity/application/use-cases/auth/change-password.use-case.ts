@@ -2,6 +2,7 @@ import { IUserRepository } from "../../../domain/repositories/IUserRepository";
 import { ISessionRepository } from "../../../domain/repositories/ISessionRepository";
 import { PasswordService } from "../../../infrastructure/services/password.service";
 import { Logger } from "@/shared/utils/logger";
+import { auditService } from "@/modules/audit/audit.service";
 
 export class ChangePasswordUseCase {
   private readonly logger = Logger.getInstance("ChangePasswordUseCase");
@@ -26,8 +27,9 @@ export class ChangePasswordUseCase {
       throw new Error("Current and new passwords are required");
     }
 
-    if (newPassword.length < 6) {
-      throw new Error("Password must be at least 6 characters long");
+    const strength = this.passwordService.validatePasswordStrength(newPassword);
+    if (!strength.isValid) {
+      throw new Error(strength.errors.join(". "));
     }
 
     const currentPasswordMatches = await this.passwordService.verify(
@@ -46,8 +48,21 @@ export class ChangePasswordUseCase {
     }
 
     const newPasswordHash = await this.passwordService.hash(newPassword);
-    await this.userRepo.update(user.id, { passwordHash: newPasswordHash });
+    await this.userRepo.update(user.id, {
+      passwordHash: newPasswordHash,
+      mustChangePassword: false,
+    });
     await this.sessionRepo.revokeAll(user.id);
+
+    await auditService.log({
+      actorId: user.id,
+      actorEmail: user.email,
+      actorType: "ADMIN",
+      action: "UPDATE",
+      targetType: "ADMIN",
+      targetId: user.id,
+      metadata: { event: "password_changed" },
+    });
 
     this.logger.info("Password changed successfully", {
       userId: user.id,

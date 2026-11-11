@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { db, moviesTable, seriesTable } from "@workspace/db";
 
 // ─── Core business routes (still using legacy structure) ─────────────────────
 import telegramRouter from "@/routes/telegram";
@@ -17,10 +19,13 @@ import searchRouter from "@/modules/search/search.routes";
 import advertisingRouter from "@/modules/advertising/advertising.routes";
 import integrationRouter from "@/modules/integration/integration.routes";
 import viewingRouter from "@/modules/viewing/viewing.routes";
+import settingsRouter from "@/modules/settings/settings.routes";
 import { authRouter } from "@/modules/identity";
 import userModule from "@/modules/user";
 import { analyticsRouter } from "@/modules/analytics";
 import billingModule from "@/modules/billing";
+import webRouter from "@/routes/web";
+import adminSubscribersRouter from "@/routes/admin-subscribers";
 
 const router: IRouter = Router();
 
@@ -32,12 +37,67 @@ router.use(healthRouter);
 // Note: app.ts already mounts router at /api, so we use relative paths here
 router.use("/identity/auth", authRouter());
 router.use("/auth", authRouter());
+router.use("/web", webRouter);
 router.use(rbacModuleRouter());
 router.use("/notifications", notificationModuleRouter());
+
+// Public catalog lists must be mounted before the legacy router-wide auth middleware.
+router.get("/movies", async (_req, res, next) => {
+  try {
+    const movies = await db
+      .select({
+        id: moviesTable.id,
+        title: moviesTable.title,
+        description: moviesTable.description,
+        releaseYear: moviesTable.releaseYear,
+        duration: moviesTable.duration,
+        ageRating: moviesTable.ageRating,
+        posterUrl: moviesTable.posterUrl,
+        backgroundUrl: moviesTable.backgroundUrl,
+        trailerUrl: moviesTable.trailerUrl,
+        ratingAvg: moviesTable.ratingAvg,
+      })
+      .from(moviesTable)
+      .where(
+        and(eq(moviesTable.isPublished, true), isNull(moviesTable.deletedAt)),
+      )
+      .orderBy(desc(moviesTable.createdAt));
+    res.json({ data: movies });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/series", async (_req, res, next) => {
+  try {
+    const series = await db
+      .select({
+        id: seriesTable.id,
+        title: seriesTable.title,
+        description: seriesTable.description,
+        releaseYear: seriesTable.releaseYear,
+        ageRating: seriesTable.ageRating,
+        posterUrl: seriesTable.posterUrl,
+        backgroundUrl: seriesTable.backgroundUrl,
+        seasonsCount: seriesTable.seasonsCount,
+        ratingAvg: seriesTable.ratingAvg,
+      })
+      .from(seriesTable)
+      .where(
+        and(eq(seriesTable.isPublished, true), isNull(seriesTable.deletedAt)),
+      )
+      .orderBy(desc(seriesTable.createdAt));
+    res.json({ data: series });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─── Core business routes (legacy - to be migrated to DDD) ───────────────────
 router.use(telegramRouter);
 router.use("/video-codes", videoCodesRouter());
+router.use("/admin/subscribers", adminSubscribersRouter);
+router.use("/admin/users", adminUsersRouter);
 router.use("/admin-users", adminUsersRouter);
 
 // Legacy CRUD endpoints the dashboard client still calls.
@@ -52,6 +112,7 @@ router.use(searchRouter);
 router.use(advertisingRouter);
 router.use(integrationRouter);
 router.use(viewingRouter);
+router.use(settingsRouter);
 router.use("/analytics", analyticsRouter);
 
 // New billing module (DDD architecture with full payment provider support)

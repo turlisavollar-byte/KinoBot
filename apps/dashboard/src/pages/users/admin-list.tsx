@@ -8,6 +8,9 @@ import {
   type AdminAccount,
   type UpdateAdminUserBodyRole,
 } from "@workspace/api-client-react";
+import { AddAdminModal } from "@/components/add-admin-modal";
+import { UserDetailModal } from "@/components/user-detail-modal";
+import { Avatar } from "@/components/avatar";
 import {
   Table,
   TableBody,
@@ -16,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,8 @@ export default function AdminUsersList() {
   const deleteAdminUser = useDeleteAdminUser();
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UpdateAdminUserBodyRole>("viewer");
@@ -68,11 +73,24 @@ export default function AdminUsersList() {
     actorRole !== "viewer" &&
     actorRole !== targetRole &&
     (roleLevel[actorRole] ?? 0) > (roleLevel[targetRole] ?? 0);
+  const roleLabel = (value: string) => {
+    const roleKeys = {
+      viewer: "users.roleName.viewer",
+      user: "users.roleName.user",
+      moderator: "users.roleName.moderator",
+      manager: "users.roleName.manager",
+      admin: "users.roleName.admin",
+      superadmin: "users.roleName.superadmin",
+    } as const;
+    return value in roleKeys
+      ? t(roleKeys[value as keyof typeof roleKeys])
+      : value;
+  };
 
   const openEdit = (user: AdminUser) => {
     setEditingUser(user);
-    setName(user.name);
-    setEmail(user.email);
+    setName(user.name ?? "");
+    setEmail(user.email ?? "");
     setRole(user.role);
   };
 
@@ -89,22 +107,23 @@ export default function AdminUsersList() {
         id: editingUser.id,
         data: { name, email, role },
       });
-      toast.success("Admin account updated");
+      toast.success(t("users.adminAccountUpdated"));
       setEditingUser(null);
       refresh();
     } catch {
-      toast.error("Admin account could not be updated");
+      toast.error(t("users.adminAccountUpdateFailed"));
     }
   };
 
   const removeUser = async (user: AdminUser) => {
-    if (!window.confirm(`Delete ${user.email}?`)) return;
+    if (!window.confirm(t("users.deleteAdminConfirm", { email: user.email })))
+      return;
     try {
       await deleteAdminUser.mutateAsync({ id: user.id });
-      toast.success("Admin account deleted");
+      toast.success(t("users.adminAccountDeleted"));
       refresh();
     } catch {
-      toast.error("Admin account could not be deleted");
+      toast.error(t("users.adminAccountDeleteFailed"));
     }
   };
 
@@ -118,7 +137,7 @@ export default function AdminUsersList() {
           {t("users.manageAdminAccounts")}
         </p>
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -128,6 +147,12 @@ export default function AdminUsersList() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
+        {actorRole === "superadmin" && (
+          <Button onClick={() => setAddModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("users.addAdmin")}
+          </Button>
+        )}
       </div>
       <div className="border rounded-md">
         <Table>
@@ -137,7 +162,9 @@ export default function AdminUsersList() {
               <TableHead>{t("users.tableEmail")}</TableHead>
               <TableHead>{t("users.tableRole")}</TableHead>
               <TableHead>{t("users.tableStatus")}</TableHead>
-              <TableHead className="w-28 text-right">Actions</TableHead>
+              <TableHead className="w-28 text-right">
+                {t("users.adminActions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -156,12 +183,23 @@ export default function AdminUsersList() {
             ) : (
               users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <Avatar name={user.name ?? user.email} size="sm" />
+                      <button
+                        type="button"
+                        className="text-left hover:underline"
+                        onClick={() => setDetailUserId(user.id)}
+                      >
+                        {user.name ?? user.email}
+                      </button>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono text-sm">
                     {user.email}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{user.role}</Badge>
+                    <Badge variant="outline">{roleLabel(user.role)}</Badge>
                   </TableCell>
                   <TableCell>
                     {user.isActive ? (
@@ -179,7 +217,8 @@ export default function AdminUsersList() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEdit(user)}
-                          title="Edit admin account"
+                          title={t("users.editAdminAccount")}
+                          aria-label={t("users.editAdminAccount")}
                         >
                           <Pencil />
                         </Button>
@@ -187,7 +226,8 @@ export default function AdminUsersList() {
                           variant="ghost"
                           size="icon"
                           onClick={() => void removeUser(user)}
-                          title="Delete admin account"
+                          title={t("users.deleteAdminAccount")}
+                          aria-label={t("users.deleteAdminAccount")}
                         >
                           <Trash2 />
                         </Button>
@@ -206,11 +246,11 @@ export default function AdminUsersList() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit administrative account</DialogTitle>
+            <DialogTitle>{t("users.editAdminAccount")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-name">Name</Label>
+              <Label htmlFor="admin-name">{t("users.name")}</Label>
               <Input
                 id="admin-name"
                 value={name}
@@ -218,7 +258,7 @@ export default function AdminUsersList() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Email</Label>
+              <Label htmlFor="admin-email">{t("users.tableEmail")}</Label>
               <Input
                 id="admin-email"
                 type="email"
@@ -227,7 +267,7 @@ export default function AdminUsersList() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label>{t("users.role")}</Label>
               <Select
                 value={role}
                 onValueChange={(value) =>
@@ -245,7 +285,7 @@ export default function AdminUsersList() {
                     )
                     .map((candidate) => (
                       <SelectItem key={candidate} value={candidate}>
-                        {candidate}
+                        {roleLabel(candidate)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -254,17 +294,34 @@ export default function AdminUsersList() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingUser(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={() => void saveEdit()}
               disabled={updateAdminUser.isPending}
             >
-              Save changes
+              {t("users.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {addModalOpen ? (
+        <AddAdminModal
+          open={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onSuccess={() => {
+            setAddModalOpen(false);
+            refresh();
+          }}
+        />
+      ) : null}
+      {detailUserId ? (
+        <UserDetailModal
+          userId={detailUserId}
+          open={Boolean(detailUserId)}
+          onClose={() => setDetailUserId(null)}
+        />
+      ) : null}
     </div>
   );
 }

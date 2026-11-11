@@ -8,6 +8,7 @@ export interface VideoCodeProps {
   code: VideoCode;
   title: string;
   description: string | null;
+  movieId: string | null;
   telegramFileId: string | null;
   channelId: string | null;
   messageId: number | null;
@@ -46,6 +47,9 @@ export class VideoCodeEntity {
   }
   get description(): string | null {
     return this.props.description;
+  }
+  get movieId(): string | null {
+    return this.props.movieId;
   }
   get telegramFileId(): string | null {
     return this.props.telegramFileId;
@@ -98,6 +102,11 @@ export class VideoCodeEntity {
 
   updateStatus(status: VideoStatusValue): void {
     this.props.status = status;
+    this.props.updatedAt = new Date();
+  }
+
+  updateMovieId(movieId: string | null): void {
+    this.props.movieId = movieId;
     this.props.updatedAt = new Date();
   }
 }

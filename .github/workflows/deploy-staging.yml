@@ -7,24 +7,1050 @@ on:
         required: true
         type: boolean
         default: false
+      rollback_test:
+        description: Test app-only rollback; skips migrations and database restore
+        required: true
+        type: boolean
+        default: false
+      verify_nginx_dashboard:
+        description: Check and, only if stale, refresh staging nginx/dashboard config
+        required: true
+        type: boolean
+        default: false
+      movie_upload_test:
+        description: Run the disposable staging movie S3 upload and cleanup test
+        required: true
+        type: boolean
+        default: false
+      refresh_staging_api:
+        description: Build and refresh only the staging API server via SSM without database migrations
+        required: true
+        type: boolean
+        default: false
+      disk_cleanup:
+        description: Prune staging build cache and old logs without touching Docker volumes
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: v2-staging-deploy
   cancel-in-progress: false
 jobs:
-  deploy:
-    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
-    runs-on: ubuntu-latest
+  verify_nginx_dashboard:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.verify_nginx_dashboard == true && inputs.confirm_staging == false && inputs.refresh_staging_api == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Check and conditionally refresh staging nginx and dashboard via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          check_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'CHECK'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+
+          nginx_cap_ok() {
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -t >/dev/null 2>&1 &&
+              sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -T 2>&1 | awk '
+                index($0, "location ~ ^/api/catalog/movies/[^/]+/upload") { upload = 1 }
+                upload && /client_max_body_size 1025M;/ { found = 1 }
+                upload && /^[[:space:]]*}/ { upload = 0 }
+                END { exit !found }
+              '
+          }
+
+          dashboard_csp_ok() {
+            headers="$(mktemp)"
+            page="$(mktemp)"
+            if ! curl --insecure --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused \
+              --dump-header "$headers" --output "$page" https://127.0.0.1:8443/admin/; then
+              rm -f "$headers" "$page"
+              return 1
+            fi
+            header_ok=false
+            page_style_ok=false
+            page_font_ok=false
+            if grep -i '^content-security-policy:' "$headers" | grep -Fq 'https://fonts.googleapis.com' &&
+              grep -i '^content-security-policy:' "$headers" | grep -Fq 'https://fonts.gstatic.com'; then
+              header_ok=true
+            fi
+            if grep -F 'style-src' "$page" | grep -Fq 'https://fonts.googleapis.com'; then
+              page_style_ok=true
+            fi
+            if grep -F 'font-src' "$page" | grep -Fq 'https://fonts.gstatic.com'; then
+              page_font_ok=true
+            fi
+            rm -f "$headers" "$page"
+            [ "$header_ok" = true ] && [ "$page_style_ok" = true ] && [ "$page_font_ok" = true ]
+          }
+
+          if nginx_cap_ok; then
+            echo "BEFORE nginx_upload_client_max_body_size=1025M"
+          else
+            echo "BEFORE nginx_upload_client_max_body_size=missing_or_stale"
+          fi
+          if dashboard_csp_ok; then
+            echo "BEFORE dashboard_google_fonts_csp=present"
+          else
+            echo "BEFORE dashboard_google_fonts_csp=missing_or_stale"
+          fi
+
+          if ! nginx_cap_ok || ! dashboard_csp_ok; then
+            GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
+            sudo docker compose -f docker-compose.prod.yml config -q
+            sudo docker compose -f docker-compose.prod.yml build --no-cache dashboard
+            sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate dashboard nginx
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
+            sudo docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
+          fi
+
+          verified=false
+          for attempt in $(seq 1 10); do
+            if nginx_cap_ok && dashboard_csp_ok; then
+              verified=true
+              break
+            fi
+            sleep 6
+          done
+          test "$verified" = true
+          echo "AFTER nginx_upload_client_max_body_size=1025M"
+          echo "AFTER dashboard_google_fonts_csp=present"
+          CHECK
+          SSM
+          )
+          parameters=$(jq -cn --arg commands "$check_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging nginx and dashboard config verification ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 1200 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+
+          completed=false
+          for attempt in $(seq 1 27); do
+            if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+            case "$status" in
+              Pending|InProgress|Delayed) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" \
+                  --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          test "$completed" = true
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+          output=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "StandardOutputContent" \
+            --output text)
+          printf '%s\n' "$output" | grep -E '^(BEFORE|AFTER) (nginx_upload_client_max_body_size|dashboard_google_fonts_csp)='
+  movie_upload_test:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.movie_upload_test == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false && inputs.refresh_staging_api == false
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment:
       name: staging
     steps:
-      - uses: actions/checkout@v4
+      - name: Configure AWS credentials for staging SSM
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Run upload, DB/S3 verification, and cleanup inside staging via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          TEST_EMAIL: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+          test -n "$TEST_EMAIL"
+          test -n "$TEST_PASSWORD"
+
+          email_b64="$(printf '%s' "$TEST_EMAIL" | base64 -w0)"
+          password_b64="$(printf '%s' "$TEST_PASSWORD" | base64 -w0)"
+          test_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu env \
+            TEST_EMAIL_B64=__TEST_EMAIL_B64__ \
+            TEST_PASSWORD_B64=__TEST_PASSWORD_B64__ \
+            TEST_RUN_ID=__TEST_RUN_ID__ \
+            TEST_RUN_ATTEMPT=__TEST_RUN_ATTEMPT__ \
+            bash -se <<'REMOTE'
+          set -euo pipefail
+            trap 'status=$?; echo "REMOTE_ERROR line=$LINENO status=$status" >&2' ERR
+            cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+
+          api="https://127.0.0.1:8443"
+          work_dir="$(mktemp -d)"
+          chmod 700 "$work_dir"
+          umask 077
+          expected_title="test-upload-$(date -u +%Y%m%dT%H%M%SZ)-${TEST_RUN_ID}-${TEST_RUN_ATTEMPT}"
+          test_email="$(printf '%s' "$TEST_EMAIL_B64" | base64 -d)"
+          test_password="$(printf '%s' "$TEST_PASSWORD_B64" | base64 -d)"
+          movie_id=""
+          api_token=""
+          storage_keys=()
+          cleanup_failed=false
+
+          db_query() {
+            printf '%s\n' "$1" | sudo docker compose -f docker-compose.prod.yml exec -T postgres \
+              sh -ec 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At'
+          }
+
+          valid_movie_id() {
+            printf '%s' "$1" | grep -Eq '^[0-9a-fA-F-]{36}$'
+          }
+
+          valid_storage_key() {
+            printf '%s' "$1" | grep -Eq "^movies/${movie_id}/[0-9a-f-]{36}\\.mp4$"
+          }
+
+          check_s3_object() {
+            local key="$1"
+            local expected_size="$2"
+            sudo docker compose -f docker-compose.prod.yml exec -T \
+              -e MOVIE_TEST_STORAGE_KEY="$key" \
+              -e MOVIE_TEST_EXPECTED_SIZE="$expected_size" \
+              api-server node <<'NODE'
+          const { HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const result = await client.send(new HeadObjectCommand({
+              Bucket: process.env.VIDEO_BUCKET || "videos",
+              Key: process.env.MOVIE_TEST_STORAGE_KEY,
+            }));
+            if (Number(result.ContentLength) !== Number(process.env.MOVIE_TEST_EXPECTED_SIZE)) {
+              throw new Error("stored object size mismatch");
+            }
+            console.log(`S3_OBJECT exists=true size_bytes=${result.ContentLength}`);
+            client.destroy();
+          }
+          main().catch((error) => {
+            console.error(`S3_OBJECT exists=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          }
+
+          cleanup_s3_objects() {
+            local keys
+            keys="$(printf '%s\n' "${storage_keys[@]}" | sed '/^$/d' | sort -u)"
+            [ -n "$keys" ] || return 0
+            sudo docker compose -f docker-compose.prod.yml exec -T \
+              -e MOVIE_TEST_STORAGE_KEYS="$keys" api-server node <<'NODE'
+          const {
+            DeleteObjectCommand,
+            HeadObjectCommand,
+            S3Client,
+          } = require("@aws-sdk/client-s3");
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const bucket = process.env.VIDEO_BUCKET || "videos";
+            const keys = [...new Set(process.env.MOVIE_TEST_STORAGE_KEYS.split("\n").filter(Boolean))];
+            for (const key of keys) {
+              if (!/^movies\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(key)) {
+                throw new Error("storage key is outside the disposable movie namespace");
+              }
+              await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+              try {
+                await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+                throw new Error("test object still exists after deletion");
+              } catch (error) {
+                if (error.message === "test object still exists after deletion") throw error;
+                if (error.name !== "NotFound" && error.$metadata?.httpStatusCode !== 404) throw error;
+              }
+            }
+            console.log(`S3_CLEANUP deleted=${keys.length} verified_absent=true`);
+            client.destroy();
+          }
+          main().catch((error) => {
+            console.error(`S3_CLEANUP verified_absent=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          }
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            if [ -n "$api_token" ]; then
+              if [ -z "$movie_id" ]; then
+                mapfile -t found_ids < <(db_query "SELECT id FROM movies WHERE title = '${expected_title}' AND deleted_at IS NULL;")
+              else
+                found_ids=("$movie_id")
+              fi
+              for cleanup_id in "${found_ids[@]}"; do
+                if ! valid_movie_id "$cleanup_id"; then
+                  echo "CLEANUP refused_invalid_movie_id"
+                  cleanup_failed=true
+                  continue
+                fi
+                cleanup_response="$work_dir/cleanup-movie.json"
+                cleanup_status="$(curl --insecure --silent --connect-timeout 10 --max-time 30 \
+                  --output "$cleanup_response" --write-out '%{http_code}' \
+                  --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$cleanup_id")"
+                if [ "$cleanup_status" = "200" ] &&
+                  [ "$(jq -r '.title // empty' "$cleanup_response")" = "$expected_title" ]; then
+                  cleanup_key="$(jq -r '.storageKey // empty' "$cleanup_response")"
+                  if [ -n "$cleanup_key" ]; then
+                    movie_id="$cleanup_id"
+                    if valid_storage_key "$cleanup_key"; then
+                      storage_keys+=("$cleanup_key")
+                    else
+                      echo "CLEANUP refused_unexpected_storage_key"
+                      cleanup_failed=true
+                    fi
+                  fi
+                  delete_status="$(curl --insecure --silent --connect-timeout 10 --max-time 30 \
+                    --output /dev/null --write-out '%{http_code}' --request DELETE \
+                    --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$cleanup_id")"
+                  if [ "$delete_status" = "204" ]; then
+                    active_count="$(db_query "SELECT count(*) FROM movies WHERE id = '${cleanup_id}' AND deleted_at IS NULL;")"
+                    if [ "$active_count" = "0" ]; then
+                      echo "CLEANUP movie_deleted=true"
+                    else
+                      echo "CLEANUP movie_still_active=true"
+                      cleanup_failed=true
+                    fi
+                  else
+                    echo "CLEANUP movie_delete_failed http=$delete_status"
+                    cleanup_failed=true
+                  fi
+                else
+                  echo "CLEANUP movie_identity_check_failed http=$cleanup_status"
+                  cleanup_failed=true
+                fi
+              done
+            fi
+            if ! cleanup_s3_objects; then cleanup_failed=true; fi
+            rm -rf "$work_dir"
+            if [ "$cleanup_failed" = true ]; then result=1; fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          health_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' "$api/api/healthz")"
+          test "$health_status" = "200"
+          echo "PRECHECK api_health=http_${health_status}"
+
+          printf '%s' "$test_email" > "$work_dir/email"
+          printf '%s' "$test_password" > "$work_dir/password"
+          jq -n --rawfile email "$work_dir/email" --rawfile password "$work_dir/password" \
+            '{email: $email, password: $password}' > "$work_dir/login.json"
+          unset test_email test_password TEST_EMAIL_B64 TEST_PASSWORD_B64
+          rm -f "$work_dir/email" "$work_dir/password"
+          login_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/login-response.json" --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' --data-binary @"$work_dir/login.json" \
+            "$api/api/identity/auth/login")"
+          test "$login_status" = "200"
+          api_token="$(jq -er '.accessToken' "$work_dir/login-response.json")"
+          rm -f "$work_dir/login.json" "$work_dir/login-response.json"
+          echo "AUTH login=success"
+
+          jq -cn --arg title "$expected_title" '{title: $title}' > "$work_dir/movie.json"
+          create_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/movie-response.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $api_token" --header 'Content-Type: application/json' \
+            --data-binary @"$work_dir/movie.json" "$api/api/catalog/movies")"
+          movie_id="$(jq -er '.id' "$work_dir/movie-response.json")"
+          if [ "$create_status" != "201" ] ||
+            [ "$(jq -r '.title // empty' "$work_dir/movie-response.json")" != "$expected_title" ] ||
+            ! valid_movie_id "$movie_id"; then
+            echo "MOVIE create_failed http=$create_status"
+            exit 1
+          fi
+          echo "MOVIE created=true id=$movie_id"
+          rm -f "$work_dir/movie.json" "$work_dir/movie-response.json"
+
+          python3 - "$work_dir" <<'PY'
+          import struct
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          ftyp = struct.pack(">I4s4sI4s4s4s", 28, b"ftyp", b"isom", 512, b"isom", b"iso2", b"mp41")
+          for name, requested in (("1MB", 1_000_000), ("10MB", 10_000_000), ("100MB", 100_000_000)):
+              free_size = requested - len(ftyp)
+              if free_size < 8:
+                  raise SystemExit("fixture is too small")
+              with (root / f"{name}.mp4").open("wb") as output:
+                  output.write(ftyp)
+                  output.write(struct.pack(">I4s", free_size, b"free"))
+                  remaining = free_size - 8
+                  zeroes = b"\0" * min(1024 * 1024, remaining)
+                  while remaining:
+                      chunk = zeroes[:min(len(zeroes), remaining)]
+                      output.write(chunk)
+                      remaining -= len(chunk)
+              if (root / f"{name}.mp4").stat().st_size != requested:
+                  raise SystemExit("fixture size mismatch")
+          PY
+          echo "FIXTURES_READY sizes=1MB,10MB,100MB"
+
+          for item in "1MB:1000000" "10MB:10000000" "100MB:100000000"; do
+            label="${item%%:*}"
+            expected_size="${item##*:}"
+            file="$work_dir/$label.mp4"
+            started_at="$(date +%s)"
+            upload_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 1800 \
+              --output "$work_dir/upload-response.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" \
+              --form "video=@$file;type=video/mp4" "$api/api/catalog/movies/$movie_id/upload")"
+            elapsed="$(( $(date +%s) - started_at ))"
+            if [ "$upload_status" != "200" ]; then
+              api_error="$(jq -r '.error.code // .error.message // "no_api_error"' "$work_dir/upload-response.json" 2>/dev/null || echo no_response_body)"
+              api_message="$(jq -r '.error.message // "no_message"' "$work_dir/upload-response.json" 2>/dev/null || echo no_response_body)"
+              echo "UPLOAD_FAILED size=$label status=$upload_status api_error=$api_error message=$api_message"
+              exit 1
+            fi
+            uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
+            test "$(jq -r '.id' "$work_dir/upload-response.json")" = "$movie_id"
+            test "$(jq -r '.sourceType' "$work_dir/upload-response.json")" = "s3"
+            if ! valid_storage_key "$uploaded_key"; then
+              echo "UPLOAD size=$label storage_key_invalid=true"
+              exit 1
+            fi
+            storage_keys+=("$uploaded_key")
+
+            movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/movie-verify.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$movie_id")"
+            test "$movie_status" = "200"
+            test "$(jq -r '.storageKey' "$work_dir/movie-verify.json")" = "$uploaded_key"
+            test "$(jq -r '.sourceType' "$work_dir/movie-verify.json")" = "s3"
+
+            db_value="$(db_query "SELECT COALESCE(storage_key, '') || '|' || source_type FROM movies WHERE id = '${movie_id}' AND deleted_at IS NULL;")"
+            test "$db_value" = "${uploaded_key}|s3"
+            check_s3_object "$uploaded_key" "$expected_size"
+            echo "UPLOAD size=$label status=200 elapsed_seconds=$elapsed database_key=verified s3_object=verified"
+            rm -f "$work_dir/upload-response.json" "$work_dir/movie-verify.json"
+          done
+          echo "TEST_RESULT uploads=3 db=verified s3=verified"
+          REMOTE
+          SSM
+          )
+          test_script="${test_script//__TEST_EMAIL_B64__/$email_b64}"
+          test_script="${test_script//__TEST_PASSWORD_B64__/$password_b64}"
+          test_script="${test_script//__TEST_RUN_ID__/$GITHUB_RUN_ID}"
+          test_script="${test_script//__TEST_RUN_ATTEMPT__/$GITHUB_RUN_ATTEMPT}"
+          parameters="$(jq -cn --arg commands "$test_script" '{commands: [$commands]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Kinobot v2 staging disposable movie upload test ${GITHUB_RUN_ID}" \
+            --max-concurrency 1 --max-errors 0 --timeout-seconds 3600 \
+            --parameters "$parameters" \
+            --query Command.CommandId --output text)"
+          test -n "$command_id"
+          test "$command_id" != "None"
+
+          completed=false
+          for attempt in $(seq 1 36); do
+            if aws ssm wait command-executed \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            command_status="$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$command_status" in
+              Success) completed=true; break ;;
+              Pending|InProgress|Delayed|Cancelling) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          status="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query Status --output text)"
+          output="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query StandardOutputContent --output text)"
+          printf '%s\n' "$output"
+          if [ "$completed" != "true" ] || [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+  refresh_staging_api:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.refresh_staging_api == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false && inputs.movie_upload_test == false && inputs.disk_cleanup == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging SSM
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Build and refresh only the staging API via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          refresh_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'REMOTE'
+          set -euo pipefail
+          trap 'status=$?; echo "REFRESH_ERROR line=$LINENO status=$status" >&2' ERR
+          cd /opt/kinobot-v2-git
+          branch="$(git branch --show-current)"
+          if [ "$branch" != "feature/v2-web-integration" ]; then
+            echo "REFRESH refused_unexpected_branch branch=$branch"
+            exit 1
+          fi
+          origin_url="$(git remote get-url origin)"
+          case "$origin_url" in
+            https://github.com/turlisavollar-byte/KinoBot|https://github.com/turlisavollar-byte/KinoBot.git|git@github.com:turlisavollar-byte/KinoBot.git|ssh://git@github.com/turlisavollar-byte/KinoBot.git) ;;
+            *) echo "REFRESH refused_unexpected_origin" ; exit 1 ;;
+          esac
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "REFRESH refused_dirty_worktree=true"
+            exit 1
+          fi
+
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+
+          GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
+          sudo docker compose -f docker-compose.prod.yml config -q
+          sudo docker compose -f docker-compose.prod.yml build --no-cache api-server
+          sudo docker compose -f docker-compose.prod.yml up -d --no-deps api-server
+
+          healthy=false
+          for attempt in $(seq 1 30); do
+            if [ "$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 5 --max-time 10 https://127.0.0.1:8443/api/healthz)" = "200" ]; then
+              healthy=true
+              break
+            fi
+            sleep 5
+          done
+          test "$healthy" = true
+          sudo docker compose -f docker-compose.prod.yml ps api-server
+          echo "API_REFRESH health=http_200 migrations=skipped"
+          REMOTE
+          SSM
+          )
+          parameters=$(jq -cn --arg commands "$refresh_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Kinobot v2 staging API-only refresh ${GITHUB_SHA}" \
+            --max-concurrency 1 --max-errors 0 --timeout-seconds 2400 \
+            --parameters "$parameters" \
+            --query Command.CommandId --output text)
+          test -n "$command_id"
+          test "$command_id" != "None"
+
+          completed=false
+          for attempt in $(seq 1 40); do
+            if aws ssm wait command-executed \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            command_status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query Status --output text)
+            case "$command_status" in
+              Pending|InProgress|Delayed|Cancelling) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query Status --output text)
+          aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+            --output json
+          test "$completed" = true
+          test "$status" = "Success"
+  movie_upload_test_runner_legacy:
+    if: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging object cleanup
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Upload and verify disposable staging movie files
+        id: upload_test
+        env:
+          API_BASE_URL: https://3.105.228.88:8443
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          TEST_EMAIL: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+          test -n "$TEST_EMAIL"
+          test -n "$TEST_PASSWORD"
+
+          work_dir="$(mktemp -d)"
+          movie_id=""
+          expected_title="test-upload-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          api_token=""
+          cleanup_failed=false
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            if [ -n "$movie_id" ] && [ -n "$api_token" ]; then
+              movie_response="$work_dir/cleanup-movie.json"
+              movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+                --output "$movie_response" --write-out '%{http_code}' \
+                --header "Authorization: Bearer $api_token" \
+                "$API_BASE_URL/api/catalog/movies/$movie_id")"
+              current_key=""
+              if [ "$movie_status" = "200" ] &&
+                [ "$(jq -r '.title // empty' "$movie_response")" = "$expected_title" ]; then
+                current_key="$(jq -r '.storageKey // empty' "$movie_response")"
+                delete_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+                  --output /dev/null --write-out '%{http_code}' \
+                  --request DELETE \
+                  --header "Authorization: Bearer $api_token" \
+                  "$API_BASE_URL/api/catalog/movies/$movie_id")"
+                if [ "$delete_status" != "204" ]; then
+                  echo "CLEANUP movie_delete_failed http=$delete_status"
+                  cleanup_failed=true
+                else
+                  echo "CLEANUP movie_deleted=true"
+                fi
+              else
+                echo "CLEANUP movie_identity_check_failed http=$movie_status"
+                cleanup_failed=true
+              fi
+
+              if [ -n "$current_key" ]; then
+                if ! printf '%s' "$current_key" | grep -Eq "^movies/${movie_id}/[0-9a-f-]{36}\\.mp4$"; then
+                  echo "CLEANUP storage_key_validation_failed"
+                  cleanup_failed=true
+                else
+                  cleanup_script=$(cat <<'SSM'
+          set -eu
+                  sudo -u ubuntu env MOVIE_TEST_STORAGE_KEY=__MOVIE_TEST_STORAGE_KEY__ bash -se <<'REMOTE'
+          set -eu
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+          test "$(git remote get-url origin)" = "https://github.com/turlisavollar-byte/KinoBot.git"
+          key="${MOVIE_TEST_STORAGE_KEY:?}"
+          sudo docker compose -f docker-compose.prod.yml exec -T -e MOVIE_TEST_STORAGE_KEY="$key" api-server node <<'NODE'
+          const {
+            DeleteObjectCommand,
+            HeadObjectCommand,
+            S3Client,
+          } = require("@aws-sdk/client-s3");
+
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const bucket = process.env.VIDEO_BUCKET || "videos";
+            const key = process.env.MOVIE_TEST_STORAGE_KEY;
+            if (!key || !/^movies\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(key)) {
+              throw new Error("storage key is outside the disposable movie namespace");
+            }
+            await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+            try {
+              await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+              throw new Error("test object still exists after deletion");
+            } catch (error) {
+              if (error.message === "test object still exists after deletion") throw error;
+              if (error.name !== "NotFound" && error.$metadata?.httpStatusCode !== 404) throw error;
+            }
+            console.log("OBJECT_REMOVED=true");
+            client.destroy();
+          }
+
+          main().catch((error) => {
+            console.error(`OBJECT_REMOVED=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          REMOTE
+          SSM
+          )
+                  cleanup_script="${cleanup_script//__MOVIE_TEST_STORAGE_KEY__/$current_key}"
+                  parameters="$(jq -cn --arg commands "$cleanup_script" '{commands: [$commands]}')"
+                  command_id="$(aws ssm send-command \
+                    --instance-ids "$STAGING_INSTANCE_ID" \
+                    --document-name AWS-RunShellScript \
+                    --comment "Kinobot v2 staging disposable movie object cleanup ${GITHUB_RUN_ID}" \
+                    --max-concurrency 1 --max-errors 0 --timeout-seconds 300 \
+                    --parameters "$parameters" \
+                    --query Command.CommandId --output text)"
+                  if [ -z "$command_id" ] || [ "$command_id" = "None" ]; then
+                    echo "CLEANUP object_delete_command_failed"
+                    cleanup_failed=true
+                  else
+                    completed=false
+                    for attempt in $(seq 1 20); do
+                      if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+                        completed=true
+                        break
+                      fi
+                      command_status="$(aws ssm get-command-invocation \
+                        --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                        --query Status --output text 2>/dev/null)"
+                      case "$command_status" in
+                        Pending|InProgress|Delayed) ;;
+                        *) break ;;
+                      esac
+                    done
+                    if [ "$completed" = true ] &&
+                      [ "$(aws ssm get-command-invocation --command-id "$command_id" \
+                        --instance-id "$STAGING_INSTANCE_ID" --query Status --output text)" = "Success" ]; then
+                      echo "CLEANUP s3_object_deleted=true"
+                    else
+                      echo "CLEANUP s3_object_delete_failed"
+                      cleanup_failed=true
+                    fi
+                  fi
+                fi
+              fi
+            fi
+            rm -rf "$work_dir"
+            if [ "$cleanup_failed" = true ]; then
+              result=1
+            fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          health_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' "$API_BASE_URL/api/healthz")"
+          test "$health_status" = "200"
+          echo "PRECHECK api_health=http_${health_status}"
+
+          jq -cn --arg email "$TEST_EMAIL" --arg password "$TEST_PASSWORD" \
+            '{email: $email, password: $password}' > "$work_dir/login.json"
+          login_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/login-response.json" --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' --data-binary @"$work_dir/login.json" \
+            "$API_BASE_URL/api/identity/auth/login")"
+          test "$login_status" = "200"
+          api_token="$(jq -er '.accessToken' "$work_dir/login-response.json")"
+          echo "::add-mask::$api_token"
+          rm -f "$work_dir/login.json" "$work_dir/login-response.json"
+
+          jq -cn --arg title "$expected_title" '{title: $title}' > "$work_dir/movie.json"
+          create_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/movie-response.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $api_token" --header 'Content-Type: application/json' \
+            --data-binary @"$work_dir/movie.json" "$API_BASE_URL/api/catalog/movies")"
+          test "$create_status" = "201"
+          movie_id="$(jq -er '.id' "$work_dir/movie-response.json")"
+          test "$(jq -r '.title' "$work_dir/movie-response.json")" = "$expected_title"
+          echo "MOVIE created=true id=$movie_id"
+
+          command -v ffmpeg >/dev/null 2>&1 || {
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          }
+          ffmpeg -v error -f lavfi -i 'color=c=black:s=320x240:r=1' -frames:v 1 \
+            -an -c:v mpeg4 -q:v 31 -movflags +faststart -y "$work_dir/base.mp4"
+          for size in 1000000 10000000 100000000; do
+            case "$size" in
+              1000000) label="1MB" ;;
+              10000000) label="10MB" ;;
+              100000000) label="100MB" ;;
+            esac
+            file="$work_dir/$label.mp4"
+            python3 - "$work_dir/base.mp4" "$file" "$size" <<'PY'
+          import shutil
+          import struct
+          import sys
+          from pathlib import Path
+
+          source, destination, requested = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          base_size = Path(source).stat().st_size
+          free_size = requested - base_size
+          if free_size < 8:
+              raise SystemExit("base MP4 exceeds requested fixture size")
+          with open(source, "rb") as src, open(destination, "wb") as dst:
+              shutil.copyfileobj(src, dst)
+              dst.write(struct.pack(">I", free_size))
+              dst.write(b"free")
+              remaining = free_size - 8
+              zeroes = b"\0" * min(1024 * 1024, remaining)
+              while remaining:
+                  chunk = zeroes[:min(len(zeroes), remaining)]
+                  dst.write(chunk)
+                  remaining -= len(chunk)
+          if Path(destination).stat().st_size != requested:
+              raise SystemExit("fixture size mismatch")
+          PY
+            ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
+              -of default=noprint_wrappers=1:nokey=1 "$file" >/dev/null
+            started_at="$(date +%s)"
+            upload_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 1800 \
+              --output "$work_dir/upload-response.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" \
+              --form "video=@$file;type=video/mp4" \
+              "$API_BASE_URL/api/catalog/movies/$movie_id/upload")"
+            elapsed="$(( $(date +%s) - started_at ))"
+            test "$upload_status" = "200"
+            uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
+            test "$(jq -r '.id' "$work_dir/upload-response.json")" = "$movie_id"
+            test "$(jq -r '.sourceType' "$work_dir/upload-response.json")" = "s3"
+
+            movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/movie-verify.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$API_BASE_URL/api/catalog/movies/$movie_id")"
+            test "$movie_status" = "200"
+            test "$(jq -r '.storageKey' "$work_dir/movie-verify.json")" = "$uploaded_key"
+            test "$(jq -r '.sourceType' "$work_dir/movie-verify.json")" = "s3"
+
+            media_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/media.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$API_BASE_URL/api/catalog/movies/$movie_id/media")"
+            test "$media_status" = "200"
+            preview_url="$(jq -er '.previewUrl' "$work_dir/media.json")"
+            echo "::add-mask::$preview_url"
+            object_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 180 \
+              --range 0-0 --output /dev/null --write-out '%{http_code}' "$preview_url")"
+            case "$object_status" in 200|206) ;; *) echo "S3 check failed: HTTP $object_status"; exit 1 ;; esac
+            echo "UPLOAD size=$label status=$upload_status elapsed_seconds=$elapsed database_key=verified s3_object=verified"
+          done
+  disk_cleanup:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.disk_cleanup == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false && inputs.movie_upload_test == false && inputs.refresh_staging_api == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging maintenance
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Clean staging cache and old logs via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          maintenance_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'REMOTE'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+
+          echo "DISK_BEFORE"
+          df -h /
+          echo "DOCKER_BEFORE"
+          sudo docker system df
+          used_before="$(df -B1 / | awk 'NR == 2 {print $3}')"
+
+          sudo docker image prune -f
+          sudo docker builder prune -a -f
+          sudo journalctl --vacuum-size=100M
+          sudo find /var/log -type f -name '*.log' -mtime +7 -delete
+          sudo find /var/lib/docker/containers -type f -name '*.log' -size +100M -delete
+          sudo apt-get clean
+          sudo apt-get autoclean
+
+          used_after="$(df -B1 / | awk 'NR == 2 {print $3}')"
+          freed_mb="$(( (used_before - used_after) / 1048576 ))"
+          echo "DISK_FREED_MB=$freed_mb"
+          echo "DISK_AFTER"
+          df -h /
+          echo "DOCKER_AFTER"
+          sudo docker system df
+
+          compose_file=docker-compose.prod.yml
+          mapfile -t container_ids < <(sudo docker compose -f "$compose_file" ps -q)
+          test "${#container_ids[@]}" -gt 0
+          for container_id in "${container_ids[@]}"; do
+            name="$(sudo docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')"
+            read -r state health < <(sudo docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_id")
+            echo "CONTAINER name=$name state=$state health=$health"
+            test "$state" = "running"
+            test "$health" = "healthy" || test "$health" = "no-healthcheck"
+          done
+          sudo docker compose -f "$compose_file" ps
+          REMOTE
+          SSM
+          )
+          parameters="$(jq -cn --arg commands "$maintenance_script" '{commands: [$commands]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Kinobot v2 staging cache and log cleanup ${GITHUB_RUN_ID}" \
+            --max-concurrency 1 --max-errors 0 --timeout-seconds 300 \
+            --parameters "$parameters" \
+            --query Command.CommandId --output text)"
+          test -n "$command_id"
+          test "$command_id" != "None"
+
+          completed=false
+          for attempt in $(seq 1 5); do
+            if aws ssm wait command-executed \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status="$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in
+              Success) completed=true; break ;;
+              Pending|InProgress|Delayed|Cancelling) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          status="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query Status --output text)"
+          if [ "$completed" != "true" ] || [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+          aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query StandardOutputContent --output text
+  deploy:
+    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Install monorepo dependencies
@@ -49,42 +1075,411 @@ jobs:
         if: steps.workspace-tests.outcome == 'failure'
         run: |
           echo 'WARNING: pnpm test has known dashboard failures; inspect the test step output.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Configure staging SSH
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Deploy to v2 staging via SSM
+        id: deploy_staging
         env:
-          STAGING_HOST: ${{ vars.STAGING_HOST }}
-          STAGING_USER: ${{ vars.STAGING_USER }}
-          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          ROLLBACK_TEST: ${{ inputs.rollback_test }}
         run: |
           set -euo pipefail
-          test "$STAGING_HOST" = "3.105.228.88"
-          test "$STAGING_USER" = "ubuntu"
-          test -n "$STAGING_SSH_PRIVATE_KEY"
-          test -n "$STAGING_KNOWN_HOSTS"
-          install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$STAGING_SSH_PRIVATE_KEY" > "$HOME/.ssh/v2-staging"
-          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/v2-staging" "$HOME/.ssh/known_hosts"
-      - name: Deploy to v2 staging only
-        env:
-          STAGING_HOST: ${{ vars.STAGING_HOST }}
-          STAGING_USER: ${{ vars.STAGING_USER }}
-        run: |
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rollback_test="$ROLLBACK_TEST"
+          deploy_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'DEPLOY'
           set -euo pipefail
-          test "$STAGING_HOST" = "3.105.228.88"
-          test "$STAGING_USER" = "ubuntu"
-          ssh -i "$HOME/.ssh/v2-staging" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$STAGING_USER@$STAGING_HOST" 'bash -se' <<'REMOTE'
-          set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
+          ROLLBACK_TEST=${{ inputs.rollback_test }}
           cd /opt/kinobot-v2-git
           test "$(git branch --show-current)" = "feature/v2-web-integration"
           test -z "$(git status --porcelain --untracked-files=no)"
+
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          umask 077
+          mkdir -p "$state_dir"
+          previous_sha="$(git rev-parse HEAD)"
+          cp docker-compose.prod.yml "$state_dir/docker-compose.prod.yml"
+          printf '%s\n' "$previous_sha" > "$state_dir/previous-sha"
+          : > "$state_dir/images.tsv"
+          for service in api-server dashboard web landing nginx; do
+            container_id="$(sudo docker compose -f docker-compose.prod.yml ps -q "$service" | head -n 1)"
+            test -n "$container_id"
+            image_ref="$(sudo docker inspect --format '{{.Config.Image}}' "$container_id")"
+            rollback_tag="kinobot-v2-rollback:${DEPLOY_ID}-${service}"
+            sudo docker commit "$container_id" "$rollback_tag" >/dev/null
+            printf '%s\t%s\t%s\n' "$service" "$image_ref" "$rollback_tag" >> "$state_dir/images.tsv"
+          done
+
+          backup_output="$(sudo docker compose -f docker-compose.prod.yml run --rm db-backup)"
+          backup_name="$(printf '%s\n' "$backup_output" | sed -n 's#^Verified backup: /backups/##p' | tail -n 1)"
+          case "$backup_name" in ''|*/*|*..*) echo "Verified database backup path was not returned" >&2; exit 1 ;; esac
+          test -s "backups/$backup_name"
+          printf '%s\n' "$backup_name" > "$state_dir/db-backup-name"
+
           GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
           sudo docker compose -f docker-compose.prod.yml config -q
-          sudo docker compose -f docker-compose.prod.yml build api-server dashboard web landing
-          sudo docker compose -f docker-compose.prod.yml run --rm db-backup
-          sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
+          sudo docker compose -f docker-compose.prod.yml build --no-cache api-server dashboard web landing
+          if [ "$ROLLBACK_TEST" != "true" ]; then
+            sudo docker compose -f docker-compose.prod.yml run --rm db-migrator
+          else
+            echo "Rollback test: database migration skipped"
+          fi
           sudo docker compose -f docker-compose.prod.yml up -d --no-deps api-server dashboard web landing nginx
-          curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused http://127.0.0.1:3001/api/healthz >/dev/null
-          curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused https://127.0.0.1:8443/ >/dev/null
           sudo docker compose -f docker-compose.prod.yml ps
-          REMOTE
+          DEPLOY
+          SSM
+          )
+          deploy_script="${deploy_script//__DEPLOY_ID__/$deploy_id}"
+          if [ "$rollback_test" = "true" ]; then
+            printf '%s\n' "$deploy_script" | grep -Fq 'ROLLBACK_TEST=true'
+            printf '%s\n' "$deploy_script" | grep -Fq 'if [ "$ROLLBACK_TEST" != "true" ]; then'
+          fi
+          parameters=$(jq -cn --arg commands "$deploy_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging deploy ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 2400 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+
+          completed=false
+          for attempt in $(seq 1 27); do
+            if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+            case "$status" in
+              Pending|InProgress|Delayed) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" \
+                  --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          test "$completed" = "true"
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+          if [ "$rollback_test" = "true" ]; then
+            echo "Intentional app-only rollback test failure"
+            exit 1
+          fi
+      - name: Verify v2 staging media routes and database via SSM
+        id: verify_staging
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          verify_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'VERIFY'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+
+          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
+          telegram_media_http="$(curl --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/catalog/telegram-media)"
+          dashboard_http="$(curl --insecure --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/admin/telegram-media)"
+          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
+          telegram_media_count="$(sudo docker compose -f docker-compose.prod.yml exec -T postgres sh -ec 'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT count(*) FROM public.telegram_media"')"
+
+          printf 'VERIFY api_health_http=%s\n' "$api_health_http"
+          printf 'VERIFY telegram_media_route_http=%s\n' "$telegram_media_http"
+          printf 'VERIFY dashboard_telegram_media_http=%s\n' "$dashboard_http"
+          printf 'VERIFY telegram_media_count=%s\n' "$telegram_media_count"
+          printf 'VERIFY nginx_root_http=%s\n' "$nginx_root_http"
+
+          test "$api_health_http" = "200"
+          test "$telegram_media_http" = "401"
+          case "$dashboard_http" in 200|302) ;; *) exit 1 ;; esac
+          case "$telegram_media_count" in ''|*[!0-9]*) exit 1 ;; esac
+          test "$telegram_media_count" -ge 1
+          test "$nginx_root_http" = "200"
+          VERIFY
+          SSM
+          )
+          parameters=$(jq -cn --arg commands "$verify_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging media verification ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 300 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+          if ! aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+      - name: Roll back failed v2 staging deployment via SSM
+        id: rollback_staging
+        if: failure() && (steps.deploy_staging.outcome == 'failure' || steps.verify_staging.outcome == 'failure')
+        continue-on-error: true
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          ROLLBACK_TEST: ${{ inputs.rollback_test }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rollback_test="$ROLLBACK_TEST"
+          rollback_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'ROLLBACK'
+          set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
+          ROLLBACK_TEST=${{ inputs.rollback_test }}
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+          if [ ! -s "$state_dir/previous-sha" ]; then
+            echo "No staging rollback state is available"
+            exit 0
+          fi
+
+          cd /opt/kinobot-v2-git
+          compose_file="$state_dir/docker-compose.prod.yml"
+          previous_sha="$(cat "$state_dir/previous-sha")"
+          case "$previous_sha" in *[!0-9a-f]*|'') echo "Invalid saved deployment revision" >&2; exit 1 ;; esac
+          test "${#previous_sha}" -eq 40
+
+          sudo docker compose --project-directory /opt/kinobot-v2-git -f "$compose_file" stop api-server
+          if [ "$ROLLBACK_TEST" = "true" ]; then
+            echo "Rollback test: database restore explicitly skipped"
+          elif [ -s "$state_dir/db-backup-name" ]; then
+            backup_name="$(cat "$state_dir/db-backup-name")"
+            case "$backup_name" in ''|*/*|*..*) echo "Invalid saved database backup name" >&2; exit 1 ;; esac
+            backup_path="$PWD/backups/$backup_name"
+            test -s "$backup_path"
+            postgres_id="$(sudo docker compose --project-directory /opt/kinobot-v2-git -f "$compose_file" ps -q postgres | head -n 1)"
+            test -n "$postgres_id"
+            container_backup="/tmp/kinobot-rollback-${DEPLOY_ID}.dump"
+            sudo docker cp "$backup_path" "$postgres_id:$container_backup"
+            sudo docker exec "$postgres_id" sh -ec '
+              PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --clean --if-exists --no-owner --no-acl \
+                -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$1"
+            ' sh "$container_backup"
+            sudo docker exec "$postgres_id" rm -f "$container_backup"
+            echo "Database restored from the pre-deployment backup"
+          else
+            echo "No verified pre-deployment database backup is available; database was not changed"
+          fi
+
+          git reset --hard "$previous_sha"
+          cp "$compose_file" docker-compose.prod.yml
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
+              test -n "$service"
+              sudo docker image tag "$rollback_tag" "$image_ref"
+            done < "$state_dir/images.tsv"
+          fi
+          sudo docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api-server dashboard web landing nginx
+          api_health_http="$(curl --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --retry-all-errors --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/api/healthz)"
+          nginx_root_http="$(curl --insecure --fail --silent --show-error --retry 20 --retry-delay 3 --retry-connrefused --retry-all-errors --output /dev/null --write-out '%{http_code}' https://127.0.0.1:8443/)"
+          printf 'ROLLBACK api_health_http=%s nginx_root_http=%s\n' "$api_health_http" "$nginx_root_http"
+          test "$api_health_http" = "200"
+          test "$nginx_root_http" = "200"
+          sudo docker compose -f docker-compose.prod.yml ps
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
+              sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
+            done < "$state_dir/images.tsv"
+          fi
+          rm -rf "$state_dir"
+          ROLLBACK
+          SSM
+          )
+          rollback_script="${rollback_script//__DEPLOY_ID__/$deploy_id}"
+          parameters=$(jq -cn --arg commands "$rollback_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging rollback ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 2400 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+
+          completed=false
+          for attempt in $(seq 1 27); do
+            if aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+            case "$status" in
+              Pending|InProgress|Delayed) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" \
+                  --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          test "$completed" = "true"
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+      - name: Clean successful staging rollback state via SSM
+        if: success()
+        continue-on-error: true
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+
+          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu bash -se <<'CLEANUP'
+          set -euo pipefail
+          DEPLOY_ID=__DEPLOY_ID__
+          exec 9>/tmp/kinobot-v2-deploy.lock
+          flock -x 9
+          state_dir="/tmp/kinobot-v2-deploy-${DEPLOY_ID}"
+          if [ -s "$state_dir/images.tsv" ]; then
+            while IFS=$'\t' read -r service image_ref rollback_tag; do
+              sudo docker image rm "$rollback_tag" >/dev/null || echo "Rollback image tag cleanup skipped: $rollback_tag"
+            done < "$state_dir/images.tsv"
+          fi
+          rm -rf "$state_dir"
+          CLEANUP
+          SSM
+          )
+          cleanup_script="${cleanup_script//__DEPLOY_ID__/$deploy_id}"
+          parameters=$(jq -cn --arg commands "$cleanup_script" '{commands: [$commands]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Kinobot v2 staging rollback state cleanup ${GITHUB_SHA}" \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --timeout-seconds 300 \
+            --parameters "$parameters" \
+            --query "Command.CommandId" \
+            --output text)
+          test -n "$command_id"
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"
+          status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$STAGING_INSTANCE_ID" \
+            --query "Status" \
+            --output text)
+          test "$status" = "Success"
+      - name: Create staging deployment failure issue
+        if: failure() && (steps.deploy_staging.outcome == 'failure' || steps.verify_staging.outcome == 'failure')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Staging deployment failed: run ${context.runId}`;
+            const body = [
+              `The v2 staging deployment failed in run ${context.runId}.`,
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `Rollback step conclusion: ${{ steps.rollback_staging.conclusion || 'not-run' }}.`,
+              'Inspect the workflow logs and staging health before retrying.'
+            ].join('\n\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }

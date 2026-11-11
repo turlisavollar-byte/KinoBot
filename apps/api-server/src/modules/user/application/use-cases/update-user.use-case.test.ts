@@ -39,4 +39,48 @@ describe("UpdateUserUseCase", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
     expect(repository.update).not.toHaveBeenCalled();
   });
+
+  it("denies moderators from updating another moderator", async () => {
+    const target = createUser("moderator");
+    const repository = {
+      findById: vi.fn().mockResolvedValue(target),
+      update: vi.fn(),
+    } as any;
+    const useCase = new UpdateUserUseCase(
+      repository,
+      { invalidate: vi.fn() } as any,
+      { emit: vi.fn() } as any,
+    );
+
+    await expect(
+      useCase.execute(
+        target.id,
+        { firstName: "No access", actorRole: "moderator" },
+        "another-moderator",
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("denies self-service changes to role and account access", async () => {
+    const target = createUser("user");
+    const repository = {
+      findById: vi.fn().mockResolvedValue(target),
+      update: vi.fn(),
+    } as any;
+    const useCase = new UpdateUserUseCase(
+      repository,
+      { invalidate: vi.fn() } as any,
+      { emit: vi.fn() } as any,
+    );
+
+    await expect(
+      useCase.execute(
+        target.id,
+        { firstName: "Escalation", role: "admin", actorRole: "user" },
+        target.id,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
 });

@@ -10,6 +10,7 @@ import { ListGenresUseCase } from '../../../domain/use-cases/list-genres.use-cas
 import { ListActorsUseCase } from '../../../domain/use-cases/list-actors.use-case';
 import type { ICatalogRepository } from '../../../domain/repositories/catalog.repository.interface';
 import { Logger } from '@/shared/utils/logger';
+import { toActorResponse } from '../actor.mapper';
 
 @injectable()
 export class CatalogController {
@@ -123,7 +124,7 @@ export class CatalogController {
   async listActors(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await this.listActorsUC.execute(req.query as any);
-      res.json(result);
+      res.json(result.data.map(toActorResponse));
     } catch (error) {
       next(error);
     }

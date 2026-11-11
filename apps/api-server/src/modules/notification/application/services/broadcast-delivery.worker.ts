@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import {
   broadcastJobsTable,
   db,
@@ -121,15 +121,16 @@ export class BroadcastDeliveryWorker {
       .select({ id: usersTable.id, telegramId: usersTable.telegramId })
       .from(usersTable)
       .where(
-        selectedIds?.length
-          ? and(
-              or(
+        and(
+          selectedIds?.length
+            ? or(
                 inArray(usersTable.id, selectedIds),
                 inArray(usersTable.telegramId, selectedIds),
-              ),
-              eq(usersTable.isActive, true),
-            )
-          : eq(usersTable.isActive, true),
+              )
+            : undefined,
+          eq(usersTable.isActive, true),
+          isNotNull(usersTable.telegramId),
+        ),
       );
     const values = variables
       ? (JSON.parse(variables) as Record<string, unknown>)
@@ -137,6 +138,7 @@ export class BroadcastDeliveryWorker {
     const message = this.render(template.content, values);
 
     for (const user of users) {
+      if (!user.telegramId) continue;
       try {
         await this.sendTemplate(bot, user.telegramId, template, message);
         await db.insert(notifications).values({

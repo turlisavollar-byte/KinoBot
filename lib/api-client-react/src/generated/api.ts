@@ -21,14 +21,21 @@ import type {
 
 import type {
   Actor,
+  ActorDetail,
+  AdminAccountDetailResponse,
   AdminAccountListResponse,
+  AttachActorToMovieBody,
   AuthResult,
+  BanAdminUserBody,
   BlockUserInput,
   BroadcastInput,
   BroadcastNotification202,
   CancelBillingSubscription200,
   CancelSubscriptionBody,
+  ChangePasswordInput,
   CreateActorBody,
+  CreateAdminUserBody,
+  CreateAdminUserResponse,
   CreateAnorPayment200,
   CreateAnorPaymentBody,
   CreateBillingPlan201,
@@ -81,6 +88,7 @@ import type {
   GetTopContent200,
   GetTopContentParams,
   GetUserActivityParams,
+  GetUserAuditHistory200,
   GetUserParams,
   GetUserStatsParams,
   GetVideoCodeStats200,
@@ -112,6 +120,7 @@ import type {
   ListNotificationsParams,
   ListPayments200,
   ListPaymentsParams,
+  ListScopedAdminUsersParams,
   ListSeriesParams,
   ListSubscriptionPlans200,
   ListSubscriptionsParams,
@@ -129,6 +138,7 @@ import type {
   MarkNotificationRead200,
   Movie,
   MoviePage,
+  MovieVideoCode,
   NotificationTemplate,
   NotificationTemplateInput,
   NotificationTemplateUpdateInput,
@@ -149,6 +159,7 @@ import type {
   TelegramConfigUpdate,
   TelegramStatus,
   UpdateActorBody,
+  UpdateActorMovieRoleBody,
   UpdateAdminUserBody,
   UpdateBillingPlan200,
   UpdateBillingPlanBody,
@@ -367,6 +378,83 @@ export const useCreateActor = <TError = ErrorType<unknown>,
       return useMutation(getCreateActorMutationOptions(options));
     }
 
+export const getGetActorUrl = (id: string,) => {
+
+
+
+
+  return `/api/actors/${id}`
+}
+
+/**
+ * @summary Get actor profile and filmography
+ */
+export const getActor = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<ActorDetail> => {
+
+  return customFetch<ActorDetail>(getGetActorUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetActorQueryKey = (id: string,) => {
+    return [
+    `/api/actors/${id}`
+    ] as const;
+    }
+
+
+export const getGetActorQueryOptions = <TData = Awaited<ReturnType<typeof getActor>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetActorQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getActor>>> = ({ signal }) => getActor(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getActor>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetActorQueryResult = NonNullable<Awaited<ReturnType<typeof getActor>>>
+export type GetActorQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get actor profile and filmography
+ */
+
+export function useGetActor<TData = Awaited<ReturnType<typeof getActor>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetActorQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateActorUrl = (id: string,) => {
 
 
@@ -456,6 +544,336 @@ export const useUpdateActor = <TError = ErrorType<unknown>,
       return useMutation(getUpdateActorMutationOptions(options));
     }
 
+export const getDeleteActorUrl = (id: string,) => {
+
+
+
+
+  return `/api/actors/${id}`
+}
+
+/**
+ * @summary Delete actor
+ */
+export const deleteActor = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteActorUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteActorMutationKey = () => ['deleteActor'] as const;
+
+export const getDeleteActorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext> => {
+
+const mutationKey = getDeleteActorMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteActor>>, DeleteActorMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteActor(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteActorMutationResult = NonNullable<Awaited<ReturnType<typeof deleteActor>>>
+
+    export type DeleteActorMutationError = ErrorType<unknown>
+    export type DeleteActorMutationVariables = {id: string}
+
+    /**
+ * @summary Delete actor
+ */
+export const useDeleteActor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteActor>>, TError,DeleteActorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteActor>>,
+        TError,
+        DeleteActorMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteActorMutationOptions(options));
+    }
+
+export const getAttachActorToMovieUrl = (id: string,) => {
+
+
+
+
+  return `/api/actors/${id}/movies`
+}
+
+/**
+ * @summary Add a movie to an actor filmography
+ */
+export const attachActorToMovie = async (id: string,
+    attachActorToMovieBody: AttachActorToMovieBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getAttachActorToMovieUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attachActorToMovieBody)
+  }
+);}
+
+
+
+
+
+export const getAttachActorToMovieMutationKey = () => ['attachActorToMovie'] as const;
+
+export const getAttachActorToMovieMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachActorToMovie>>, TError,AttachActorToMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachActorToMovie>>, TError,AttachActorToMovieMutationVariables, TContext> => {
+
+const mutationKey = getAttachActorToMovieMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachActorToMovie>>, AttachActorToMovieMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachActorToMovie(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachActorToMovieMutationResult = NonNullable<Awaited<ReturnType<typeof attachActorToMovie>>>
+    export type AttachActorToMovieMutationBody = BodyType<AttachActorToMovieBody>
+    export type AttachActorToMovieMutationError = ErrorType<void>
+    export type AttachActorToMovieMutationVariables = {id: string;data: BodyType<AttachActorToMovieBody>}
+
+    /**
+ * @summary Add a movie to an actor filmography
+ */
+export const useAttachActorToMovie = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachActorToMovie>>, TError,AttachActorToMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachActorToMovie>>,
+        TError,
+        AttachActorToMovieMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAttachActorToMovieMutationOptions(options));
+    }
+
+export const getUpdateActorMovieRoleUrl = (id: string,
+    movieId: string,) => {
+
+
+
+
+  return `/api/actors/${id}/movies/${movieId}`
+}
+
+/**
+ * @summary Update an actor role in a movie
+ */
+export const updateActorMovieRole = async (id: string,
+    movieId: string,
+    updateActorMovieRoleBody: UpdateActorMovieRoleBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateActorMovieRoleUrl(id,movieId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateActorMovieRoleBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateActorMovieRoleMutationKey = () => ['updateActorMovieRole'] as const;
+
+export const getUpdateActorMovieRoleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActorMovieRole>>, TError,UpdateActorMovieRoleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateActorMovieRole>>, TError,UpdateActorMovieRoleMutationVariables, TContext> => {
+
+const mutationKey = getUpdateActorMovieRoleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateActorMovieRole>>, UpdateActorMovieRoleMutationVariables> = (props) => {
+          const {id,movieId,data} = props ?? {};
+
+          return  updateActorMovieRole(id,movieId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateActorMovieRoleMutationResult = NonNullable<Awaited<ReturnType<typeof updateActorMovieRole>>>
+    export type UpdateActorMovieRoleMutationBody = BodyType<UpdateActorMovieRoleBody>
+    export type UpdateActorMovieRoleMutationError = ErrorType<void>
+    export type UpdateActorMovieRoleMutationVariables = {id: string;movieId: string;data: BodyType<UpdateActorMovieRoleBody>}
+
+    /**
+ * @summary Update an actor role in a movie
+ */
+export const useUpdateActorMovieRole = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActorMovieRole>>, TError,UpdateActorMovieRoleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateActorMovieRole>>,
+        TError,
+        UpdateActorMovieRoleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateActorMovieRoleMutationOptions(options));
+    }
+
+export const getDetachActorFromMovieUrl = (id: string,
+    movieId: string,) => {
+
+
+
+
+  return `/api/actors/${id}/movies/${movieId}`
+}
+
+/**
+ * @summary Remove a movie from an actor filmography
+ */
+export const detachActorFromMovie = async (id: string,
+    movieId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDetachActorFromMovieUrl(id,movieId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDetachActorFromMovieMutationKey = () => ['detachActorFromMovie'] as const;
+
+export const getDetachActorFromMovieMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof detachActorFromMovie>>, TError,DetachActorFromMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof detachActorFromMovie>>, TError,DetachActorFromMovieMutationVariables, TContext> => {
+
+const mutationKey = getDetachActorFromMovieMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof detachActorFromMovie>>, DetachActorFromMovieMutationVariables> = (props) => {
+          const {id,movieId} = props ?? {};
+
+          return  detachActorFromMovie(id,movieId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DetachActorFromMovieMutationResult = NonNullable<Awaited<ReturnType<typeof detachActorFromMovie>>>
+
+    export type DetachActorFromMovieMutationError = ErrorType<void>
+    export type DetachActorFromMovieMutationVariables = {id: string;movieId: string}
+
+    /**
+ * @summary Remove a movie from an actor filmography
+ */
+export const useDetachActorFromMovie = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof detachActorFromMovie>>, TError,DetachActorFromMovieMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof detachActorFromMovie>>,
+        TError,
+        DetachActorFromMovieMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDetachActorFromMovieMutationOptions(options));
+    }
+
 export const getListAdminUsersUrl = (params?: ListAdminUsersParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -528,6 +946,83 @@ export function useListAdminUsers<TData = Awaited<ReturnType<typeof listAdminUse
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListAdminUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLegacyAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}`
+}
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+export const getLegacyAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountDetailResponse> => {
+
+  return customFetch<AdminAccountDetailResponse>(getGetLegacyAdminUserUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLegacyAdminUserQueryKey = (id: string,) => {
+    return [
+    `/api/admin-users/${id}`
+    ] as const;
+    }
+
+
+export const getGetLegacyAdminUserQueryOptions = <TData = Awaited<ReturnType<typeof getLegacyAdminUser>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLegacyAdminUserQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLegacyAdminUser>>> = ({ signal }) => getLegacyAdminUser(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLegacyAdminUserQueryResult = NonNullable<Awaited<ReturnType<typeof getLegacyAdminUser>>>
+export type GetLegacyAdminUserQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+
+export function useGetLegacyAdminUser<TData = Awaited<ReturnType<typeof getLegacyAdminUser>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegacyAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLegacyAdminUserQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -701,6 +1196,598 @@ export const useDeleteAdminUser = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteAdminUserMutationOptions(options));
+    }
+
+export const getSetLegacyAdminUserBanUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin-users/${id}/ban`
+}
+
+/**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const setLegacyAdminUserBan = async (id: string,
+    banAdminUserBody: BanAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getSetLegacyAdminUserBanUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(banAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getSetLegacyAdminUserBanMutationKey = () => ['setLegacyAdminUserBan'] as const;
+
+export const getSetLegacyAdminUserBanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext> => {
+
+const mutationKey = getSetLegacyAdminUserBanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, SetLegacyAdminUserBanMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setLegacyAdminUserBan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetLegacyAdminUserBanMutationResult = NonNullable<Awaited<ReturnType<typeof setLegacyAdminUserBan>>>
+    export type SetLegacyAdminUserBanMutationBody = BodyType<BanAdminUserBody>
+    export type SetLegacyAdminUserBanMutationError = ErrorType<void>
+    export type SetLegacyAdminUserBanMutationVariables = {id: string;data: BodyType<BanAdminUserBody>}
+
+    /**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const useSetLegacyAdminUserBan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setLegacyAdminUserBan>>, TError,SetLegacyAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setLegacyAdminUserBan>>,
+        TError,
+        SetLegacyAdminUserBanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetLegacyAdminUserBanMutationOptions(options));
+    }
+
+export const getListScopedAdminUsersUrl = (params?: ListScopedAdminUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/users?${stringifiedParams}` : `/api/admin/users`
+}
+
+/**
+ * Super admins see all accounts; admins see their own and moderator accounts.
+ * @summary List administrative accounts visible to the caller
+ */
+export const listScopedAdminUsers = async (params?: ListScopedAdminUsersParams, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountListResponse> => {
+
+  return customFetch<AdminAccountListResponse>(getListScopedAdminUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListScopedAdminUsersQueryKey = (params?: ListScopedAdminUsersParams,) => {
+    return [
+    `/api/admin/users`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListScopedAdminUsersQueryOptions = <TData = Awaited<ReturnType<typeof listScopedAdminUsers>>, TError = ErrorType<void>>(params?: ListScopedAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListScopedAdminUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listScopedAdminUsers>>> = ({ signal }) => listScopedAdminUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListScopedAdminUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listScopedAdminUsers>>>
+export type ListScopedAdminUsersQueryError = ErrorType<void>
+
+
+/**
+ * @summary List administrative accounts visible to the caller
+ */
+
+export function useListScopedAdminUsers<TData = Awaited<ReturnType<typeof listScopedAdminUsers>>, TError = ErrorType<void>>(
+ params?: ListScopedAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScopedAdminUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListScopedAdminUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminUserUrl = () => {
+
+
+
+
+  return `/api/admin/users`
+}
+
+/**
+ * The password is hashed server-side, never returned, and must be changed on first login.
+ * @summary Create an administrative account as Super Admin
+ */
+export const createAdminUser = async (createAdminUserBody: CreateAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateAdminUserResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateAdminUserResponse>(getCreateAdminUserUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminUserMutationKey = () => ['createAdminUser'] as const;
+
+export const getCreateAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getCreateAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminUser>>, CreateAdminUserMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminUser(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminUser>>>
+    export type CreateAdminUserMutationBody = BodyType<CreateAdminUserBody>
+    export type CreateAdminUserMutationError = ErrorType<void>
+    export type CreateAdminUserMutationVariables = {data: BodyType<CreateAdminUserBody>}
+
+    /**
+ * @summary Create an administrative account as Super Admin
+ */
+export const useCreateAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminUser>>, TError,CreateAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminUser>>,
+        TError,
+        CreateAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAdminUserMutationOptions(options));
+    }
+
+export const getGetScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+export const getScopedAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminAccountDetailResponse> => {
+
+  return customFetch<AdminAccountDetailResponse>(getGetScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScopedAdminUserQueryKey = (id: string,) => {
+    return [
+    `/api/admin/users/${id}`
+    ] as const;
+    }
+
+
+export const getGetScopedAdminUserQueryOptions = <TData = Awaited<ReturnType<typeof getScopedAdminUser>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScopedAdminUserQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScopedAdminUser>>> = ({ signal }) => getScopedAdminUser(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScopedAdminUserQueryResult = NonNullable<Awaited<ReturnType<typeof getScopedAdminUser>>>
+export type GetScopedAdminUserQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+
+export function useGetScopedAdminUser<TData = Awaited<ReturnType<typeof getScopedAdminUser>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScopedAdminUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScopedAdminUserQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Update an administrative account within caller role scope
+ */
+export const updateScopedAdminUser = async (id: string,
+    updateAdminUserBody: UpdateAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateScopedAdminUserMutationKey = () => ['updateScopedAdminUser'] as const;
+
+export const getUpdateScopedAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getUpdateScopedAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateScopedAdminUser>>, UpdateScopedAdminUserMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateScopedAdminUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateScopedAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateScopedAdminUser>>>
+    export type UpdateScopedAdminUserMutationBody = BodyType<UpdateAdminUserBody>
+    export type UpdateScopedAdminUserMutationError = ErrorType<void>
+    export type UpdateScopedAdminUserMutationVariables = {id: string;data: BodyType<UpdateAdminUserBody>}
+
+    /**
+ * @summary Update an administrative account within caller role scope
+ */
+export const useUpdateScopedAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScopedAdminUser>>, TError,UpdateScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateScopedAdminUser>>,
+        TError,
+        UpdateScopedAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateScopedAdminUserMutationOptions(options));
+    }
+
+export const getDeleteScopedAdminUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const deleteScopedAdminUser = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteScopedAdminUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteScopedAdminUserMutationKey = () => ['deleteScopedAdminUser'] as const;
+
+export const getDeleteScopedAdminUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext> => {
+
+const mutationKey = getDeleteScopedAdminUserMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteScopedAdminUser>>, DeleteScopedAdminUserMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteScopedAdminUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteScopedAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteScopedAdminUser>>>
+
+    export type DeleteScopedAdminUserMutationError = ErrorType<void>
+    export type DeleteScopedAdminUserMutationVariables = {id: string}
+
+    /**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const useDeleteScopedAdminUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScopedAdminUser>>, TError,DeleteScopedAdminUserMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteScopedAdminUser>>,
+        TError,
+        DeleteScopedAdminUserMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteScopedAdminUserMutationOptions(options));
+    }
+
+export const getSetScopedAdminUserBanUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}/ban`
+}
+
+/**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const setScopedAdminUserBan = async (id: string,
+    banAdminUserBody: BanAdminUserBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getSetScopedAdminUserBanUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(banAdminUserBody)
+  }
+);}
+
+
+
+
+
+export const getSetScopedAdminUserBanMutationKey = () => ['setScopedAdminUserBan'] as const;
+
+export const getSetScopedAdminUserBanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext> => {
+
+const mutationKey = getSetScopedAdminUserBanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setScopedAdminUserBan>>, SetScopedAdminUserBanMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setScopedAdminUserBan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetScopedAdminUserBanMutationResult = NonNullable<Awaited<ReturnType<typeof setScopedAdminUserBan>>>
+    export type SetScopedAdminUserBanMutationBody = BodyType<BanAdminUserBody>
+    export type SetScopedAdminUserBanMutationError = ErrorType<void>
+    export type SetScopedAdminUserBanMutationVariables = {id: string;data: BodyType<BanAdminUserBody>}
+
+    /**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const useSetScopedAdminUserBan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setScopedAdminUserBan>>, TError,SetScopedAdminUserBanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setScopedAdminUserBan>>,
+        TError,
+        SetScopedAdminUserBanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetScopedAdminUserBanMutationOptions(options));
     }
 
 export const getGetAnalyticsOverviewUrl = (params?: GetAnalyticsOverviewParams,) => {
@@ -4689,6 +5776,83 @@ export const usePublishMovie = <TError = ErrorType<unknown>,
       return useMutation(getPublishMovieMutationOptions(options));
     }
 
+export const getGetMovieVideoCodesUrl = (id: string,) => {
+
+
+
+
+  return `/api/movies/${id}/video-codes`
+}
+
+/**
+ * @summary List video codes linked to a movie
+ */
+export const getMovieVideoCodes = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<MovieVideoCode[]> => {
+
+  return customFetch<MovieVideoCode[]>(getGetMovieVideoCodesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMovieVideoCodesQueryKey = (id: string,) => {
+    return [
+    `/api/movies/${id}/video-codes`
+    ] as const;
+    }
+
+
+export const getGetMovieVideoCodesQueryOptions = <TData = Awaited<ReturnType<typeof getMovieVideoCodes>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMovieVideoCodes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMovieVideoCodesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMovieVideoCodes>>> = ({ signal }) => getMovieVideoCodes(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMovieVideoCodes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMovieVideoCodesQueryResult = NonNullable<Awaited<ReturnType<typeof getMovieVideoCodes>>>
+export type GetMovieVideoCodesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List video codes linked to a movie
+ */
+
+export function useGetMovieVideoCodes<TData = Awaited<ReturnType<typeof getMovieVideoCodes>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMovieVideoCodes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMovieVideoCodesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListSeriesUrl = (params?: ListSeriesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -6678,6 +7842,94 @@ export const useIdentityLogout = <TError = ErrorType<unknown>,
       return useMutation(getIdentityLogoutMutationOptions(options));
     }
 
+export const getIdentityChangePasswordUrl = () => {
+
+
+
+
+  return `/api/identity/auth/change-password`
+}
+
+/**
+ * @summary Change the current password
+ */
+export const identityChangePassword = async (changePasswordInput: ChangePasswordInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getIdentityChangePasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changePasswordInput)
+  }
+);}
+
+
+
+
+
+export const getIdentityChangePasswordMutationKey = () => ['identityChangePassword'] as const;
+
+export const getIdentityChangePasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext> => {
+
+const mutationKey = getIdentityChangePasswordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof identityChangePassword>>, IdentityChangePasswordMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  identityChangePassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IdentityChangePasswordMutationResult = NonNullable<Awaited<ReturnType<typeof identityChangePassword>>>
+    export type IdentityChangePasswordMutationBody = BodyType<ChangePasswordInput>
+    export type IdentityChangePasswordMutationError = ErrorType<void>
+    export type IdentityChangePasswordMutationVariables = {data: BodyType<ChangePasswordInput>}
+
+    /**
+ * @summary Change the current password
+ */
+export const useIdentityChangePassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof identityChangePassword>>, TError,IdentityChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof identityChangePassword>>,
+        TError,
+        IdentityChangePasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIdentityChangePasswordMutationOptions(options));
+    }
+
 export const getListNotificationsUrl = (params?: ListNotificationsParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -8330,6 +9582,83 @@ export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TErr
 
 
 
+export const getGetUserAuditHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/audit`
+}
+
+/**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+export const getUserAuditHistory = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<GetUserAuditHistory200> => {
+
+  return customFetch<GetUserAuditHistory200>(getGetUserAuditHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserAuditHistoryQueryKey = (id: string,) => {
+    return [
+    `/api/users/${id}/audit`
+    ] as const;
+    }
+
+
+export const getGetUserAuditHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getUserAuditHistory>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserAuditHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserAuditHistory>>> = ({ signal }) => getUserAuditHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUserAuditHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getUserAuditHistory>>>
+export type GetUserAuditHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+
+export function useGetUserAuditHistory<TData = Awaited<ReturnType<typeof getUserAuditHistory>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserAuditHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUserAuditHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetUserUrl = (id: string,
     params?: GetUserParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -9386,6 +10715,9 @@ formData.append(`video`, uploadVideoCodeBody.video);
 formData.append(`title`, uploadVideoCodeBody.title);
 if(uploadVideoCodeBody.description !== undefined) {
  formData.append(`description`, uploadVideoCodeBody.description);
+ }
+if(uploadVideoCodeBody.movieId !== undefined) {
+ formData.append(`movieId`, uploadVideoCodeBody.movieId);
  }
 if(uploadVideoCodeBody.channelId !== undefined) {
  formData.append(`channelId`, uploadVideoCodeBody.channelId);

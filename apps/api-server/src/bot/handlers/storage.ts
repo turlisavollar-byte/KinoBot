@@ -1,6 +1,7 @@
 import { type Bot } from "grammy";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { db, telegramConfigTable, telegramChannelsTable } from "@workspace/db";
+import { db, telegramConfigTable, telegramChannelsTable, telegramMediaTable } from "@workspace/db";
+import { queue } from "@/infrastructure/queue/bull";
 import type { BotContext } from "@/bot/index";
 import { logger } from "@/lib/logger";
 
@@ -123,7 +124,6 @@ export function registerStorageHandler(bot: Bot<BotContext>) {
     logger.info(
       {
         telegramId,
-        fileId,
         fileName,
         mediaType: ctx.message.video ? "video" : "document",
         forwardType: ctx.message.forward_origin?.type,
@@ -165,15 +165,45 @@ export function registerStorageHandler(bot: Bot<BotContext>) {
     if (!channel) return;
 
     const fileId = media.file_id;
-
     const fileName = "file_name" in media ? media.file_name : undefined;
+    const [inserted] = await db
+      .insert(telegramMediaTable)
+      .values({
+        channelId: chatId,
+        messageId: ctx.channelPost.message_id,
+        fileId,
+        fileUniqueId: media.file_unique_id,
+        fileName: fileName ?? null,
+        mimeType: media.mime_type ?? (ctx.channelPost.video ? "video/mp4" : "application/octet-stream"),
+        fileSize: media.file_size ?? 0,
+        duration: ctx.channelPost.video?.duration ?? null,
+        width: ctx.channelPost.video?.width ?? null,
+        height: ctx.channelPost.video?.height ?? null,
+        caption: ctx.channelPost.caption ?? null,
+        metadata: {
+          mediaType: ctx.channelPost.video ? "video" : "document",
+          ...(ctx.channelPost.video?.thumbnail
+            ? { thumbnailFileId: ctx.channelPost.video.thumbnail.file_id }
+            : {}),
+        },
+      })
+      .onConflictDoNothing({
+        target: [telegramMediaTable.channelId, telegramMediaTable.messageId],
+      })
+      .returning({ id: telegramMediaTable.id });
+
+    if (!inserted) return;
     rememberFile(fileId, fileName, media.file_size);
+    await queue.add(
+      "telegram-media",
+      { mediaId: inserted.id },
+      { attempts: 3, jobId: `telegram-media-${inserted.id}-0` },
+    );
     logger.info(
-      { channelId: chatId, fileId, channelTitle: channel.title },
-      "Media captured from storage channel",
+      { channelId: chatId, messageId: ctx.channelPost.message_id, channelTitle: channel.title },
+      "Media recorded for durable upload",
     );
 
-    // Increment channel file count
     await db
       .update(telegramChannelsTable)
       .set({ filesCount: sql`${telegramChannelsTable.filesCount} + 1` })

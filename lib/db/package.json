@@ -18,6 +18,7 @@
     "seed": "tsx src/seed.ts",
     "audit:migrations": "node --env-file=../../.env ./scripts/audit-live-migrations.mjs",
     "assert:migrations": "node --env-file=../../.env ./scripts/assert-migration-state.mjs",
+    "test:audit-roles": "node --env-file=../../.env ./scripts/test-audit-role-separation.mjs",
     "migrate:live": "node --env-file=../../.env ./scripts/migrate-live.mjs",
     "plan:migrations": "node --env-file=../../.env ./scripts/migration-reconciliation-plan.mjs",
     "stamp:baseline": "node --env-file=../../.env ./scripts/stamp-baseline.mjs",

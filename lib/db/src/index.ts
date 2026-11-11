@@ -4,21 +4,42 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 10000,
-});
+export function createDbClient(connectionString: string, max = 10) {
+  if (!connectionString.trim()) {
+    throw new Error("Database connection string must not be empty");
+  }
 
-pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err);
-});
+  if (!Number.isInteger(max) || max < 1) {
+    throw new Error("Database pool max must be a positive integer");
+  }
 
-export const db = drizzle(pool, { schema });
+  const clientPool = new Pool({
+    connectionString,
+    max,
+    connectionTimeoutMillis: 10_000,
+  });
+
+  clientPool.on("error", (error) => {
+    console.error("Unexpected database pool error:", error);
+  });
+
+  return {
+    pool: clientPool,
+    db: drizzle(clientPool, { schema }),
+  };
+}
+
+const primaryClient = createDbClient(databaseUrl, 10);
+
+export const pool = primaryClient.pool;
+export const db = primaryClient.db;
 
 export * from "./schema";

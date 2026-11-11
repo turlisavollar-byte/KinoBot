@@ -10,6 +10,7 @@ function createVideo() {
     title: "Original title",
     description: null,
     telegramFileId: "file-1",
+    movieId: null,
     channelId: null,
     messageId: null,
     fileSize: null,
@@ -54,5 +55,14 @@ describe("VideoCodeEntity", () => {
 
     expect(video.accessPolicy).toBe("channels");
     expect(video.requiredChannelIds).toBe("@cinemahub,-1001234567890");
+  });
+
+  it("can attach and detach a video code from a movie", () => {
+    const video = createVideo();
+    video.updateMovieId("movie-uuid");
+    expect(video.movieId).toBe("movie-uuid");
+
+    video.updateMovieId(null);
+    expect(video.movieId).toBeNull();
   });
 });

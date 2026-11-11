@@ -41,6 +41,7 @@ export * from "./application/use-cases/delete-user.use-case";
 export * from "./application/use-cases/block-user.use-case";
 export * from "./application/use-cases/search-users.use-case";
 export * from "./application/use-cases/export-users.use-case";
+export * from "./application/use-cases/extend-trial.use-case";
 export * from "./application/services/user-cache.service";
 export * from "./application/services/user-event.service";
 export * from "./application/dto/user-request.dto";
@@ -59,9 +60,13 @@ import { userEventHandler } from "./infrastructure/events/user-event-handler";
 import { getRedisUserCache } from "./infrastructure/cache/redis-user-cache";
 
 // ==================== Interface ====================
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { UserController } from "./interface/http/controllers/user.controller";
-import { requireAuth, requirePermission } from "@/shared/middleware";
+import {
+  requireAuth,
+  requirePermission,
+  requireAnyPermission,
+} from "@/shared/middleware";
 import { Permission } from "@/shared/constants/permissions";
 import { validate } from "@/shared/middleware";
 import {
@@ -70,6 +75,7 @@ import {
   BlockUserSchema,
   ExportUsersSchema,
 } from "./interface/http/validators/user.validator";
+import { extendTrialSchema } from "./application/dto/user-request.dto";
 
 export { UserController };
 
@@ -86,9 +92,15 @@ import { DeleteUserUseCase } from "./application/use-cases/delete-user.use-case"
 import { BlockUserUseCase } from "./application/use-cases/block-user.use-case";
 import { SearchUsersUseCase } from "./application/use-cases/search-users.use-case";
 import { ExportUsersUseCase } from "./application/use-cases/export-users.use-case";
+import { ExtendTrialUseCase } from "./application/use-cases/extend-trial.use-case";
 
 // ==================== Logger ====================
 import { Logger } from "@/shared/utils/logger";
+import { getCustomerUserScope, canReadCustomerUser } from "@/shared/constants/user-access";
+import { normalizeRoleName } from "@/shared/constants/roles";
+import { auditService } from "@/modules/audit/audit.service";
+import { logAuditEvent } from "@/shared/utils/audit";
+import { getUserAuditHistory } from "./interface/http/user-audit-history";
 
 const logger = Logger.getInstance("UserModule");
 
@@ -138,6 +150,7 @@ function registerDependencies() {
   container.registerSingleton("BlockUserUseCase", BlockUserUseCase);
   container.registerSingleton("SearchUsersUseCase", SearchUsersUseCase);
   container.registerSingleton("ExportUsersUseCase", ExportUsersUseCase);
+  container.registerSingleton(ExtendTrialUseCase, ExtendTrialUseCase);
 
   initialized = true;
   logger.info("User module dependencies registered");
@@ -151,6 +164,38 @@ function createUserRouter() {
 
   router.use(requireAuth);
 
+  const requireCustomerScope = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const actor = req.user;
+      const id = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+      const target = await container.resolve(GetUserUseCase).execute(id);
+      if (
+        !actor?.id ||
+        !canReadCustomerUser(
+          actor.id,
+          actor.role ?? "viewer",
+          id,
+          target.role.value,
+        )
+      ) {
+        res.status(404).json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "User not found" },
+        });
+        return;
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+
   router.get("/me", controller.me.bind(controller));
 
   router.get(
@@ -160,27 +205,74 @@ function createUserRouter() {
     controller.list.bind(controller),
   );
 
+  router.get(
+    "/:id/audit",
+    requireAnyPermission(Permission.READ_USER_AUDIT),
+    async (req, res, next) => {
+      try {
+        const actor = req.user;
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+        const target = await container.resolve(GetUserUseCase).execute(id);
+        if (
+          !actor?.id ||
+          !["superadmin", "admin"].includes(normalizeRoleName(actor.role)) ||
+          !canReadCustomerUser(actor.id, actor.role ?? "viewer", id, target.role.value)
+        ) {
+          res.status(actor?.id ? 404 : 401).json({
+            success: false,
+            error: {
+              code: actor?.id ? "NOT_FOUND" : "UNAUTHORIZED",
+              message: actor?.id ? "User not found" : "Authentication required",
+            },
+          });
+          return;
+        }
+        const trail = await getUserAuditHistory(auditService, id);
+        res.json({
+          success: true,
+          data: trail,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   router.post(
     "/:id/subscription/grant",
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    requireCustomerScope,
     controller.grantSubscription.bind(controller),
+  );
+
+  router.post(
+    "/:id/extend-trial",
+    requirePermission(Permission.UPDATE_USERS),
+    requireCustomerScope,
+    validate({ body: extendTrialSchema }),
+    controller.extendTrialForUser.bind(controller),
   );
 
   router.delete(
     "/:id/subscription",
     requirePermission(Permission.MANAGE_SUBSCRIPTIONS),
+    requireCustomerScope,
     controller.cancelSubscription.bind(controller),
   );
 
   router.get(
     "/:id",
-    requirePermission(Permission.READ_USERS),
+    requireAnyPermission([Permission.READ_USERS, Permission.READ_OWN_PROFILE]),
     controller.get.bind(controller),
   );
 
   router.patch(
     "/:id",
-    requirePermission(Permission.UPDATE_USERS),
+    requireAnyPermission([
+      Permission.UPDATE_USERS,
+      Permission.UPDATE_OWN_PROFILE,
+    ]),
     validate({ body: UpdateUserSchema }),
     controller.update.bind(controller),
   );

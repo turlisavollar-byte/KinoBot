@@ -1,7 +1,13 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -13,6 +19,15 @@ import {
 import { Layout } from "@/components/layout";
 import { clearTokens, getAccessToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { canAccessDashboardPath } from "@/lib/navigation-access";
+import { useLocation } from "wouter";
+import ChangePassword from "@/pages/change-password";
+import {
+  handlePasswordChangeRequiredError,
+  isMustChangePasswordRequired,
+  PASSWORD_CHANGE_REQUIRED_EVENT,
+} from "@/lib/password-change-flow";
 
 // ─── Pages ───────────────────────────────────────────────────────────────────
 import Login from "@/pages/login";
@@ -27,6 +42,7 @@ import NewSeries from "@/pages/series/new";
 import SeriesDetail from "@/pages/series/detail";
 import GenresList from "@/pages/genres/list";
 import ActorsList from "@/pages/actors/list";
+import ActorDetail from "@/pages/actors/detail";
 
 import UsersList from "@/pages/users/list";
 import AdminUsersList from "@/pages/users/admin-list";
@@ -38,6 +54,7 @@ import PaymentsList from "@/pages/payments/list";
 import NotificationsList from "@/pages/notifications/list";
 import TelegramConfig from "@/pages/telegram/config";
 import VideoCodes from "@/pages/telegram/video-codes";
+import TelegramMedia from "@/pages/telegram/media";
 
 import SystemHealth from "@/pages/system/health";
 import SecurityCenter from "@/pages/system/security-center";
@@ -48,10 +65,20 @@ import Settings from "@/pages/settings/index";
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: handlePasswordChangeRequiredError,
+  }),
+  mutationCache: new MutationCache({
+    onError: handlePasswordChangeRequiredError,
+  }),
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if ((error as { status?: number })?.status === 429) return false;
+        const apiError = error as { status?: number; data?: { error?: { code?: string } } };
+        if (
+          apiError.status === 429 ||
+          apiError.data?.error?.code === "PASSWORD_CHANGE_REQUIRED"
+        ) return false;
         return failureCount < 1;
       },
       refetchOnWindowFocus: false,
@@ -66,6 +93,7 @@ function ProtectedRoute({
 }: {
   component: React.ComponentType;
 }) {
+  const [location, navigate] = useLocation();
   const hasAccessToken = Boolean(getAccessToken());
   const {
     data: user,
@@ -80,7 +108,7 @@ function ProtectedRoute({
   });
 
   useEffect(() => {
-    if (error) {
+    if ((error as { status?: number } | null)?.status === 401) {
       clearTokens();
     }
   }, [error]);
@@ -130,6 +158,22 @@ function ProtectedRoute({
     );
   }
 
+  if (!canAccessDashboardPath(role, user.permissions, location)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="max-w-md text-center space-y-3">
+          <h1 className="text-xl font-semibold">Ruxsat yo'q</h1>
+          <p className="text-muted-foreground">
+            Bu sahifani ko'rish uchun ruxsatingiz yo'q.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/")}>
+            Dashboardga qaytish
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout>
       <Component />
@@ -139,9 +183,29 @@ function ProtectedRoute({
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 function Router() {
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    const enforcePasswordChange = () => {
+      if (isMustChangePasswordRequired()) {
+        toast.error("Parolni o'zgartirishingiz kerak");
+        setLocation("/change-password");
+      }
+    };
+    window.addEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, enforcePasswordChange);
+    enforcePasswordChange();
+    return () =>
+      window.removeEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, enforcePasswordChange);
+  }, [setLocation]);
+
+  if (isMustChangePasswordRequired() && location !== "/change-password") {
+    return <ChangePassword />;
+  }
+
   const P = (C: React.ComponentType) => () => <ProtectedRoute component={C} />;
   return (
     <Switch>
+      <Route path="/change-password" component={ChangePassword} />
       {/* Overview */}
       <Route path="/" component={P(Dashboard)} />
       <Route path="/analytics" component={P(Analytics)} />
@@ -155,6 +219,7 @@ function Router() {
       <Route path="/catalog/series/:id" component={P(SeriesDetail)} />
       <Route path="/catalog/genres" component={P(GenresList)} />
       <Route path="/catalog/actors" component={P(ActorsList)} />
+      <Route path="/catalog/actors/:id" component={P(ActorDetail)} />
 
       {/* Audience */}
       <Route path="/users" component={P(UsersList)} />
@@ -168,6 +233,7 @@ function Router() {
       <Route path="/notifications" component={P(NotificationsList)} />
       <Route path="/telegram" component={P(TelegramConfig)} />
       <Route path="/telegram/video-codes" component={P(VideoCodes)} />
+      <Route path="/telegram-media" component={P(TelegramMedia)} />
 
       {/* System */}
       <Route path="/system/health" component={P(SystemHealth)} />
@@ -192,12 +258,13 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="dark" storageKey="streamops-theme">
+        <ThemeProvider defaultTheme="light" storageKey="streamops-theme">
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>
             <Toaster />
+            <SonnerToaster />
           </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>

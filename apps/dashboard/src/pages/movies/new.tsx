@@ -1,5 +1,11 @@
-import { useCreateMovie } from "@workspace/api-client-react";
+import {
+  getGetAnalyticsOverviewQueryKey,
+  getGetTopContentQueryKey,
+  getListMoviesQueryKey,
+  useCreateMovie,
+} from "@workspace/api-client-react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,18 +23,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 
-const formSchema = z.object({
-  title: z.string().min(1, "movies.titleRequired"),
-  originalTitle: z.string().optional(),
-  description: z.string().optional(),
-  releaseYear: z.coerce.number().optional(),
-  duration: z.coerce.number().optional(),
-  ageRating: z.string().optional(),
-});
-
 export default function NewMovie() {
   const { t } = useI18n();
+  const formSchema = z.object({
+    title: z.string().min(1, t("movies.titleRequired")),
+    originalTitle: z.string().optional(),
+    description: z.string().optional(),
+    releaseYear: z.coerce.number().optional(),
+    duration: z.coerce.number().optional(),
+    ageRating: z.string().optional(),
+  });
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const createMovie = useCreateMovie();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,6 +52,15 @@ export default function NewMovie() {
       { data: values },
       {
         onSuccess: (data) => {
+          queryClient.invalidateQueries({
+            queryKey: getListMoviesQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetAnalyticsOverviewQueryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetTopContentQueryKey(),
+          });
           toast.success(t("movies.createSuccess"));
           setLocation(`/catalog/movies/${data.id}`);
         },
@@ -109,7 +124,7 @@ export default function NewMovie() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FormField
               control={form.control}
               name="releaseYear"

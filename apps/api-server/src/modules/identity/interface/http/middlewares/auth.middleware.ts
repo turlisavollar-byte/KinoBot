@@ -69,7 +69,23 @@ export class AuthMiddleware {
         role: user.role.name,
         permissions: permissions,
         status: user.status,
+        mustChangePassword: user.mustChangePassword,
       };
+
+      if (
+        user.mustChangePassword &&
+        !this.isAllowedDuringPasswordChange(req.originalUrl)
+      ) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: "PASSWORD_CHANGE_REQUIRED",
+            message: "Change your temporary password before continuing",
+            timestamp: new Date().toISOString(),
+          },
+        });
+        return;
+      }
 
       next();
     } catch (error) {
@@ -127,5 +143,12 @@ export class AuthMiddleware {
       return null;
     }
     return authHeader.slice(7);
+  }
+
+  private isAllowedDuringPasswordChange(originalUrl: string): boolean {
+    const path = originalUrl.split("?", 1)[0].replace(/\/+$/, "");
+    return /\/(?:identity\/)?auth\/(?:change-password|logout|logout-all)$/.test(
+      path,
+    );
   }
 }

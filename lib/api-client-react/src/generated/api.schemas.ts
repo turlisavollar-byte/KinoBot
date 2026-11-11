@@ -10,18 +10,85 @@ export interface Actor {
   name: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
+}
+
+export type ActorDetailMoviesItemVideoCodesItem = {
+  id: string;
+  code: string;
+  status: string;
+};
+
+export type ActorDetailMoviesItem = {
+  movieId: string;
+  title: string;
+  /** @nullable */
+  releaseYear?: number | null;
+  /** @nullable */
+  posterUrl?: string | null;
+  /** @nullable */
+  role?: string | null;
+  videoCodes: ActorDetailMoviesItemVideoCodesItem[];
+};
+
+export type ActorDetailStats = {
+  moviesCount: number;
+  totalViews: number;
+};
+
+export interface ActorDetail {
+  id: string;
+  name: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
+  movies: ActorDetailMoviesItem[];
+  stats: ActorDetailStats;
+}
+
+export interface AttachActorToMovieBody {
+  movieId: string;
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  role?: string | null;
+}
+
+export interface UpdateActorMovieRoleBody {
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  role?: string | null;
 }
 
 export interface CreateActorBody {
   name: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }
 
 export interface UpdateActorBody {
   name?: string;
   photoUrl?: string;
   bio?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  birthPlace?: string | null;
 }
 
 export type AdminAccountRole = typeof AdminAccountRole[keyof typeof AdminAccountRole];
@@ -48,7 +115,7 @@ export const AdminAccountStatus = {
 export interface AdminAccount {
   id: string;
   email: string;
-  name: string;
+  name?: string | null;
   role: AdminAccountRole;
   status: AdminAccountStatus;
   isActive: boolean;
@@ -66,6 +133,45 @@ export interface AdminAccountListResponse {
   data: AdminAccount[];
   meta: AdminAccountListResponseMeta;
   timestamp: string;
+}
+
+export interface AdminAccountDetailResponse {
+  success: boolean;
+  data: AdminAccount;
+  timestamp: string;
+}
+
+export type CreateAdminUserBodyRole = typeof CreateAdminUserBodyRole[keyof typeof CreateAdminUserBodyRole];
+
+
+export const CreateAdminUserBodyRole = {
+  admin: 'admin',
+  moderator: 'moderator',
+} as const;
+
+export interface CreateAdminUserBody {
+  /** @maxLength 255 */
+  email: string;
+  role: CreateAdminUserBodyRole;
+  /**
+     * @minLength 8
+     * @maxLength 128
+     */
+  password: string;
+}
+
+export type CreateAdminUserResponseData = AdminAccount & {
+  mustChangePassword: boolean;
+};
+
+export interface CreateAdminUserResponse {
+  success: boolean;
+  data: CreateAdminUserResponseData;
+  timestamp: string;
+}
+
+export interface BanAdminUserBody {
+  banned: boolean;
 }
 
 export type UpdateAdminUserBodyRole = typeof UpdateAdminUserBodyRole[keyof typeof UpdateAdminUserBodyRole];
@@ -444,6 +550,14 @@ export interface CreateOctoPaymentBody {
   returnUrl?: string;
 }
 
+export interface MovieVideoCode {
+  id: string;
+  code: string;
+  title?: string;
+  status: string;
+  viewsCount?: number;
+}
+
 export interface Movie {
   id?: string;
   title?: string;
@@ -698,7 +812,15 @@ export interface IdentityAuthResult {
   refreshToken: string;
   /** Access token expiration time in seconds */
   expiresIn: number;
+  /** Whether a temporary password must be changed before other actions */
+  mustChangePassword: boolean;
   user: IdentityUser;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
 }
 
 export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
@@ -844,13 +966,14 @@ export interface NotificationTemplateUpdateInput {
 }
 
 /**
- * Whether recipients are customer users or Telegram channels
+ * Selected Telegram users, all active Telegram users, or Telegram channels
  */
 export type BroadcastInputRecipientType = typeof BroadcastInputRecipientType[keyof typeof BroadcastInputRecipientType];
 
 
 export const BroadcastInputRecipientType = {
   users: 'users',
+  all_users: 'all_users',
   channels: 'channels',
 } as const;
 
@@ -858,7 +981,7 @@ export type BroadcastInputData = { [key: string]: unknown };
 
 export interface BroadcastInput {
   templateId: string;
-  /** Whether recipients are customer users or Telegram channels */
+  /** Selected Telegram users, all active Telegram users, or Telegram channels */
   recipientType: BroadcastInputRecipientType;
   recipients: string[];
   data?: BroadcastInputData;
@@ -1153,6 +1276,8 @@ export interface UserStats {
 }
 
 export type UserDetail = User & ({
+  /** Existing user profile avatar URL */
+  avatar?: string | null;
   profile?: UserProfile;
   stats?: UserStats;
   activeSubscription?: UserSubscription | null;
@@ -1163,6 +1288,17 @@ export type UserDetail = User & ({
   /** Total watch time in minutes (from stats) */
   totalWatchMinutes?: number | null;
 });
+
+export interface UserAuditSummary {
+  id: string;
+  action: string;
+  actorId?: string | null;
+  actorType: string;
+  targetType: string;
+  targetId?: string | null;
+  createdAt: string;
+  severity?: string | null;
+}
 
 /**
  * New user status
@@ -1418,6 +1554,8 @@ export interface VideoCode {
   code?: string;
   title?: string;
   description?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   telegramFileId?: string;
@@ -1451,6 +1589,7 @@ export interface ImportVideoCodeBody {
   code?: string;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   duration?: number;
   accessPolicy?: ImportVideoCodeBodyAccessPolicy;
@@ -1460,6 +1599,8 @@ export interface ImportVideoCodeBody {
 
 export interface UpdateVideoCodeBody {
   title?: string;
+  /** @nullable */
+  movieId?: string | null;
   status?: string;
   channelId?: string;
   expiresAt?: string;
@@ -1476,6 +1617,19 @@ export type ListAdminUsersParams = {
  * Search by name, email, or role
  */
 search?: string;
+};
+
+export type ListScopedAdminUsersParams = {
+search?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
 };
 
 export type GetAnalyticsOverviewParams = {
@@ -2038,6 +2192,13 @@ export const ListUsersSortOrder = {
   desc: 'desc',
 } as const;
 
+export type GetUserAuditHistory200 = {
+  success: boolean;
+  /** @maxItems 10 */
+  data: UserAuditSummary[];
+  timestamp: string;
+};
+
 export type GetUserParams = {
 /**
  * Include soft-deleted user
@@ -2243,6 +2404,7 @@ export type UploadVideoCodeBody = {
   video: Blob | File;
   title: string;
   description?: string;
+  movieId?: string;
   channelId?: string;
   accessPolicy?: UploadVideoCodeBodyAccessPolicy;
   requiredChannelIds?: string;

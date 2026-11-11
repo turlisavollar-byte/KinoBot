@@ -1,0 +1,77 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "./api-fetch";
+import { isMustChangePasswordRequired } from "./password-change-flow";
+
+vi.mock("@/lib/auth-token", () => ({ getToken: () => "access-token" }));
+
+describe("apiFetch forced-password handling", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("marks the session when the server returns PASSWORD_CHANGE_REQUIRED", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        success: false,
+        error: {
+          code: "PASSWORD_CHANGE_REQUIRED",
+          message: "Change your temporary password before continuing",
+        },
+      }), { status: 403, headers: { "Content-Type": "application/json" } }),
+    ));
+
+    await expect(apiFetch("/api/private")).rejects.toMatchObject({
+      status: 403,
+      data: { error: { code: "PASSWORD_CHANGE_REQUIRED" } },
+    });
+    expect(isMustChangePasswordRequired()).toBe(true);
+  });
+
+  it("does not mark a normal permission-denied 403 as a forced password change", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Permission denied" },
+      }), { status: 403, headers: { "Content-Type": "application/json" } }),
+    ));
+
+    await expect(apiFetch("/api/private")).rejects.toMatchObject({ status: 403 });
+    expect(isMustChangePasswordRequired()).toBe(false);
+  });
+
+  it("sends the stored access token and returns a successful password-change response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, message: "Password changed" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/identity/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword: "Temporary123!", newPassword: "Updated123!" }),
+    })).resolves.toEqual({ success: true, message: "Password changed" });
+
+    const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(requestInit.headers).get("Authorization")).toBe("Bearer access-token");
+  });
+
+  it("does not set JSON content type for FormData", async () => {
+    const formData = new FormData();
+    formData.append("video", new Blob(["video"]), "video.mp4");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/catalog/movies/movie-1/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).has("Content-Type")).toBe(false);
+  });
+});

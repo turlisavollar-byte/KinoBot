@@ -4,6 +4,7 @@ import {
   useGetTopContent,
   useGetSubscriptionTrend,
   useListVideoCodes,
+  useGetTelegramStatus,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -49,24 +50,22 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-const BOT_USERNAME = "FavoriteKinoBot";
-
-const SOURCE_LABELS: Record<string, string> = {
-  organic: "Organik (to'g'ridan-to'g'ri)",
-  instagram: "Instagram",
-};
-
 function InstagramDeeplinkCard() {
   const { t } = useI18n();
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const { data: videoCodes = [] } = useListVideoCodes({ status: "active" });
+  const { data: telegramStatus } = useGetTelegramStatus();
+  const botUsername = telegramStatus?.botUsername?.replace(/^@/, "");
 
-  const link = code.trim()
-    ? `https://t.me/${BOT_USERNAME}?start=ig_${code.trim().toUpperCase()}`
-    : `https://t.me/${BOT_USERNAME}?start=ig`;
+  const link = botUsername
+    ? code.trim()
+      ? `https://t.me/${botUsername}?start=ig_${code.trim().toUpperCase()}`
+      : `https://t.me/${botUsername}?start=ig`
+    : "";
 
   const handleCopy = () => {
+    if (!link) return;
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -115,11 +114,17 @@ function InstagramDeeplinkCard() {
           />
         </div>
         <div className="flex gap-2">
-          <Input value={link} readOnly className="font-mono text-xs" />
+          <Input
+            value={link}
+            readOnly
+            placeholder={t("telegram.botUsernameUnavailable")}
+            className="font-mono text-xs"
+          />
           <Button
             variant="outline"
             size="icon"
             onClick={handleCopy}
+            disabled={!link}
             className="shrink-0"
           >
             {copied ? (
@@ -134,43 +139,24 @@ function InstagramDeeplinkCard() {
   );
 }
 
-function formatUzs(amount: number) {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M so'm`;
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K so'm`;
-  return `${amount.toLocaleString()} so'm`;
-}
-
-function formatDate(v: string, period: string) {
-  const d = new Date(v);
-  if (period === "1y") return d.toLocaleDateString("uz-UZ", { month: "short" });
-  return d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" });
-}
-
-function parseRating(r: any) {
-  if (r == null) return 0;
-  if (typeof r === "number") return r;
-  if (typeof r === "string") {
-    const n = Number(r);
-    return Number.isFinite(n) ? n : 0;
-  }
-  if (typeof r === "object") {
-    if (r.value != null) return Number(r.value) || 0;
-    if (r.avg != null) return Number(r.avg) || 0;
-    if (r.rating != null) return Number(r.rating) || 0;
-    return 0;
-  }
-  return 0;
-}
-
 export default function Analytics() {
-  const { t } = useI18n();
+  const { t, formatDate, formatNumber, locale } = useI18n();
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "1y">("30d");
+  const formatUzs = (amount: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "UZS",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  const formatChartDate = (value: string) =>
+    formatDate(value, {
+      month: "short",
+      ...(period === "1y" ? {} : { day: "numeric" }),
+    });
 
   const { data: stats } = useGetAnalyticsOverview();
   const { data: revenueStats } = useGetRevenueTrend({ period });
-  const { data: trendStats } = useGetSubscriptionTrend({
-    period: period as any,
-  });
+  const { data: trendStats } = useGetSubscriptionTrend({ period });
   const { data: topContent } = useGetTopContent({ limit: 10, period });
 
   const statsData = stats?.data;
@@ -181,7 +167,7 @@ export default function Analytics() {
   const overviewCards = [
     {
       label: t("analytics.totalUsers"),
-      value: statsData?.totalUsers?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalUsers ?? 0),
       sub: t("analytics.newUsersToday", {
         count: statsData?.newUsersToday ?? 0,
       }),
@@ -190,7 +176,7 @@ export default function Analytics() {
     },
     {
       label: t("analytics.activeSubscriptions"),
-      value: statsData?.activeSubscriptions?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.activeSubscriptions ?? 0),
       sub: t("analytics.activeUsers", { count: statsData?.activeUsers ?? 0 }),
       icon: <CreditCard className="w-4 h-4" />,
       color: "text-green-500",
@@ -206,14 +192,14 @@ export default function Analytics() {
     },
     {
       label: t("analytics.videoCodes"),
-      value: statsData?.activeVideoCodes?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.activeVideoCodes ?? 0),
       sub: t("analytics.totalViews", { count: statsData?.totalCodeViews ?? 0 }),
       icon: <Code2 className="w-4 h-4" />,
       color: "text-purple-500",
     },
     {
       label: t("analytics.movies"),
-      value: statsData?.totalMovies?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalMovies ?? 0),
       sub: t("analytics.seriesAndEpisodes", {
         series: statsData?.totalSeries ?? 0,
         episodes: statsData?.totalEpisodes ?? 0,
@@ -223,7 +209,7 @@ export default function Analytics() {
     },
     {
       label: t("analytics.watchSessions"),
-      value: statsData?.totalWatchSessions?.toLocaleString() ?? "0",
+      value: formatNumber(statsData?.totalWatchSessions ?? 0),
       sub: t("analytics.totalViewsLabel"),
       icon: <Eye className="w-4 h-4" />,
       color: "text-cyan-500",
@@ -232,15 +218,27 @@ export default function Analytics() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {t("analytics.title")}
           </h1>
           <p className="text-muted-foreground">{t("analytics.subtitle")}</p>
         </div>
-        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
-          <SelectTrigger className="w-40">
+        <Select
+          value={period}
+          onValueChange={(value) => {
+            if (
+              value === "7d" ||
+              value === "30d" ||
+              value === "90d" ||
+              value === "1y"
+            ) {
+              setPeriod(value);
+            }
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -253,7 +251,7 @@ export default function Analytics() {
       </div>
 
       {/* Overview cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {overviewCards.map((card) => (
           <Card key={card.label}>
             <CardHeader className="pb-2">
@@ -308,7 +306,7 @@ export default function Analytics() {
                   />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(v) => formatDate(v, period)}
+                    tickFormatter={formatChartDate}
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={11}
                     tickLine={false}
@@ -319,9 +317,7 @@ export default function Analytics() {
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(v) =>
-                      v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)
-                    }
+                    tickFormatter={(v: number) => formatNumber(v)}
                   />
                   <Tooltip
                     contentStyle={{
@@ -331,10 +327,10 @@ export default function Analytics() {
                     }}
                     itemStyle={{ color: "hsl(var(--foreground))" }}
                     formatter={(v: number) => [
-                      `${v.toLocaleString()} so'm`,
+                      formatUzs(v),
                       t("analytics.revenue"),
                     ]}
-                    labelFormatter={(l) => formatDate(l, period)}
+                    labelFormatter={formatChartDate}
                   />
                   <Area
                     type="monotone"
@@ -376,7 +372,7 @@ export default function Analytics() {
                   />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(v) => formatDate(v, period)}
+                    tickFormatter={formatChartDate}
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={11}
                     tickLine={false}
@@ -399,7 +395,7 @@ export default function Analytics() {
                       v,
                       t("analytics.newSubscription"),
                     ]}
-                    labelFormatter={(l) => formatDate(l, period)}
+                    labelFormatter={formatChartDate}
                   />
                   <Bar
                     dataKey="newSubscriptions"
@@ -463,11 +459,14 @@ export default function Analytics() {
                             : t("analytics.series")}
                       </Badge>
                       {(() => {
-                        const ratingNum = parseRating(item.rating ?? 0);
+                        const ratingNum = item.rating ?? 0;
                         return ratingNum > 0 ? (
                           <span className="flex items-center gap-0.5">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            {ratingNum.toFixed(1)}
+                            {new Intl.NumberFormat(locale, {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            }).format(ratingNum)}
                           </span>
                         ) : null;
                       })()}
@@ -475,7 +474,7 @@ export default function Analytics() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-bold text-sm">
-                      {(item.viewsCount || 0).toLocaleString()}
+                      {formatNumber(item.viewsCount || 0)}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {t("analytics.views")}

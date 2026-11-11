@@ -1,0 +1,47 @@
+{
+  "name": "@workspace/landing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --tsconfig tsconfig.json --test tests/*.test.ts",
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "test:e2e": "pnpm build:e2e && playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "lighthouse": "lhci autorun",
+    "test:all": "pnpm test:unit && pnpm build && pnpm test:e2e && pnpm lighthouse"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-radio-group": "^1.2.4",
+    "@radix-ui/react-slot": "^1.2.2",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "next": "14.2.35",
+    "next-themes": "^0.4.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwind-merge": "^2.5.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.35",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}

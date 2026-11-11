@@ -39,4 +39,33 @@ describe("RefreshTokenUseCase", () => {
       }),
     ).rejects.toThrow("revoked or expired");
   });
+
+  it("does not rotate refresh tokens while password change is required", async () => {
+    const jwt = JwtService.getInstance();
+    const token = jwt.generateRefreshToken({
+      sub: "admin-1",
+      email: "admin@example.com",
+      role: "admin",
+      permissions: [],
+    });
+    const userRepo = {
+      findById: async () => ({
+        id: "admin-1",
+        email: "admin@example.com",
+        name: "Admin",
+        isActive: true,
+        mustChangePassword: true,
+        role: { name: "admin" },
+        permissions: [],
+      }),
+    } as any;
+    const sessionRepo = { rotate: vi.fn() } as any;
+
+    await expect(
+      new RefreshTokenUseCase(userRepo, sessionRepo).execute({
+        refreshToken: token,
+      }),
+    ).rejects.toThrow("Password change is required");
+    expect(sessionRepo.rotate).not.toHaveBeenCalled();
+  });
 });

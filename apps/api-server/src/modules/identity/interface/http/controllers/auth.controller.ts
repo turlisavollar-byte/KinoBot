@@ -60,6 +60,7 @@ export class AuthController {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         expiresIn: result.expiresIn,
+        mustChangePassword: result.mustChangePassword,
       });
     } catch (error) {
       res.status(401).json({
@@ -123,6 +124,7 @@ export class AuthController {
         accessToken: loginResult.accessToken,
         refreshToken: loginResult.refreshToken,
         expiresIn: loginResult.expiresIn,
+        mustChangePassword: loginResult.mustChangePassword,
       });
     } catch (error) {
       res.status(400).json({
@@ -223,6 +225,7 @@ export class AuthController {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         expiresIn: result.expiresIn,
+        mustChangePassword: result.mustChangePassword,
       });
     } catch (error) {
       res.status(401).json({
@@ -419,10 +422,7 @@ export class AuthController {
       const message =
         error instanceof Error ? error.message : "Password change failed";
       const status =
-        message === "Current password is incorrect" ||
-        message === "User not found"
-          ? 401
-          : 400;
+        message === "User not found" ? 404 : 400;
 
       res.status(status).json({
         success: false,

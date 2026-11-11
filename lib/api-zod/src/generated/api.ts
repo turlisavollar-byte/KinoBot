@@ -24,7 +24,9 @@ export const ListActorsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 export const ListActorsResponse = zod.array(ListActorsResponseItem)
 
@@ -35,14 +37,51 @@ export const ListActorsResponse = zod.array(ListActorsResponseItem)
 export const CreateActorBody = zod.object({
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 export const CreateActorResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get actor profile and filmography
+ */
+export const GetActorParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetActorResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "photoUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish(),
+  "movies": zod.array(zod.object({
+  "movieId": zod.string(),
+  "title": zod.string(),
+  "releaseYear": zod.number().int().nullish(),
+  "posterUrl": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "videoCodes": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "status": zod.string()
+}))
+})),
+  "stats": zod.object({
+  "moviesCount": zod.number().int(),
+  "totalViews": zod.number().int()
+})
 })
 
 
@@ -56,15 +95,78 @@ export const UpdateActorParams = zod.object({
 export const UpdateActorBody = zod.object({
   "name": zod.string().optional(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
 
 export const UpdateActorResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "photoUrl": zod.string().optional(),
-  "bio": zod.string().optional()
+  "bio": zod.string().optional(),
+  "birthDate": zod.string().nullish(),
+  "birthPlace": zod.string().nullish()
 })
+
+
+/**
+ * @summary Delete actor
+ */
+export const DeleteActorParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteActorResponse = zod.void()
+
+
+/**
+ * @summary Add a movie to an actor filmography
+ */
+export const AttachActorToMovieParams = zod.object({
+  "id": zod.string()
+})
+
+export const attachActorToMovieBodyRoleMax = 255;
+
+
+
+export const AttachActorToMovieBody = zod.object({
+  "movieId": zod.string(),
+  "role": zod.string().max(attachActorToMovieBodyRoleMax).nullish()
+})
+
+export const AttachActorToMovieResponse = zod.void()
+
+
+/**
+ * @summary Update an actor role in a movie
+ */
+export const UpdateActorMovieRoleParams = zod.object({
+  "id": zod.string(),
+  "movieId": zod.string()
+})
+
+export const updateActorMovieRoleBodyRoleMax = 255;
+
+
+
+export const UpdateActorMovieRoleBody = zod.object({
+  "role": zod.string().max(updateActorMovieRoleBodyRoleMax).nullish()
+})
+
+export const UpdateActorMovieRoleResponse = zod.void()
+
+
+/**
+ * @summary Remove a movie from an actor filmography
+ */
+export const DetachActorFromMovieParams = zod.object({
+  "id": zod.string(),
+  "movieId": zod.string()
+})
+
+export const DetachActorFromMovieResponse = zod.void()
 
 
 /**
@@ -79,7 +181,7 @@ export const ListAdminUsersResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
-  "name": zod.string(),
+  "name": zod.string().nullish(),
   "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
   "status": zod.enum(['active', 'inactive', 'suspended']),
   "isActive": zod.boolean(),
@@ -89,6 +191,30 @@ export const ListAdminUsersResponse = zod.object({
 })),
   "meta": zod.object({
   "total": zod.number().int()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Get a scoped administrative account (legacy path)
+ */
+export const GetLegacyAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetLegacyAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
 }),
   "timestamp": zod.date()
 })
@@ -118,6 +244,157 @@ export const DeleteAdminUserParams = zod.object({
 })
 
 export const DeleteAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Ban or unban an administrative account (legacy path)
+ */
+export const SetLegacyAdminUserBanParams = zod.object({
+  "id": zod.string()
+})
+
+export const SetLegacyAdminUserBanBody = zod.object({
+  "banned": zod.boolean()
+})
+
+export const SetLegacyAdminUserBanResponse = zod.unknown()
+
+
+/**
+ * Super admins see all accounts; admins see their own and moderator accounts.
+ * @summary List administrative accounts visible to the caller
+ */
+export const listScopedAdminUsersQueryPageDefault = 1;
+
+export const listScopedAdminUsersQueryPageSizeDefault = 50;
+export const listScopedAdminUsersQueryPageSizeMax = 100;
+
+
+
+export const ListScopedAdminUsersQueryParams = zod.object({
+  "search": zod.string().optional(),
+  "page": zod.number().int().min(1).default(listScopedAdminUsersQueryPageDefault),
+  "pageSize": zod.number().int().min(1).max(listScopedAdminUsersQueryPageSizeMax).default(listScopedAdminUsersQueryPageSizeDefault)
+})
+
+export const ListScopedAdminUsersResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.array(zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+})),
+  "meta": zod.object({
+  "total": zod.number().int()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * The password is hashed server-side, never returned, and must be changed on first login.
+ * @summary Create an administrative account as Super Admin
+ */
+export const createAdminUserBodyEmailMax = 255;
+
+export const createAdminUserBodyPasswordMin = 8;
+export const createAdminUserBodyPasswordMax = 128;
+
+
+
+export const CreateAdminUserBody = zod.object({
+  "email": zod.string().email().max(createAdminUserBodyEmailMax),
+  "role": zod.enum(['admin', 'moderator']),
+  "password": zod.string().min(createAdminUserBodyPasswordMin).max(createAdminUserBodyPasswordMax)
+})
+
+export const CreateAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+}).and(zod.object({
+  "mustChangePassword": zod.boolean()
+})),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Get a whitelisted administrative account
+ */
+export const GetScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetScopedAdminUserResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string().nullish(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']),
+  "status": zod.enum(['active', 'inactive', 'suspended']),
+  "isActive": zod.boolean(),
+  "lastLoginAt": zod.date().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+}),
+  "timestamp": zod.date()
+})
+
+
+/**
+ * @summary Update an administrative account within caller role scope
+ */
+export const UpdateScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const UpdateScopedAdminUserBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().email().optional(),
+  "role": zod.enum(['superadmin', 'admin', 'manager', 'moderator', 'user', 'viewer']).optional()
+})
+
+export const UpdateScopedAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Delete an administrative account within caller role scope
+ */
+export const DeleteScopedAdminUserParams = zod.object({
+  "id": zod.string()
+})
+
+export const DeleteScopedAdminUserResponse = zod.unknown()
+
+
+/**
+ * @summary Deactivate or reactivate an administrative account
+ */
+export const SetScopedAdminUserBanParams = zod.object({
+  "id": zod.string()
+})
+
+export const SetScopedAdminUserBanBody = zod.object({
+  "banned": zod.boolean()
+})
+
+export const SetScopedAdminUserBanResponse = zod.unknown()
 
 
 /**
@@ -1284,6 +1561,23 @@ export const PublishMovieResponse = zod.object({
 
 
 /**
+ * @summary List video codes linked to a movie
+ */
+export const GetMovieVideoCodesParams = zod.object({
+  "id": zod.string()
+})
+
+export const GetMovieVideoCodesResponseItem = zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "title": zod.string().optional(),
+  "status": zod.string(),
+  "viewsCount": zod.number().int().optional()
+})
+export const GetMovieVideoCodesResponse = zod.array(GetMovieVideoCodesResponseItem)
+
+
+/**
  * @summary List series with pagination
  */
 export const listSeriesQueryPageDefault = 1;
@@ -1747,6 +2041,7 @@ export const IdentityRegisterResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1770,6 +2065,7 @@ export const IdentityLoginResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1792,6 +2088,7 @@ export const RefreshAccessTokenResponse = zod.object({
   "accessToken": zod.string().describe('JWT access token (expires in 1 hour)'),
   "refreshToken": zod.string().describe('JWT refresh token (expires in 7 days)'),
   "expiresIn": zod.number().int().describe('Access token expiration time in seconds'),
+  "mustChangePassword": zod.boolean().describe('Whether a temporary password must be changed before other actions'),
   "user": zod.object({
   "id": zod.string(),
   "email": zod.string().email(),
@@ -1822,6 +2119,21 @@ export const IdentityGetMeResponse = zod.object({
 export const IdentityLogoutResponse = zod.object({
   "success": zod.boolean().optional()
 })
+
+
+/**
+ * @summary Change the current password
+ */
+export const identityChangePasswordBodyNewPasswordMin = 8;
+
+
+
+export const IdentityChangePasswordBody = zod.object({
+  "currentPassword": zod.string(),
+  "newPassword": zod.string().min(identityChangePasswordBodyNewPasswordMin)
+})
+
+export const IdentityChangePasswordResponse = zod.unknown()
 
 
 /**
@@ -2007,7 +2319,7 @@ export const DeleteNotificationTemplateResponse = zod.void()
  */
 export const BroadcastNotificationBody = zod.object({
   "templateId": zod.string(),
-  "recipientType": zod.enum(['users', 'channels']).describe('Whether recipients are customer users or Telegram channels'),
+  "recipientType": zod.enum(['users', 'all_users', 'channels']).describe('Selected Telegram users, all active Telegram users, or Telegram channels'),
   "recipients": zod.array(zod.string()),
   "data": zod.object({
 
@@ -2372,6 +2684,33 @@ export const ListUsersResponse = zod.object({
 
 
 /**
+ * @summary Get up to ten safe audit summaries for a user
+ */
+export const GetUserAuditHistoryParams = zod.object({
+  "id": zod.string()
+})
+
+export const getUserAuditHistoryResponseDataMax = 10;
+
+
+
+export const GetUserAuditHistoryResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.array(zod.object({
+  "id": zod.string(),
+  "action": zod.string(),
+  "actorId": zod.string().nullish(),
+  "actorType": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.string().nullish(),
+  "createdAt": zod.date(),
+  "severity": zod.string().nullish()
+})).max(getUserAuditHistoryResponseDataMax),
+  "timestamp": zod.date()
+})
+
+
+/**
  * Get detailed user information including profile and stats.
  * Requires `users:read` permission.
  * Data is cached for 5 minutes.
@@ -2437,6 +2776,7 @@ export const GetUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2570,6 +2910,7 @@ export const UpdateUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2695,6 +3036,7 @@ export const GetMeResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2806,6 +3148,7 @@ export const BlockUserResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -2918,6 +3261,7 @@ export const GrantUserSubscriptionResponse = zod.object({
   "autoRenew": zod.boolean().optional().describe('Whether subscription auto-renews')
 })).optional().describe('All active legacy subscriptions for the user')
 }).and(zod.object({
+  "avatar": zod.string().nullish().describe('Existing user profile avatar URL'),
   "profile": zod.object({
   "displayName": zod.string().optional().describe('Display name'),
   "bio": zod.string().nullish().describe('User biography'),
@@ -3168,6 +3512,7 @@ export const ListVideoCodesResponseItem = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3189,6 +3534,7 @@ export const UploadVideoCodeBody = zod.object({
   "video": zod.instanceof(Blob),
   "title": zod.string(),
   "description": zod.string().optional(),
+  "movieId": zod.string().optional(),
   "channelId": zod.string().optional(),
   "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
   "requiredChannelIds": zod.string().optional()
@@ -3199,6 +3545,7 @@ export const UploadVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3220,6 +3567,7 @@ export const ImportVideoCodeBody = zod.object({
   "code": zod.string().optional(),
   "title": zod.string(),
   "description": zod.string().optional(),
+  "movieId": zod.string().optional(),
   "channelId": zod.string().optional(),
   "duration": zod.number().int().optional(),
   "accessPolicy": zod.enum(['free', 'subscription', 'channels']).optional(),
@@ -3232,6 +3580,7 @@ export const ImportVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),
@@ -3254,6 +3603,7 @@ export const UpdateVideoCodeParams = zod.object({
 
 export const UpdateVideoCodeBody = zod.object({
   "title": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "expiresAt": zod.date().optional()
@@ -3264,6 +3614,7 @@ export const UpdateVideoCodeResponse = zod.object({
   "code": zod.string().optional(),
   "title": zod.string().optional(),
   "description": zod.string().optional(),
+  "movieId": zod.string().nullish(),
   "status": zod.string().optional(),
   "channelId": zod.string().optional(),
   "telegramFileId": zod.string().optional(),

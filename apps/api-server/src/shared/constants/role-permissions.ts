@@ -19,11 +19,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
     // Users
     Permission.READ_USERS,
+    Permission.READ_USER_AUDIT,
     Permission.CREATE_USERS,
     Permission.UPDATE_USERS,
     Permission.DELETE_USERS,
     Permission.READ_ADMIN_USERS,
-    Permission.CREATE_ADMIN_USERS,
     Permission.UPDATE_ADMIN_USERS,
     Permission.DELETE_ADMIN_USERS,
     Permission.READ_ANY_PROFILE,
@@ -42,6 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     // System
     Permission.MANAGE_SYSTEM,
     Permission.VIEW_ANALYTICS,
+    Permission.VIEW_HEALTH,
 
     // Content
     Permission.READ_CONTENT,

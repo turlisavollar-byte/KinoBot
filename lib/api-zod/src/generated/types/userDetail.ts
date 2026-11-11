@@ -11,6 +11,8 @@ import type { UserStats } from './userStats';
 import type { UserSubscription } from './userSubscription';
 
 export type UserDetail = User & ({
+  /** Existing user profile avatar URL */
+  avatar?: string | null;
   profile?: UserProfile;
   stats?: UserStats;
   activeSubscription?: UserSubscription | null;

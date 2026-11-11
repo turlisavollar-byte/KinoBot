@@ -1,4 +1,5 @@
 import type { Movie, Series, Season, Episode, Genre, Actor } from '@workspace/db';
+import type { ActorDetail } from '../../catalog.types';
 
 export interface ICatalogRepository {
   // ─── MOVIES ──────────────────────────────────────────────────────────────────
@@ -58,6 +59,12 @@ export interface ICatalogRepository {
   }): Promise<{ data: Actor[]; total: number; page: number; limit: number }>;
   
   getActorById(id: string): Promise<Actor | null>;
+  actorExists(id: string): Promise<boolean>;
+  movieExists(id: string): Promise<boolean>;
+  getActorWithMovies(id: string): Promise<ActorDetail | null>;
+  attachActorToMovie(actorId: string, movieId: string, role: string | null): Promise<boolean>;
+  detachActorFromMovie(actorId: string, movieId: string): Promise<boolean>;
+  updateActorMovieRole(actorId: string, movieId: string, role: string | null): Promise<boolean>;
   createActor(data: Omit<Actor, 'id' | 'deletedAt'>): Promise<Actor>;
   updateActor(id: string, data: Partial<Actor>): Promise<Actor>;
   deleteActor(id: string): Promise<void>;

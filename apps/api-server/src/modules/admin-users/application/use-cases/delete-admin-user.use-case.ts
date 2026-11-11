@@ -1,8 +1,4 @@
-import {
-  RoleHierarchy,
-  normalizeRoleName,
-  type Role,
-} from "@/shared/constants/roles";
+import { canManageAdminAccount } from "@/shared/constants/user-access";
 import type { AdminUsersRepository } from "../../infrastructure/repositories/admin-users.repository";
 import { AppError } from "@/shared/errors/AppError";
 import { ErrorCodes } from "@/shared/errors/errorCodes";
@@ -25,11 +21,11 @@ export class DeleteAdminUserUseCase {
         ErrorCodes.FORBIDDEN,
       );
 
-    const actorRole = normalizeRoleName(actorRoleName) as Role;
-    const targetRole = normalizeRoleName(target.role) as Role;
-    if (RoleHierarchy[actorRole] <= RoleHierarchy[targetRole]) {
+    if (
+      !canManageAdminAccount(actorId, actorRoleName, targetId, target.role)
+    ) {
       throw new AppError(
-        "Cannot delete an equal or higher role",
+        "Cannot delete an administrative account outside your scope",
         403,
         ErrorCodes.FORBIDDEN,
       );

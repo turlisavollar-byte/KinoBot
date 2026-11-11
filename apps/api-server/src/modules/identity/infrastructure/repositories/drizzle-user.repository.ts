@@ -26,6 +26,7 @@ type DbUserRow = {
   role: string;
   roleId?: string | null;
   isActive: boolean;
+  mustChangePassword?: boolean;
   lastLoginAt: Date | null;
   lastFailedLoginAt?: Date | null;
   failedLoginCount?: number;
@@ -51,6 +52,7 @@ export class DrizzleUserRepository implements IUserRepository {
         role: adminUsersTable.role,
         roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
+        mustChangePassword: adminUsersTable.mustChangePassword,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
         failedLoginCount: adminUsersTable.failedLoginCount,
@@ -80,6 +82,7 @@ export class DrizzleUserRepository implements IUserRepository {
         role: adminUsersTable.role,
         roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
+        mustChangePassword: adminUsersTable.mustChangePassword,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
         failedLoginCount: adminUsersTable.failedLoginCount,
@@ -290,6 +293,7 @@ export class DrizzleUserRepository implements IUserRepository {
       verificationToken: string | null;
       verificationExpiresAt: Date | null;
       isEmailVerified: boolean;
+      mustChangePassword: boolean;
       resetToken: string | null;
       resetExpiresAt: Date | null;
     }> = {};
@@ -332,6 +336,8 @@ export class DrizzleUserRepository implements IUserRepository {
         : null;
     if (user.isEmailVerified !== undefined)
       updateData.isEmailVerified = user.isEmailVerified;
+    if (user.mustChangePassword !== undefined)
+      updateData.mustChangePassword = user.mustChangePassword;
     if (user.resetToken !== undefined) updateData.resetToken = user.resetToken;
     if (user.resetExpiresAt !== undefined)
       updateData.resetExpiresAt = user.resetExpiresAt
@@ -350,6 +356,7 @@ export class DrizzleUserRepository implements IUserRepository {
         role: adminUsersTable.role,
         roleId: adminUsersTable.roleId,
         isActive: adminUsersTable.isActive,
+        mustChangePassword: adminUsersTable.mustChangePassword,
         lastLoginAt: adminUsersTable.lastLoginAt,
         lastFailedLoginAt: adminUsersTable.lastFailedLoginAt,
         failedLoginCount: adminUsersTable.failedLoginCount,
@@ -499,6 +506,7 @@ export class DrizzleUserRepository implements IUserRepository {
       verificationToken: dbUser.verificationToken ?? undefined,
       verificationExpiresAt: dbUser.verificationExpiresAt ?? undefined,
       isEmailVerified: dbUser.isEmailVerified,
+      mustChangePassword: dbUser.mustChangePassword ?? false,
       resetToken: dbUser.resetToken ?? undefined,
       resetExpiresAt: dbUser.resetExpiresAt ?? undefined,
     });

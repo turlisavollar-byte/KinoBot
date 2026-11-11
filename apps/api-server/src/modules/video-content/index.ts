@@ -8,6 +8,7 @@ import { TelegramVideoService } from "./infrastructure/services/telegram-video.s
 import { VideoContentService } from "./application/services/video-content.service";
 import { VideoContentController } from "./interface/video-content.controller";
 import { videoUploadMiddleware } from "./interface/video-upload.middleware";
+import { ListMovieVideoCodesUseCase } from "./domain/use-cases/list-movie-video-codes.use-case";
 
 export function createVideoContentRouter(): IRouter {
   const repository = new DrizzleVideoCodeRepository();
@@ -17,7 +18,10 @@ export function createVideoContentRouter(): IRouter {
     new TelegramVideoService(),
     new DrizzleChannelService(),
   );
-  const controller = new VideoContentController(service);
+  const controller = new VideoContentController(
+    service,
+    new ListMovieVideoCodesUseCase(repository),
+  );
   const router = Router();
 
   router.use(requireAuth);
@@ -25,6 +29,11 @@ export function createVideoContentRouter(): IRouter {
     "/",
     requirePermission(Permission.READ_CONTENT),
     controller.list.bind(controller),
+  );
+  router.get(
+    "/movies/:movieId",
+    requirePermission(Permission.READ_CONTENT),
+    controller.listMovie.bind(controller),
   );
   router.post(
     "/upload",

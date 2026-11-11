@@ -9,6 +9,7 @@ import type {
   CreateAuditLogDTO,
   AuditAction,
   AuditActorType,
+  AuditSeverity,
   AuditTargetType,
 } from "./audit.types";
 
@@ -19,7 +20,12 @@ import type {
   NewAuditLogTagRow,
 } from "@workspace/db";
 
-import { db, auditLogsTable, auditLogTagsTable } from "@workspace/db";
+import {
+  createDbClient,
+  db,
+  auditLogsTable,
+  auditLogTagsTable,
+} from "@workspace/db";
 
 import {
   and,
@@ -39,11 +45,106 @@ import {
 
 import { randomBytes } from "node:crypto";
 import { Logger } from "@/shared/utils/logger";
+import { sanitizeAuditPayload } from "./audit.sanitize";
 
 // Constants
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const DEFAULT_RETENTION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type AuditArchiverClient = ReturnType<typeof createDbClient>;
+let auditArchiverClient: AuditArchiverClient | undefined;
+
+function removeNullValues<T>(value: T): T {
+  if (value instanceof Date) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== null)
+      .map((item) => removeNullValues(item)) as T;
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, child]) => child !== null)
+        .map(([key, child]) => [key, removeNullValues(child)]),
+    ) as T;
+  }
+
+  return value;
+}
+
+function getArchiverDb() {
+  const connectionString = process.env.DATABASE_URL_ARCHIVER;
+  if (!connectionString) {
+    throw new AuditError(
+      "DATABASE_URL_ARCHIVER is required for retention",
+      "ARCHIVER_DATABASE_NOT_CONFIGURED",
+    );
+  }
+
+  auditArchiverClient ??= createDbClient(connectionString, 2);
+  return auditArchiverClient.db;
+}
+
+export async function closeAuditArchiverPool(): Promise<void> {
+  if (!auditArchiverClient) return;
+
+  const client = auditArchiverClient;
+  auditArchiverClient = undefined;
+  await client.pool.end();
+}
+
+export function getRetentionCutoffs(
+  now: Date,
+  policy: AuditLogRetentionPolicy,
+): { archiveDate: Date; deleteDate: Date } {
+  if (
+    !Number.isSafeInteger(policy.archiveAfterDays) ||
+    !Number.isSafeInteger(policy.deleteAfterDays) ||
+    policy.archiveAfterDays < 0 ||
+    policy.deleteAfterDays < policy.archiveAfterDays
+  ) {
+    throw new AuditValidationError(
+      "deleteAfterDays must be an integer greater than or equal to archiveAfterDays",
+    );
+  }
+
+  return {
+    archiveDate: new Date(now.getTime() - policy.archiveAfterDays * DAY_MS),
+    deleteDate: new Date(now.getTime() - policy.deleteAfterDays * DAY_MS),
+  };
+}
+
+type StoredAuditSeverity = "info" | "warning" | "critical";
+
+function toStoredSeverity(
+  severity: AuditSeverity | undefined,
+): StoredAuditSeverity {
+  if (severity === "CRITICAL") return "critical";
+  if (severity === "HIGH" || severity === "MEDIUM") return "warning";
+  return "info";
+}
+
+function toApiSeverity(
+  storedSeverity: StoredAuditSeverity,
+  legacySeverity?: unknown,
+): AuditSeverity {
+  if (
+    legacySeverity === "LOW" ||
+    legacySeverity === "MEDIUM" ||
+    legacySeverity === "HIGH" ||
+    legacySeverity === "CRITICAL"
+  ) {
+    return legacySeverity;
+  }
+
+  if (storedSeverity === "critical") return "CRITICAL";
+  if (storedSeverity === "warning") return "HIGH";
+  return "LOW";
+}
 
 // Custom error classes
 export class AuditError extends Error {
@@ -85,12 +186,11 @@ function generateAuditId(): string {
  */
 export class AuditService {
   private readonly logger = new Logger("AuditService");
-  private readonly isProduction = process.env.NODE_ENV === "production";
 
   private shouldSkipAuditWrites(): boolean {
     return (
-      this.isProduction ||
       process.env.NODE_ENV === "test" ||
+      process.env.AUDIT_ENABLED === "false" ||
       process.env.DISABLE_AUDIT_LOGS === "true" ||
       process.env.AUDIT_LOGS_ENABLED === "false"
     );
@@ -138,53 +238,55 @@ export class AuditService {
    */
   async log(dto: CreateAuditLogDTO): Promise<AuditLog> {
     const startTime = Date.now();
+    const safeDto = sanitizeAuditPayload(dto) as CreateAuditLogDTO;
 
     if (this.shouldSkipAuditWrites()) {
       return this.createFallbackAuditLog(
-        dto,
+        safeDto,
         "Audit logging disabled for this environment",
       );
     }
 
     try {
       // Validate
-      this.validateLogDTO(dto);
+      this.validateLogDTO(safeDto);
 
       // Prepare row
-      const row: NewAuditLogRow = {
+      const row = removeNullValues({
         id: generateAuditId(),
 
         // Actor
-        actorId: dto.actorId,
-        actorType: dto.actorType,
-        actorEmail: dto.actorEmail,
-        actorIp: dto.metadata?.ipAddress as string,
-        actorUserAgent: dto.metadata?.userAgent as string,
+        actorId: safeDto.actorId,
+        actorType: safeDto.actorType,
+        actorEmail: safeDto.actorEmail,
+        actorIp: safeDto.metadata?.ipAddress as string,
+        actorUserAgent: safeDto.metadata?.userAgent as string,
 
         // Action
-        action: dto.action,
-        actionCategory: this.categorizeAction(dto.action),
+        action: safeDto.action,
+        actionCategory: this.categorizeAction(safeDto.action),
+        severity: toStoredSeverity(safeDto.severity),
 
         // Target
-        targetType: dto.targetType,
-        targetId: dto.targetId,
-        targetName: dto.targetName,
+        targetType: safeDto.targetType,
+        targetId: safeDto.targetId,
+        targetName: safeDto.targetName,
 
         // Changes
-        oldValue: dto.oldValue,
-        newValue: dto.newValue,
-        diff: this.calculateDiff(dto.oldValue, dto.newValue),
+        oldValue: safeDto.oldValue,
+        newValue: safeDto.newValue,
+        diff: this.calculateDiff(safeDto.oldValue, safeDto.newValue),
 
         // Context
         metadata: {
-          ...dto.metadata,
-          severity: dto.severity || "LOW",
-          tags: dto.tags || [],
+          ...safeDto.metadata,
+          severity: safeDto.severity || "LOW",
+          tags: safeDto.tags || [],
         },
-        ipAddress: dto.ipAddress,
-        userAgent: dto.userAgent,
-        requestId: dto.requestId,
-        sessionId: dto.sessionId,
+        ipAddress: safeDto.ipAddress,
+        userAgent: safeDto.userAgent,
+        requestId: safeDto.requestId,
+        sessionId: safeDto.sessionId,
 
         // Additional fields
         environment: process.env.NODE_ENV,
@@ -193,7 +295,7 @@ export class AuditService {
 
         // Timestamps
         createdAt: new Date(),
-      };
+      }) as NewAuditLogRow;
 
       // Insert main log
       const [inserted] = await db
@@ -206,32 +308,24 @@ export class AuditService {
       }
 
       // Insert tags if provided
-      if (dto.tags && dto.tags.length > 0) {
-        await this.insertTags(inserted.id, dto.tags);
+      if (safeDto.tags && safeDto.tags.length > 0) {
+        await this.insertTags(inserted.id, safeDto.tags);
       }
 
       const duration = Date.now() - startTime;
       this.logger.debug(`Audit log created in ${duration}ms`, {
         id: inserted.id,
-        action: dto.action,
+        action: safeDto.action,
       });
 
       return this.mapRowToAuditLog(inserted);
     } catch (error) {
-      this.logger.error("Failed to create audit log", { error, dto });
+      this.logger.error("Failed to create audit log", {
+        error,
+        dto: safeDto,
+      });
 
-      if (this.shouldSkipAuditWrites()) {
-        console.error("[AUDIT_FALLBACK] Failed to create audit log:", {
-          timestamp: new Date().toISOString(),
-          dto,
-          error: error instanceof Error ? error.message : String(error),
-        });
-
-        return this.createFallbackAuditLog(dto, error);
-      }
-
-      // In development, throw to surface issues early
-      throw error;
+      return this.createFallbackAuditLog(safeDto, error);
     }
   }
 
@@ -538,18 +632,9 @@ export class AuditService {
    */
   async deleteOlderThan(date: Date): Promise<number> {
     try {
-      // First, archive old logs if needed
-      const archived = await this.archiveLogs(date);
-
-      // Then delete
-      const deleted = await db
+      const deleted = await getArchiverDb()
         .delete(auditLogsTable)
-        .where(
-          and(
-            lte(auditLogsTable.createdAt, date),
-            isNull(auditLogsTable.archivedAt),
-          ),
-        )
+        .where(lte(auditLogsTable.createdAt, date))
         .returning({ id: auditLogsTable.id });
 
       this.logger.info(
@@ -570,7 +655,7 @@ export class AuditService {
    * Archive audit logs (mark as archived)
    */
   async archiveLogs(date: Date): Promise<number> {
-    const archived = await db
+    const archived = await getArchiverDb()
       .update(auditLogsTable)
       .set({
         archivedAt: new Date(),
@@ -596,19 +681,44 @@ export class AuditService {
     archived: number;
     deleted: number;
   }> {
-    const now = new Date();
-    const archiveDate = new Date(now);
-    archiveDate.setDate(archiveDate.getDate() - policy.archiveAfterDays);
+    if (process.env.AUDIT_RETENTION_ENABLED !== "true") {
+      throw new AuditError("Audit retention is disabled", "RETENTION_DISABLED");
+    }
 
-    const deleteDate = new Date(now);
-    deleteDate.setDate(deleteDate.getDate() - policy.deleteAfterDays);
+    const { archiveDate, deleteDate } = getRetentionCutoffs(new Date(), policy);
+    const archiverDb = getArchiverDb();
 
-    const [archived, deleted] = await Promise.all([
-      this.archiveLogs(archiveDate),
-      this.deleteOlderThan(deleteDate),
-    ]);
+    try {
+      return await archiverDb.transaction(async (tx) => {
+        const archived = await tx
+          .update(auditLogsTable)
+          .set({
+            archivedAt: new Date(),
+            retentionDays: DEFAULT_RETENTION_DAYS + 90,
+          })
+          .where(
+            and(
+              lte(auditLogsTable.createdAt, archiveDate),
+              isNull(auditLogsTable.archivedAt),
+            ),
+          )
+          .returning({ id: auditLogsTable.id });
 
-    return { archived, deleted };
+        const deleted = await tx
+          .delete(auditLogsTable)
+          .where(lte(auditLogsTable.createdAt, deleteDate))
+          .returning({ id: auditLogsTable.id });
+
+        return { archived: archived.length, deleted: deleted.length };
+      });
+    } catch (error) {
+      this.logger.error("Failed to apply audit retention", { error, policy });
+      throw new AuditError(
+        "Failed to apply audit retention",
+        "RETENTION_FAILED",
+        { error, policy },
+      );
+    }
   }
 
   /**
@@ -880,7 +990,10 @@ export class AuditService {
       createdAtIso: row.createdAt.toISOString(),
 
       // Additional
-      severity: (row.metadata as any)?.severity,
+      severity: toApiSeverity(
+        row.severity,
+        (row.metadata as Record<string, unknown> | null)?.severity,
+      ),
     };
   }
 

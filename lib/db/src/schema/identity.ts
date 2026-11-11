@@ -20,6 +20,7 @@ export const adminUsersTable = pgTable("admin_users", {
   role: text("role").notNull().default("user"),
   roleId: text("role_id").references(() => rolesTable.id),
   isActive: boolean("is_active").notNull().default(true),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   lastFailedLoginAt: timestamp("last_failed_login_at", { withTimezone: true }),
   failedLoginCount: integer("failed_login_count").notNull().default(0),

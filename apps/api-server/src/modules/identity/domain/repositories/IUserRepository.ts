@@ -20,6 +20,7 @@ export type UserUpdateInput = Partial<{
   verificationToken: string | null;
   verificationExpiresAt: Date | string | null;
   isEmailVerified: boolean;
+  mustChangePassword: boolean;
   resetToken: string | null;
   resetExpiresAt: Date | string | null;
 }>;

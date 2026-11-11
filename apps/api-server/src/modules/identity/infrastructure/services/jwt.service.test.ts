@@ -103,6 +103,45 @@ describe("JwtService", () => {
       );
     });
 
+    it("keeps web audience tokens separate from the admin audience", async () => {
+      const token = jwtService.generateAccessToken({
+        ...testPayload,
+        role: "customer",
+        permissions: [],
+        audience: "web",
+      });
+
+      await expect(
+        jwtService.verify(token, "access", "web"),
+      ).resolves.toMatchObject({
+        sub: testPayload.sub,
+        audience: "web",
+      });
+      await expect(jwtService.verify(token, "access")).rejects.toThrow(
+        "Invalid or expired token",
+      );
+    });
+
+    it("preserves a Web session ID in access and refresh JWT payloads", async () => {
+      const payload = {
+        ...testPayload,
+        audience: "web" as const,
+        sessionId: "web-session-1",
+      };
+      const access = await jwtService.verify(
+        jwtService.generateAccessToken(payload),
+        "access",
+        "web",
+      );
+      const refresh = await jwtService.verify(
+        jwtService.generateRefreshToken(payload),
+        "refresh",
+        "web",
+      );
+      expect(access.sessionId).toBe("web-session-1");
+      expect(refresh.sessionId).toBe("web-session-1");
+    });
+
     it("should throw error for invalid token", async () => {
       await expect(jwtService.verify("invalid-token")).rejects.toThrow(
         "Invalid or expired token",

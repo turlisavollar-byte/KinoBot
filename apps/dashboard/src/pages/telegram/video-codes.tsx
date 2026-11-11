@@ -1,10 +1,12 @@
 import {
   useListVideoCodes,
+  useListMovies,
   useUpdateVideoCode,
   useDeleteVideoCode,
   useImportVideoCode,
   getListVideoCodesQueryKey,
   useListTelegramChannels,
+  useGetTelegramStatus,
 } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/api-fetch";
 import { getToken } from "@/lib/auth-token";
@@ -66,20 +68,28 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import type { VideoCode } from "@workspace/api-client-react";
 
+type VideoCodeAccessPolicy = "free" | "subscription" | "channels";
+
+function isVideoCodeAccessPolicy(
+  value: string,
+): value is VideoCodeAccessPolicy {
+  return value === "free" || value === "subscription" || value === "channels";
+}
+
 const STATUS_CONFIG = {
   pending: {
-    label: "Pending",
-    color: "bg-amber-600/20 text-amber-400 border-amber-500/30",
+    color:
+      "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-600/20 dark:text-amber-400 dark:border-amber-500/30",
     icon: Clock,
   },
   active: {
-    label: "Active",
-    color: "bg-emerald-600/20 text-emerald-400 border-emerald-500/30",
+    color:
+      "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-600/20 dark:text-emerald-400 dark:border-emerald-500/30",
     icon: CheckCircle,
   },
   inactive: {
-    label: "Inactive",
-    color: "bg-zinc-700/30 text-zinc-400 border-zinc-600/30",
+    color:
+      "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-600/30 dark:bg-zinc-700/30 dark:text-zinc-400",
     icon: EyeOff,
   },
 } as const;
@@ -114,11 +124,18 @@ function CodeBadge({ code }: { code: string }) {
 }
 
 export default function VideoCodes() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const queryClient = useQueryClient();
   const { data: codesPage, isLoading } = useListVideoCodes();
   const codes = codesPage || [];
+  const [movieSearch, setMovieSearch] = useState("");
+  const { data: moviesPage } = useListMovies({
+    search: movieSearch || undefined,
+    limit: 50,
+  });
+  const movieOptions = moviesPage?.data ?? [];
   const { data: channels } = useListTelegramChannels();
+  const { data: telegramStatus } = useGetTelegramStatus();
   const updateCode = useUpdateVideoCode();
   const deleteCode = useDeleteVideoCode();
   const importCode = useImportVideoCode();
@@ -130,9 +147,8 @@ export default function VideoCodes() {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDesc, setUploadDesc] = useState("");
   const [uploadChannel, setUploadChannel] = useState("");
-  const [uploadAccessPolicy, setUploadAccessPolicy] = useState<
-    "free" | "subscription" | "channels"
-  >("free");
+  const [uploadAccessPolicy, setUploadAccessPolicy] =
+    useState<VideoCodeAccessPolicy>("free");
   const [uploadRequiredChannels, setUploadRequiredChannels] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,9 +160,8 @@ export default function VideoCodes() {
   const [importDesc, setImportDesc] = useState("");
   const [importChannel, setImportChannel] = useState("");
   const [importDuration, setImportDuration] = useState("");
-  const [importAccessPolicy, setImportAccessPolicy] = useState<
-    "free" | "subscription" | "channels"
-  >("free");
+  const [importAccessPolicy, setImportAccessPolicy] =
+    useState<VideoCodeAccessPolicy>("free");
   const [importRequiredChannels, setImportRequiredChannels] = useState("");
 
   // Delete confirm
@@ -219,7 +234,7 @@ export default function VideoCodes() {
       setUploadRequiredChannels("");
       invalidate();
     } catch (e) {
-      toast.error((e as Error).message ?? t("videoCodes.uploadError"));
+      toast.error(t("videoCodes.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -245,7 +260,7 @@ export default function VideoCodes() {
           duration: durSec && !isNaN(durSec) ? durSec : undefined,
           accessPolicy: importAccessPolicy,
           requiredChannelIds: importRequiredChannels.trim() || undefined,
-        } as any,
+        },
       },
       {
         onSuccess: (res) => {
@@ -262,12 +277,15 @@ export default function VideoCodes() {
           setImportRequiredChannels("");
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.importError")),
       },
     );
   };
 
-  const handleStatusChange = (code: any, status: string) => {
+  const handleStatusChange = (
+    code: VideoCode,
+    status: "pending" | "active" | "inactive",
+  ) => {
     if (!code.id) return;
     updateCode.mutate(
       {
@@ -279,7 +297,23 @@ export default function VideoCodes() {
           toast.success(t("videoCodes.statusUpdated"));
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.statusUpdateError")),
+      },
+    );
+  };
+
+  const handleMovieChange = (code: VideoCode, value: string) => {
+    if (!code.id) return;
+    const movieId = value === "unlinked" ? null : value;
+    updateCode.mutate(
+      { id: code.id, data: { movieId } },
+      {
+        onSuccess: async () => {
+          await invalidate();
+          await queryClient.invalidateQueries({ queryKey: ["/api/actors"] });
+          toast.success(t("videoCodes.movieLinked"));
+        },
+        onError: () => toast.error(t("videoCodes.movieLinkFailed")),
       },
     );
   };
@@ -298,7 +332,7 @@ export default function VideoCodes() {
           setDeleteTarget(null);
           invalidate();
         },
-        onError: (e: Error) => toast.error(e.message),
+        onError: () => toast.error(t("videoCodes.deleteError")),
       },
     );
   };
@@ -340,32 +374,32 @@ export default function VideoCodes() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             label: t("videoCodes.pending"),
             count: pending.length,
-            color: "text-amber-400",
+            color: "text-amber-700 dark:text-amber-400",
           },
           {
             label: t("videoCodes.activeCodes"),
             count: active.length,
-            color: "text-emerald-400",
+            color: "text-emerald-700 dark:text-emerald-400",
           },
           {
             label: t("videoCodes.totalViews"),
             count:
-              codes?.reduce(
-                (s: number, c: any) => s + (c.viewsCount ?? 0),
-                0,
-              ) ?? 0,
-            color: "text-blue-400",
+              codes?.reduce((sum, code) => sum + (code.viewsCount ?? 0), 0) ??
+              0,
+            color: "text-blue-700 dark:text-blue-400",
           },
         ].map(({ label, count, color }) => (
           <Card key={label} className="border-border/60">
             <CardContent className="pt-4 pb-3">
               <p className="text-xs text-muted-foreground">{label}</p>
-              <p className={cn("text-3xl font-bold mt-0.5", color)}>{count}</p>
+              <p className={cn("text-3xl font-bold mt-0.5", color)}>
+                {formatNumber(count)}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -373,22 +407,23 @@ export default function VideoCodes() {
 
       {/* Pending approval */}
       {pending.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-950/10">
+        <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-950/10">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-amber-300">
+            <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
               <AlertCircle className="h-4 w-4" />{" "}
-              {t("videoCodes.awaitingApproval")} ({pending.length})
+              {t("videoCodes.awaitingApproval")} ({formatNumber(pending.length)}
+              )
             </CardTitle>
-            <CardDescription className="text-amber-400/70 text-xs">
+            <CardDescription className="text-amber-800/80 dark:text-amber-400/70 text-xs">
               {t("videoCodes.awaitingApprovalDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {pending.map((c: any) => (
+              {pending.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-amber-950/20 border border-amber-500/20"
+                  className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-100/60 p-3 dark:border-amber-500/20 dark:bg-amber-950/20"
                 >
                   <CodeBadge code={c.code || ""} />
                   <div className="flex-1 min-w-0">
@@ -412,8 +447,10 @@ export default function VideoCodes() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                      className="h-7 text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                       onClick={() => handleDelete(c)}
+                      aria-label={t("videoCodes.deleteTooltip")}
+                      title={t("videoCodes.deleteTooltip")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -433,6 +470,14 @@ export default function VideoCodes() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 max-w-sm">
+            <Input
+              value={movieSearch}
+              onChange={(event) => setMovieSearch(event.target.value)}
+              placeholder={t("videoCodes.searchMovies")}
+              aria-label={t("videoCodes.searchMovies")}
+            />
+          </div>
           {!codes?.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <Film className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -440,13 +485,14 @@ export default function VideoCodes() {
               <p className="text-xs mt-1">{t("videoCodes.noVideosDesc")}</p>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full min-w-230 text-sm">
                 <thead className="bg-muted/40">
                   <tr>
                     {[
                       t("videoCodes.codeHeader"),
                       t("videoCodes.titleHeader"),
+                      t("videoCodes.movieColumn"),
                       t("videoCodes.sizeHeader"),
                       t("videoCodes.viewsHeader"),
                       t("videoCodes.statusHeader"),
@@ -462,13 +508,13 @@ export default function VideoCodes() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {codes.map((c: any) => (
+                  {codes.map((c) => (
                     <tr
                       key={c.id}
                       className="hover:bg-muted/20 transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <CodeBadge code={c.code} />
+                        <CodeBadge code={c.code ?? ""} />
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{c.title}</p>
@@ -478,23 +524,51 @@ export default function VideoCodes() {
                           </p>
                         )}
                       </td>
+                      <td className="min-w-48 px-4 py-3">
+                        <Select
+                          value={c.movieId ?? "unlinked"}
+                          onValueChange={(value) => handleMovieChange(c, value)}
+                          disabled={updateCode.isPending}
+                        >
+                          <SelectTrigger className="h-8 min-w-44 text-xs">
+                            <SelectValue
+                              placeholder={t("videoCodes.unlinkedMovie")}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unlinked">
+                              {t("videoCodes.unlinkedMovie")}
+                            </SelectItem>
+                            {movieOptions.map((movie) =>
+                              movie.id ? (
+                                <SelectItem key={movie.id} value={movie.id}>
+                                  {movie.title ?? movie.id}
+                                  {movie.releaseYear
+                                    ? ` (${formatNumber(movie.releaseYear)})`
+                                    : ""}
+                                </SelectItem>
+                              ) : null,
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {c.fileSize
-                          ? `${(c.fileSize / 1024 / 1024).toFixed(1)} MB`
+                          ? `${formatNumber(Math.round((c.fileSize / 1024 / 1024) * 10) / 10)} ${t("videoCodes.megabytes")}`
                           : "—"}
                         {c.duration ? (
                           <>
                             <br />
-                            {Math.floor(c.duration / 60)}:
-                            {String(c.duration % 60).padStart(2, "0")}
+                            {formatNumber(Math.floor(c.duration / 60))}:
+                            {formatNumber(c.duration % 60).padStart(2, "0")}
                           </>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 font-semibold">
-                        {(c.viewsCount ?? 0).toLocaleString()}
+                        {formatNumber(c.viewsCount ?? 0)}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={c.status} />
+                        <StatusBadge status={c.status ?? "pending"} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
@@ -502,8 +576,9 @@ export default function VideoCodes() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-emerald-400 hover:bg-emerald-950/30"
+                              className="h-7 w-7 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                               title={t("videoCodes.activateTooltip")}
+                              aria-label={t("videoCodes.activateTooltip")}
                               onClick={() => handleStatusChange(c, "active")}
                               disabled={updateCode.isPending}
                             >
@@ -516,6 +591,7 @@ export default function VideoCodes() {
                               variant="ghost"
                               className="h-7 w-7 text-zinc-400 hover:bg-zinc-800"
                               title={t("videoCodes.deactivateTooltip")}
+                              aria-label={t("videoCodes.deactivateTooltip")}
                               onClick={() => handleStatusChange(c, "inactive")}
                               disabled={updateCode.isPending}
                             >
@@ -525,8 +601,9 @@ export default function VideoCodes() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-red-400 hover:bg-red-950/30"
+                            className="h-7 w-7 text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             title={t("videoCodes.deleteTooltip")}
+                            aria-label={t("videoCodes.deleteTooltip")}
                             onClick={() => handleDelete(c)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -556,16 +633,20 @@ export default function VideoCodes() {
           </DialogHeader>
 
           {/* How to get file_id hint */}
-          <div className="flex gap-2.5 rounded-lg bg-blue-950/30 border border-blue-500/20 p-3 text-xs text-blue-300">
+          <div className="flex gap-2.5 rounded-lg border border-blue-300 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/30 dark:text-blue-300">
             <Info className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium mb-0.5">
                 {t("videoCodes.howToGetFileId")}
               </p>
-              <ol className="space-y-0.5 text-blue-300/80 list-decimal list-inside">
+              <ol className="list-inside list-decimal space-y-0.5 text-blue-800/80 dark:text-blue-300/80">
                 <li>
                   {t("videoCodes.howToGetFileIdStep1")}{" "}
-                  <strong>FavoriteKinoBot</strong>
+                  <strong>
+                    {telegramStatus?.botUsername
+                      ? `@${telegramStatus.botUsername.replace(/^@/, "")}`
+                      : t("telegram.botUsernameUnavailable")}
+                  </strong>
                 </li>
                 <li>{t("videoCodes.howToGetFileIdStep2")}</li>
                 <li>{t("videoCodes.howToGetFileIdStep3")}</li>
@@ -580,7 +661,7 @@ export default function VideoCodes() {
               <Input
                 value={importFileId}
                 onChange={(e) => setImportFileId(e.target.value)}
-                placeholder="BQACAgIAAxkBAAI..."
+                placeholder={t("videoCodes.fileIdPlaceholder")}
                 className="font-mono text-xs"
               />
             </div>
@@ -621,7 +702,11 @@ export default function VideoCodes() {
               <Label>{t("videoCodes.accessPolicy")}</Label>
               <Select
                 value={importAccessPolicy}
-                onValueChange={(value) => setImportAccessPolicy(value as any)}
+                onValueChange={(value) => {
+                  if (isVideoCodeAccessPolicy(value)) {
+                    setImportAccessPolicy(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("videoCodes.accessPolicy")} />
@@ -646,7 +731,7 @@ export default function VideoCodes() {
                 <Input
                   value={importRequiredChannels}
                   onChange={(e) => setImportRequiredChannels(e.target.value)}
-                  placeholder="@streamxuz, @channel2"
+                  placeholder={t("videoCodes.requiredChannelsPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("videoCodes.requiredChannelsHint")}
@@ -725,7 +810,8 @@ export default function VideoCodes() {
                 dragOver
                   ? "border-primary bg-primary/5"
                   : "border-border/60 hover:border-primary/50",
-                selectedFile && "border-emerald-500/50 bg-emerald-950/10",
+                selectedFile &&
+                  "border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/10",
               )}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => {
@@ -742,12 +828,15 @@ export default function VideoCodes() {
             >
               {selectedFile ? (
                 <>
-                  <Film className="h-8 w-8 mx-auto mb-2 text-emerald-400" />
-                  <p className="font-medium text-sm text-emerald-300">
+                  <Film className="mx-auto mb-2 h-8 w-8 text-emerald-700 dark:text-emerald-400" />
+                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
                     {selectedFile.name}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                    {formatNumber(
+                      Math.round((selectedFile.size / 1024 / 1024) * 10) / 10,
+                    )}{" "}
+                    {t("videoCodes.megabytes")}
                   </p>
                 </>
               ) : (
@@ -798,7 +887,11 @@ export default function VideoCodes() {
               <Label>{t("videoCodes.accessPolicy")}</Label>
               <Select
                 value={uploadAccessPolicy}
-                onValueChange={(value) => setUploadAccessPolicy(value as any)}
+                onValueChange={(value) => {
+                  if (isVideoCodeAccessPolicy(value)) {
+                    setUploadAccessPolicy(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("videoCodes.accessPolicy")} />
@@ -823,7 +916,7 @@ export default function VideoCodes() {
                 <Input
                   value={uploadRequiredChannels}
                   onChange={(e) => setUploadRequiredChannels(e.target.value)}
-                  placeholder="@streamxuz, @channel2"
+                  placeholder={t("videoCodes.requiredChannelsPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("videoCodes.requiredChannelsHint")}
