@@ -325,9 +325,11 @@ jobs:
           python3 - "$api/api/healthz" <<'PY'
           import concurrent.futures
           import math
+          import socket
           import ssl
           import sys
           import time
+          from collections import Counter
           import urllib.error
           import urllib.request
 
@@ -341,8 +343,14 @@ jobs:
                   with urllib.request.urlopen(url, context=context, timeout=10) as response:
                       status = response.status
                       response.read()
+              except urllib.error.HTTPError as error:
+                  return error.code, (time.perf_counter() - started) * 1000, f"HTTP {error.code}: {error.reason}"
+              except urllib.error.URLError as error:
+                  return None, (time.perf_counter() - started) * 1000, f"URL error: {error.reason}"
+              except (TimeoutError, socket.timeout) as error:
+                  return None, (time.perf_counter() - started) * 1000, f"Timeout: {error}"
               except Exception as error:
-                  return None, (time.perf_counter() - started) * 1000, type(error).__name__
+                  return None, (time.perf_counter() - started) * 1000, f"{type(error).__name__}: {error}"
               return status, (time.perf_counter() - started) * 1000, ""
 
           with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -352,16 +360,21 @@ jobs:
           errors = [result for result in results if result[0] != 200]
           p95_ms = latencies[math.ceil(0.95 * len(latencies)) - 1]
           error_rate = 100 * len(errors) / total_requests
+          status_counts = Counter(
+              str(status) if status is not None else "transport-error"
+              for status, _, _ in results
+          )
           print(
               f"LOAD total={total_requests} concurrency=10 success={total_requests - len(errors)} "
-              f"errors={len(errors)} error_rate_pct={error_rate:.1f} p95_ms={p95_ms:.1f}"
+              f"errors={len(errors)} error_rate_pct={error_rate:.1f} p95_ms={p95_ms:.1f} "
+              f"http_status_counts={dict(sorted(status_counts.items()))}"
           )
           if errors:
               summaries = {}
               for status, _, error in errors:
-                  label = str(status) if status is not None else error
+                  label = error or f"HTTP {status}"
                   summaries[label] = summaries.get(label, 0) + 1
-              print(f"LOAD_FAILURES {summaries}", file=sys.stderr)
+              print(f"LOAD_FAILURES count={len(errors)} details={summaries}", file=sys.stderr)
           if errors or p95_ms >= 2000:
               raise SystemExit(1)
           PY
