@@ -473,7 +473,8 @@ jobs:
             elapsed="$(( $(date +%s) - started_at ))"
             if [ "$upload_status" != "200" ]; then
               api_error="$(jq -r '.error.code // .error.message // "no_api_error"' "$work_dir/upload-response.json" 2>/dev/null || echo no_response_body)"
-              echo "UPLOAD_FAILED size=$label status=$upload_status api_error=$api_error"
+              api_message="$(jq -r '.error.message // "no_message"' "$work_dir/upload-response.json" 2>/dev/null || echo no_response_body)"
+              echo "UPLOAD_FAILED size=$label status=$upload_status api_error=$api_error message=$api_message"
               exit 1
             fi
             uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
