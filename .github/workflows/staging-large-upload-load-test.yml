@@ -336,6 +336,7 @@ jobs:
           url = sys.argv[1]
           context = ssl._create_unverified_context()
           total_requests = 100
+          target_rate_per_second = 80
 
           def request_health(_):
               started = time.perf_counter()
@@ -353,8 +354,15 @@ jobs:
                   return None, (time.perf_counter() - started) * 1000, f"{type(error).__name__}: {error}"
               return status, (time.perf_counter() - started) * 1000, ""
 
+          def paced_requests():
+              schedule_start = time.perf_counter()
+              for request_number in range(total_requests):
+                  request_start = schedule_start + request_number / target_rate_per_second
+                  time.sleep(max(0, request_start - time.perf_counter()))
+                  yield request_number
+
           with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-              results = list(executor.map(request_health, range(total_requests)))
+              results = list(executor.map(request_health, paced_requests()))
 
           latencies = sorted(result[1] for result in results)
           errors = [result for result in results if result[0] != 200]
@@ -366,7 +374,8 @@ jobs:
           )
           print(
               f"LOAD total={total_requests} concurrency=10 success={total_requests - len(errors)} "
-              f"errors={len(errors)} error_rate_pct={error_rate:.1f} p95_ms={p95_ms:.1f} "
+              f"target_rate_per_second={target_rate_per_second} errors={len(errors)} "
+              f"error_rate_pct={error_rate:.1f} p95_ms={p95_ms:.1f} "
               f"http_status_counts={dict(sorted(status_counts.items()))}"
           )
           if errors:
