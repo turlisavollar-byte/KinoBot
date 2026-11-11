@@ -209,7 +209,7 @@ jobs:
       - name: Upload and verify disposable staging movie files
         id: upload_test
         env:
-          API_BASE_URL: https://3.105.228.88
+          API_BASE_URL: https://3.105.228.88:8443
           STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
           TEST_EMAIL: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_EMAIL }}
           TEST_PASSWORD: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_PASSWORD }}
