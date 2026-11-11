@@ -195,6 +195,361 @@ jobs:
   movie_upload_test:
     if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.movie_upload_test == true && inputs.confirm_staging == false && inputs.rollback_test == false && inputs.verify_nginx_dashboard == false
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: staging
+    steps:
+      - name: Configure AWS credentials for staging SSM
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Run upload, DB/S3 verification, and cleanup inside staging via SSM
+        env:
+          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
+          TEST_EMAIL: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.STAGING_MOVIE_UPLOAD_TEST_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$STAGING_INSTANCE_ID" = "i-0a9e38028ea1889bc"
+          test -n "$TEST_EMAIL"
+          test -n "$TEST_PASSWORD"
+
+          email_b64="$(printf '%s' "$TEST_EMAIL" | base64 -w0)"
+          password_b64="$(printf '%s' "$TEST_PASSWORD" | base64 -w0)"
+          test_script=$(cat <<'SSM'
+          set -eu
+          sudo -u ubuntu env \
+            TEST_EMAIL_B64=__TEST_EMAIL_B64__ \
+            TEST_PASSWORD_B64=__TEST_PASSWORD_B64__ \
+            TEST_RUN_ID=__TEST_RUN_ID__ \
+            TEST_RUN_ATTEMPT=__TEST_RUN_ATTEMPT__ \
+            bash -se <<'REMOTE'
+          set -euo pipefail
+          cd /opt/kinobot-v2-git
+          test "$(git branch --show-current)" = "feature/v2-web-integration"
+
+          api="https://127.0.0.1:8443"
+          work_dir="$(mktemp -d)"
+          chmod 700 "$work_dir"
+          umask 077
+          expected_title="test-upload-$(date -u +%Y%m%dT%H%M%SZ)-${TEST_RUN_ID}-${TEST_RUN_ATTEMPT}"
+          test_email="$(printf '%s' "$TEST_EMAIL_B64" | base64 -d)"
+          test_password="$(printf '%s' "$TEST_PASSWORD_B64" | base64 -d)"
+          movie_id=""
+          api_token=""
+          storage_keys=()
+          cleanup_failed=false
+
+          db_query() {
+            printf '%s\n' "$1" | sudo docker compose -f docker-compose.prod.yml exec -T postgres \
+              sh -ec 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At'
+          }
+
+          valid_movie_id() {
+            printf '%s' "$1" | grep -Eq '^[0-9a-fA-F-]{36}$'
+          }
+
+          valid_storage_key() {
+            printf '%s' "$1" | grep -Eq "^movies/${movie_id}/[0-9a-f-]{36}\\.mp4$"
+          }
+
+          check_s3_object() {
+            local key="$1"
+            local expected_size="$2"
+            sudo docker compose -f docker-compose.prod.yml exec -T \
+              -e MOVIE_TEST_STORAGE_KEY="$key" \
+              -e MOVIE_TEST_EXPECTED_SIZE="$expected_size" \
+              api-server node <<'NODE'
+          const { HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const result = await client.send(new HeadObjectCommand({
+              Bucket: process.env.VIDEO_BUCKET || "videos",
+              Key: process.env.MOVIE_TEST_STORAGE_KEY,
+            }));
+            if (Number(result.ContentLength) !== Number(process.env.MOVIE_TEST_EXPECTED_SIZE)) {
+              throw new Error("stored object size mismatch");
+            }
+            console.log(`S3_OBJECT exists=true size_bytes=${result.ContentLength}`);
+            client.destroy();
+          }
+          main().catch((error) => {
+            console.error(`S3_OBJECT exists=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          }
+
+          cleanup_s3_objects() {
+            local keys
+            keys="$(printf '%s\n' "${storage_keys[@]}" | sed '/^$/d' | sort -u)"
+            [ -n "$keys" ] || return 0
+            sudo docker compose -f docker-compose.prod.yml exec -T \
+              -e MOVIE_TEST_STORAGE_KEYS="$keys" api-server node <<'NODE'
+          const {
+            DeleteObjectCommand,
+            HeadObjectCommand,
+            S3Client,
+          } = require("@aws-sdk/client-s3");
+          async function main() {
+            const endpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
+            const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.MINIO_ACCESS_KEY;
+            const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_SECRET_KEY;
+            if (!accessKeyId || !secretAccessKey) throw new Error("storage credentials are not configured");
+            const client = new S3Client({
+              endpoint,
+              credentials: { accessKeyId, secretAccessKey },
+              region: process.env.S3_REGION || process.env.MINIO_REGION || "us-east-1",
+              forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true" || Boolean(endpoint && endpoint.includes("minio")),
+            });
+            const bucket = process.env.VIDEO_BUCKET || "videos";
+            const keys = [...new Set(process.env.MOVIE_TEST_STORAGE_KEYS.split("\n").filter(Boolean))];
+            for (const key of keys) {
+              if (!/^movies\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(key)) {
+                throw new Error("storage key is outside the disposable movie namespace");
+              }
+              await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+              try {
+                await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+                throw new Error("test object still exists after deletion");
+              } catch (error) {
+                if (error.message === "test object still exists after deletion") throw error;
+                if (error.name !== "NotFound" && error.$metadata?.httpStatusCode !== 404) throw error;
+              }
+            }
+            console.log(`S3_CLEANUP deleted=${keys.length} verified_absent=true`);
+            client.destroy();
+          }
+          main().catch((error) => {
+            console.error(`S3_CLEANUP verified_absent=false error=${error.name || "Error"} status=${error.$metadata?.httpStatusCode || "unknown"}`);
+            process.exitCode = 1;
+          });
+          NODE
+          }
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            if [ -n "$api_token" ]; then
+              if [ -z "$movie_id" ]; then
+                mapfile -t found_ids < <(db_query "SELECT id FROM movies WHERE title = '${expected_title}' AND deleted_at IS NULL;")
+              else
+                found_ids=("$movie_id")
+              fi
+              for cleanup_id in "${found_ids[@]}"; do
+                if ! valid_movie_id "$cleanup_id"; then
+                  echo "CLEANUP refused_invalid_movie_id"
+                  cleanup_failed=true
+                  continue
+                fi
+                cleanup_response="$work_dir/cleanup-movie.json"
+                cleanup_status="$(curl --insecure --silent --connect-timeout 10 --max-time 30 \
+                  --output "$cleanup_response" --write-out '%{http_code}' \
+                  --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$cleanup_id")"
+                if [ "$cleanup_status" = "200" ] &&
+                  [ "$(jq -r '.title // empty' "$cleanup_response")" = "$expected_title" ]; then
+                  cleanup_key="$(jq -r '.storageKey // empty' "$cleanup_response")"
+                  if [ -n "$cleanup_key" ]; then
+                    movie_id="$cleanup_id"
+                    if valid_storage_key "$cleanup_key"; then
+                      storage_keys+=("$cleanup_key")
+                    else
+                      echo "CLEANUP refused_unexpected_storage_key"
+                      cleanup_failed=true
+                    fi
+                  fi
+                  delete_status="$(curl --insecure --silent --connect-timeout 10 --max-time 30 \
+                    --output /dev/null --write-out '%{http_code}' --request DELETE \
+                    --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$cleanup_id")"
+                  if [ "$delete_status" = "204" ]; then
+                    active_count="$(db_query "SELECT count(*) FROM movies WHERE id = '${cleanup_id}' AND deleted_at IS NULL;")"
+                    if [ "$active_count" = "0" ]; then
+                      echo "CLEANUP movie_deleted=true"
+                    else
+                      echo "CLEANUP movie_still_active=true"
+                      cleanup_failed=true
+                    fi
+                  else
+                    echo "CLEANUP movie_delete_failed http=$delete_status"
+                    cleanup_failed=true
+                  fi
+                else
+                  echo "CLEANUP movie_identity_check_failed http=$cleanup_status"
+                  cleanup_failed=true
+                fi
+              done
+            fi
+            if ! cleanup_s3_objects; then cleanup_failed=true; fi
+            rm -rf "$work_dir"
+            if [ "$cleanup_failed" = true ]; then result=1; fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          health_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' "$api/api/healthz")"
+          test "$health_status" = "200"
+          echo "PRECHECK api_health=http_${health_status}"
+
+          printf '%s' "$test_email" > "$work_dir/email"
+          printf '%s' "$test_password" > "$work_dir/password"
+          jq -n --rawfile email "$work_dir/email" --rawfile password "$work_dir/password" \
+            '{email: $email, password: $password}' > "$work_dir/login.json"
+          unset test_email test_password TEST_EMAIL_B64 TEST_PASSWORD_B64
+          rm -f "$work_dir/email" "$work_dir/password"
+          login_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/login-response.json" --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' --data-binary @"$work_dir/login.json" \
+            "$api/api/identity/auth/login")"
+          test "$login_status" = "200"
+          api_token="$(jq -er '.accessToken' "$work_dir/login-response.json")"
+          rm -f "$work_dir/login.json" "$work_dir/login-response.json"
+          echo "AUTH login=success"
+
+          jq -cn --arg title "$expected_title" '{title: $title}' > "$work_dir/movie.json"
+          create_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output "$work_dir/movie-response.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $api_token" --header 'Content-Type: application/json' \
+            --data-binary @"$work_dir/movie.json" "$api/api/catalog/movies")"
+          movie_id="$(jq -er '.id' "$work_dir/movie-response.json")"
+          if [ "$create_status" != "201" ] ||
+            [ "$(jq -r '.title // empty' "$work_dir/movie-response.json")" != "$expected_title" ] ||
+            ! valid_movie_id "$movie_id"; then
+            echo "MOVIE create_failed http=$create_status"
+            exit 1
+          fi
+          echo "MOVIE created=true id=$movie_id"
+          rm -f "$work_dir/movie.json" "$work_dir/movie-response.json"
+
+          python3 - "$work_dir" <<'PY'
+          import struct
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          ftyp = struct.pack(">I4s4sI4s4s4s", 28, b"ftyp", b"isom", 512, b"isom", b"iso2", b"mp41")
+          for name, requested in (("1MB", 1_000_000), ("10MB", 10_000_000), ("100MB", 100_000_000)):
+              free_size = requested - len(ftyp)
+              if free_size < 8:
+                  raise SystemExit("fixture is too small")
+              with (root / f"{name}.mp4").open("wb") as output:
+                  output.write(ftyp)
+                  output.write(struct.pack(">I4s", free_size, b"free"))
+                  remaining = free_size - 8
+                  zeroes = b"\0" * min(1024 * 1024, remaining)
+                  while remaining:
+                      chunk = zeroes[:min(len(zeroes), remaining)]
+                      output.write(chunk)
+                      remaining -= len(chunk)
+              if (root / f"{name}.mp4").stat().st_size != requested:
+                  raise SystemExit("fixture size mismatch")
+          PY
+
+          for item in "1MB:1000000" "10MB:10000000" "100MB:100000000"; do
+            label="${item%%:*}"
+            expected_size="${item##*:}"
+            file="$work_dir/$label.mp4"
+            started_at="$(date +%s)"
+            upload_status="$(curl --insecure --silent --show-error --connect-timeout 20 --max-time 1800 \
+              --output "$work_dir/upload-response.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" \
+              --form "video=@$file;type=video/mp4" "$api/api/catalog/movies/$movie_id/upload")"
+            elapsed="$(( $(date +%s) - started_at ))"
+            test "$upload_status" = "200"
+            uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
+            test "$(jq -r '.id' "$work_dir/upload-response.json")" = "$movie_id"
+            test "$(jq -r '.sourceType' "$work_dir/upload-response.json")" = "s3"
+            if ! valid_storage_key "$uploaded_key"; then
+              echo "UPLOAD size=$label storage_key_invalid=true"
+              exit 1
+            fi
+            storage_keys+=("$uploaded_key")
+
+            movie_status="$(curl --insecure --silent --show-error --connect-timeout 10 --max-time 30 \
+              --output "$work_dir/movie-verify.json" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $api_token" "$api/api/catalog/movies/$movie_id")"
+            test "$movie_status" = "200"
+            test "$(jq -r '.storageKey' "$work_dir/movie-verify.json")" = "$uploaded_key"
+            test "$(jq -r '.sourceType' "$work_dir/movie-verify.json")" = "s3"
+
+            db_value="$(db_query "SELECT COALESCE(storage_key, '') || '|' || source_type FROM movies WHERE id = '${movie_id}' AND deleted_at IS NULL;")"
+            test "$db_value" = "${uploaded_key}|s3"
+            check_s3_object "$uploaded_key" "$expected_size"
+            echo "UPLOAD size=$label status=200 elapsed_seconds=$elapsed database_key=verified s3_object=verified"
+            rm -f "$work_dir/upload-response.json" "$work_dir/movie-verify.json"
+          done
+          echo "TEST_RESULT uploads=3 db=verified s3=verified"
+          REMOTE
+          SSM
+          )
+          test_script="${test_script//__TEST_EMAIL_B64__/$email_b64}"
+          test_script="${test_script//__TEST_PASSWORD_B64__/$password_b64}"
+          test_script="${test_script//__TEST_RUN_ID__/$GITHUB_RUN_ID}"
+          test_script="${test_script//__TEST_RUN_ATTEMPT__/$GITHUB_RUN_ATTEMPT}"
+          parameters="$(jq -cn --arg commands "$test_script" '{commands: [$commands]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Kinobot v2 staging disposable movie upload test ${GITHUB_RUN_ID}" \
+            --max-concurrency 1 --max-errors 0 --timeout-seconds 3600 \
+            --parameters "$parameters" \
+            --query Command.CommandId --output text)"
+          test -n "$command_id"
+          test "$command_id" != "None"
+
+          completed=false
+          for attempt in $(seq 1 36); do
+            if aws ssm wait command-executed \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID"; then
+              completed=true
+              break
+            fi
+            command_status="$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$command_status" in
+              Success) completed=true; break ;;
+              Pending|InProgress|Delayed|Cancelling) ;;
+              *)
+                aws ssm get-command-invocation \
+                  --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+                  --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+          status="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query Status --output text)"
+          output="$(aws ssm get-command-invocation \
+            --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+            --query StandardOutputContent --output text)"
+          printf '%s\n' "$output"
+          if [ "$completed" != "true" ] || [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardErrorContent:StandardErrorContent}' \
+              --output json
+            exit 1
+          fi
+  movie_upload_test_runner_legacy:
+    if: false
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment:
       name: staging
