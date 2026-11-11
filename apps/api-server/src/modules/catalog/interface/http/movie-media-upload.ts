@@ -35,7 +35,7 @@ const upload = multer({
     destination: os.tmpdir(),
     filename: (_req, _file, callback) => callback(null, randomUUID()),
   }),
-  limits: { fileSize: MAX_MOVIE_UPLOAD_BYTES, files: 1, fields: 0, parts: 1 },
+  limits: { fileSize: MAX_MOVIE_UPLOAD_BYTES, files: 1, fields: 0, parts: 20 },
   fileFilter: (_req, file, callback) => callback(null, isMovieMp4Upload(file)),
 }).single("video");
 
