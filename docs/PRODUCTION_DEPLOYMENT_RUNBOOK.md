@@ -19,7 +19,10 @@ canonical migrations remain in the same Compose stack.
 - Fresh Debian 12+ or Ubuntu 22.04+ server, at least 2 vCPU, 4 GB RAM, and 20 GB free disk recommended.
 - DNS A record for the production domain pointing to this server.
 - Inbound TCP 80/443 open for ACME certificate issuance and HTTPS; SSH restricted to operator IPs.
-- Source archive or Git checkout for `feature/v2-web-integration`.
+- Source archive or Git checkout of the explicitly approved release commit.
+  The v2.0.0 baseline is `main` commit
+  `c7428a01b625cf7314bf870913110bed529a8d2b`; verify any later approved
+  release independently before deployment.
 - A valid email for Let's Encrypt and a PostgreSQL admin password with 16+ alphanumeric characters.
 
 ### Reported Test Server

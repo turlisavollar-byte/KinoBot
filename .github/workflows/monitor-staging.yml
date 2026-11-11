@@ -129,6 +129,9 @@ jobs:
       - name: Create or update monitoring alert issue
         if: always() && (steps.aws-credentials.outcome == 'failure' || steps.probe.outcome == 'failure')
         uses: actions/github-script@v8
+        env:
+          AWS_CREDENTIALS_OUTCOME: ${{ steps.aws-credentials.outcome }}
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
         with:
           script: |
             const title = '[staging-monitor] v2 health or API errors';
@@ -141,6 +144,9 @@ jobs:
             const body = [
               'The automated v2 staging health/API log check failed.',
               '',
+              `Commit: ${context.sha}`,
+              `AWS credential setup: ${process.env.AWS_CREDENTIALS_OUTCOME}.`,
+              `Staging probe: ${process.env.PROBE_OUTCOME}.`,
               `Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
               'Raw application logs are intentionally not copied into this issue.',
             ].join('\n');

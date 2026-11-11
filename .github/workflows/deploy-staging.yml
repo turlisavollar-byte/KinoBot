@@ -1040,7 +1040,7 @@ jobs:
             --command-id "$command_id" --instance-id "$STAGING_INSTANCE_ID" \
             --query StandardOutputContent --output text
   deploy:
-    if: github.ref == 'refs/heads/feature/v2-web-integration' && inputs.confirm_staging == true
+    if: (github.ref == 'refs/heads/feature/v2-web-integration' || (github.ref == 'refs/heads/feature/v2-production-hardening' && inputs.rollback_test == true)) && inputs.confirm_staging == true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment:
@@ -1129,7 +1129,11 @@ jobs:
           test -s "backups/$backup_name"
           printf '%s\n' "$backup_name" > "$state_dir/db-backup-name"
 
-          GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
+          if [ "$ROLLBACK_TEST" != "true" ]; then
+            GIT_TERMINAL_PROMPT=0 git pull --ff-only origin feature/v2-web-integration
+          else
+            echo "Rollback test: staging source update skipped"
+          fi
           sudo docker compose -f docker-compose.prod.yml config -q
           sudo docker compose -f docker-compose.prod.yml build --no-cache api-server dashboard web landing
           if [ "$ROLLBACK_TEST" != "true" ]; then

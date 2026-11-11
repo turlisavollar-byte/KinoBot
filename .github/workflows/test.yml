@@ -1,9 +1,9 @@
 name: v2 CI
 "on":
   push:
-    branches: [feature/v2-web-integration]
+    branches: [main]
   pull_request:
-    branches: [feature/v2-web-integration]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
