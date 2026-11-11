@@ -133,7 +133,7 @@ async function enqueuePending(): Promise<void> {
   const pending = await db
     .select({ id: telegramMediaTable.id, attempts: telegramMediaTable.attempts })
     .from(telegramMediaTable)
-    .where(inArray(telegramMediaTable.status, ["pending", "failed"]))
+    .where(eq(telegramMediaTable.status, "pending"))
     .limit(100);
 
   for (const media of pending) {
