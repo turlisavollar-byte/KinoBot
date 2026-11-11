@@ -1,5 +1,15 @@
 import { Router } from "express";
 import { container } from "tsyringe";
+import { vi } from "vitest";
+
+vi.mock("./infrastructure/SubscriptionLifecycleWorker", () => ({
+  SubscriptionLifecycleWorker: class {
+    async processExpiredAndCompletedTrials() {
+      return { activatedTrials: 0, expiredSubscriptions: 0 };
+    }
+  },
+}));
+
 import { BillingController, initBillingModule } from "./index";
 import { pickCanonicalSubscriptionSource } from "./infrastructure/subscriptionCompatibility";
 
