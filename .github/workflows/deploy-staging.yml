@@ -229,7 +229,8 @@ jobs:
             TEST_RUN_ATTEMPT=__TEST_RUN_ATTEMPT__ \
             bash -se <<'REMOTE'
           set -euo pipefail
-          cd /opt/kinobot-v2-git
+            trap 'status=$?; echo "REMOTE_ERROR line=$LINENO status=$status" >&2' ERR
+            cd /opt/kinobot-v2-git
           test "$(git branch --show-current)" = "feature/v2-web-integration"
 
           api="https://127.0.0.1:8443"
@@ -458,6 +459,7 @@ jobs:
               if (root / f"{name}.mp4").stat().st_size != requested:
                   raise SystemExit("fixture size mismatch")
           PY
+          echo "FIXTURES_READY sizes=1MB,10MB,100MB"
 
           for item in "1MB:1000000" "10MB:10000000" "100MB:100000000"; do
             label="${item%%:*}"
@@ -469,7 +471,11 @@ jobs:
               --header "Authorization: Bearer $api_token" \
               --form "video=@$file;type=video/mp4" "$api/api/catalog/movies/$movie_id/upload")"
             elapsed="$(( $(date +%s) - started_at ))"
-            test "$upload_status" = "200"
+            if [ "$upload_status" != "200" ]; then
+              api_error="$(jq -r '.error.code // .error.message // "no_api_error"' "$work_dir/upload-response.json" 2>/dev/null || echo no_response_body)"
+              echo "UPLOAD_FAILED size=$label status=$upload_status api_error=$api_error"
+              exit 1
+            fi
             uploaded_key="$(jq -er '.storageKey' "$work_dir/upload-response.json")"
             test "$(jq -r '.id' "$work_dir/upload-response.json")" = "$movie_id"
             test "$(jq -r '.sourceType' "$work_dir/upload-response.json")" = "s3"
