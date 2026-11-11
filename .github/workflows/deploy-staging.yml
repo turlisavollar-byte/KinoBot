@@ -585,10 +585,22 @@ jobs:
           set -eu
           sudo -u ubuntu bash -se <<'REMOTE'
           set -euo pipefail
+          trap 'status=$?; echo "REFRESH_ERROR line=$LINENO status=$status" >&2' ERR
           cd /opt/kinobot-v2-git
-          test "$(git branch --show-current)" = "feature/v2-web-integration"
-          test "$(git remote get-url origin)" = "https://github.com/turlisavollar-byte/KinoBot.git"
-          test -z "$(git status --porcelain --untracked-files=no)"
+          branch="$(git branch --show-current)"
+          if [ "$branch" != "feature/v2-web-integration" ]; then
+            echo "REFRESH refused_unexpected_branch branch=$branch"
+            exit 1
+          fi
+          origin_url="$(git remote get-url origin)"
+          case "$origin_url" in
+            https://github.com/turlisavollar-byte/KinoBot|https://github.com/turlisavollar-byte/KinoBot.git|git@github.com:turlisavollar-byte/KinoBot.git|ssh://git@github.com/turlisavollar-byte/KinoBot.git) ;;
+            *) echo "REFRESH refused_unexpected_origin" ; exit 1 ;;
+          esac
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "REFRESH refused_dirty_worktree=true"
+            exit 1
+          fi
 
           exec 9>/tmp/kinobot-v2-deploy.lock
           flock -x 9
