@@ -1,7 +1,5 @@
-name: v2 staging monitoring
+name: v2 staging monitoring (manual only)
 on:
-  schedule:
-    - cron: '*/15 * * * *'
   workflow_dispatch:
 permissions:
   contents: read

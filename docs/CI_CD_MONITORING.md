@@ -20,12 +20,21 @@ Do not put private keys, `.env`, or tokens in the repository. The SSH host key i
 
 ## Monitoring
 
-`.github/workflows/monitor-staging.yml` checks the API health endpoint, nginx HTTP/HTTPS, API error log count over 15 minutes, and Docker CPU/RAM stats every 15 minutes or on manual dispatch. The check connects only to the staging host over SSH. It emits status/count/metrics, never raw API log lines. Failures create or update one GitHub issue; a successful subsequent check closes it. Ensure GitHub Issues are enabled and repository notifications reach the on-call team.
+`.github/workflows/monitor-production.yml` checks the production EC2's SSM managed-instance status using read-only AWS credentials, then checks the HTTP-to-HTTPS redirect and public HTTPS API/application health. It runs every 15 minutes and supports manual dispatch. Configure the `production-monitoring` environment with these secrets:
 
-GitHub scheduled workflows run from the repository default branch. Until this branch is merged into that default branch, use `workflow_dispatch` to test monitoring from the feature branch.
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for the dedicated `github-actions-monitoring` IAM user, limited to `AmazonSSMReadOnlyAccess`.
+- `AWS_REGION=ap-southeast-2`.
+- `PRODUCTION_INSTANCE_ID=i-0813d11986c406303`.
+- `PRODUCTION_HOST=3.25.119.196`.
+
+The workflow deliberately does not use SSM Run Command: the read-only policy cannot send commands. It therefore does not inspect private container logs or host CPU/RAM. It pins the instance ID and host in the workflow checks, connects to the host IP with the production TLS hostname, and never emits credentials or raw application logs. Failures create or update one GitHub issue; a successful subsequent check closes it. Ensure GitHub Issues are enabled and repository notifications reach the on-call team.
+
+`.github/workflows/monitor-staging.yml` is manual-only; its scheduled trigger is disabled. The `staging` and `staging-monitoring` environments remain reserved for the old staging server and are not changed by production monitoring.
+
+GitHub scheduled workflows run from the repository default branch. Until the production monitoring workflow is merged into that default branch, use `workflow_dispatch` to test it from the feature branch.
 
 ## Known limitations
 
 - The existing Web lint has one `react-hooks/exhaustive-deps` warning in `apps/web/app/(player)/watch/[id]/page.tsx`.
 - Workspace tests are temporarily non-blocking due to the four dashboard failures noted above.
-- No production deploy workflow or production host variable/secret is defined here.
+- No production deploy workflow is defined here; the production workflow is monitoring-only.
