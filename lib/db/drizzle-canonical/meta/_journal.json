@@ -120,6 +120,13 @@
       "when": 1794204977043,
       "tag": "0016_telegram_media_metadata_and_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794497653594,
+      "tag": "0017_customer_identity",
+      "breakpoints": true
     }
   ]
 }
