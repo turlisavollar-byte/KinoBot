@@ -1,0 +1,128 @@
+name: v2 production monitoring
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: v2-production-monitor
+  cancel-in-progress: true
+jobs:
+  monitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: production-monitoring
+    steps:
+      - name: Configure AWS credentials
+        id: aws-credentials
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Probe production instance and public health endpoints
+        id: probe
+        if: steps.aws-credentials.outcome == 'success'
+        continue-on-error: true
+        env:
+          PRODUCTION_INSTANCE_ID: ${{ secrets.PRODUCTION_INSTANCE_ID }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+        run: |
+          set -euo pipefail
+          test "$AWS_REGION" = "ap-southeast-2"
+          test "$PRODUCTION_INSTANCE_ID" = "i-0813d11986c406303"
+          test "$PRODUCTION_HOST" = "3.25.119.196"
+
+          ping_status="$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$PRODUCTION_INSTANCE_ID" \
+            --query 'InstanceInformationList[0].PingStatus' \
+            --output text)"
+          test "$ping_status" = "Online"
+          echo "METRIC ssm_managed_instance=online"
+
+          health_host="3-25-119-196.sslip.io"
+          http_result="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+            --resolve "$health_host:80:$PRODUCTION_HOST" \
+            --output /dev/null --write-out '%{http_code} %{redirect_url}' \
+            "http://$health_host/api/healthz")"
+          http_status="${http_result%% *}"
+          redirect_url="${http_result#* }"
+          test "$http_status" = "301"
+          test "$redirect_url" = "https://$health_host/api/healthz"
+          echo "METRIC http_redirect_status=$http_status"
+
+          work_dir="$(mktemp -d)"
+          trap 'rm -rf "$work_dir"' EXIT
+          health_status="$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
+            --resolve "$health_host:443:$PRODUCTION_HOST" \
+            --output "$work_dir/health.json" --write-out '%{http_code}' \
+            "https://$health_host/api/healthz")"
+          test "$health_status" = "200"
+          jq -e '
+            .status == "ok" and
+            .services.database == "ok" and
+            .services.queue == "ok" and
+            .services.storage == "ok" and
+            .services.bot == "running" and
+            .services.telegramMediaPipeline == "running"
+          ' "$work_dir/health.json" >/dev/null
+          echo "METRIC api_health_http=$health_status application_health=ok"
+
+          web_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+            --resolve "$health_host:443:$PRODUCTION_HOST" \
+            --output /dev/null --write-out '%{http_code}' \
+            "https://$health_host/")"
+          test "$web_status" = "200"
+          echo "METRIC https_root_http=$web_status"
+      - name: Create or update production monitoring alert
+        if: always() && (steps.aws-credentials.outcome == 'failure' || steps.probe.outcome == 'failure')
+        uses: actions/github-script@v8
+        env:
+          AWS_CREDENTIALS_OUTCOME: ${{ steps.aws-credentials.outcome }}
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        with:
+          script: |
+            const title = '[production-monitor] v2 health or instance check failed';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const issue = issues.find((item) => item.title === title && !item.pull_request);
+            const body = [
+              'The automated v2 production instance or HTTPS health check failed.',
+              '',
+              `Commit: ${context.sha}`,
+              `AWS credential setup: ${process.env.AWS_CREDENTIALS_OUTCOME}.`,
+              `Production probe: ${process.env.PROBE_OUTCOME}.`,
+              `Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            if (issue) {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, body });
+            }
+      - name: Close production monitoring alert after recovery
+        if: always() && steps.aws-credentials.outcome == 'success' && steps.probe.outcome == 'success'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const title = '[production-monitor] v2 health or instance check failed';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const issue = issues.find((item) => item.title === title && !item.pull_request);
+            if (issue) {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+            }
+      - name: Mark failed production monitor run
+        if: always() && (steps.aws-credentials.outcome == 'failure' || steps.probe.outcome == 'failure')
+        run: |
+          exit 1
