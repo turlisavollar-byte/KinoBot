@@ -1,6 +1,15 @@
 import bcrypt from "bcrypt";
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import {
   Router,
   type NextFunction,
@@ -31,6 +40,22 @@ import {
   JwtService,
   type JwtPayload,
 } from "@/modules/identity/infrastructure/services/jwt.service";
+import { PasswordService } from "@/modules/identity/infrastructure/services/password.service";
+import {
+  AccountUnavailableError,
+  CurrentAccountProofRequiredError,
+  EmailAlreadyExistsError,
+  ExternalIdentityAlreadyOwnedError,
+  ExternalIdentityConflictError,
+  ExternalIdentityProofConfigurationError,
+  InvalidCredentialsError,
+  InvalidExternalIdentityProofError,
+} from "@/modules/customer-identity/application/errors/customer-identity.errors";
+import { LinkExternalIdentityUseCase } from "@/modules/customer-identity/application/use-cases/link-external-identity.use-case";
+import { LoginCustomerUseCase } from "@/modules/customer-identity/application/use-cases/login-customer.use-case";
+import { RegisterCustomerUseCase } from "@/modules/customer-identity/application/use-cases/register-customer.use-case";
+import { DrizzleCustomerIdentityUnitOfWork } from "@/modules/customer-identity/infrastructure/repositories/drizzle-customer-identity.unit-of-work";
+import { TelegramLoginWidgetProofVerifier } from "@/modules/customer-identity/infrastructure/services/telegram-login-widget-proof-verifier";
 import { storage } from "@/infrastructure/storage/minio";
 import { AuthUser } from "@/lib/auth";
 import { resolveActiveSubscriptionSnapshot } from "@/modules/billing/infrastructure/subscriptionCompatibility";
@@ -38,6 +63,20 @@ import { getTelegramMediaUrlLifetime } from "@/modules/telegram-media/telegram-m
 
 const router = Router();
 const jwtService = JwtService.getInstance();
+const customerIdentityUnitOfWork = new DrizzleCustomerIdentityUnitOfWork();
+const customerPasswordService = new PasswordService();
+const registerCustomer = new RegisterCustomerUseCase(
+  customerIdentityUnitOfWork,
+  customerPasswordService,
+);
+const loginCustomer = new LoginCustomerUseCase(
+  customerIdentityUnitOfWork,
+  customerPasswordService,
+);
+const linkExternalIdentity = new LinkExternalIdentityUseCase(
+  customerIdentityUnitOfWork,
+  new TelegramLoginWidgetProofVerifier(),
+);
 
 function routeParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
@@ -126,6 +165,7 @@ function requireWebAuth(req: Request, res: Response, next: NextFunction): void {
         role: "customer",
         permissions: [],
       } satisfies AuthUser;
+      req.webSessionId = session.id;
       next();
     } catch (error) {
       next(error);
@@ -180,6 +220,17 @@ const loginBody = z.object({
   email: z.string().email().max(254),
   password: z.string().min(1).max(128),
 });
+const telegramLoginWidgetProofBody = z
+  .object({
+    id: z.union([z.string(), z.number().int().positive()]),
+    auth_date: z.union([z.string(), z.number().int()]),
+    hash: z.string().regex(/^[a-f0-9]{64}$/i),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    username: z.string().optional(),
+    photo_url: z.string().optional(),
+  })
+  .strict();
 
 router.post("/auth/register", authRateLimit, async (req, res, next) => {
   try {
@@ -194,66 +245,20 @@ router.post("/auth/register", authRateLimit, async (req, res, next) => {
       return;
     }
     const email = parsed.data.email.trim().toLowerCase();
-    const [existing] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(
-        and(
-          sql`lower(${usersTable.email}) = ${email}`,
-          isNull(usersTable.deletedAt),
-        ),
-      )
-      .limit(1);
-    if (existing) {
-      sendError(
-        res,
-        409,
-        "EMAIL_IN_USE",
-        "An account with this email already exists",
-      );
-      return;
-    }
-
-    const passwordHash = await bcrypt.hash(
-      parsed.data.password,
-      Number(process.env.BCRYPT_SALT_ROUNDS || 12),
-    );
-    const nameParts = parsed.data.name.trim().split(/\s+/, 2);
-    const [user] = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(usersTable)
-        .values({
-          email,
-          passwordHash,
-          firstName: nameParts[0],
-          lastName: nameParts[1] ?? null,
-          role: "user",
-        })
-        .returning({
-          id: usersTable.id,
-          email: usersTable.email,
-          firstName: usersTable.firstName,
-          lastName: usersTable.lastName,
-        });
-      await tx
-        .insert(userProfilesTable)
-        .values({ userId: created.id, displayName: parsed.data.name.trim() });
-      return [created];
+    const registered = await registerCustomer.execute({
+      email,
+      name: parsed.data.name,
+      password: parsed.data.password,
     });
     res.status(201).json(
       await issueTokens({
-        id: user.id,
-        email: user.email!,
-        name: [user.firstName, user.lastName].filter(Boolean).join(" "),
+        id: registered.user.id,
+        email,
+        name: registered.displayName,
       }),
     );
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: string }).code === "23505"
-    ) {
+    if (error instanceof EmailAlreadyExistsError) {
       sendError(
         res,
         409,
@@ -273,49 +278,108 @@ router.post("/auth/login", authRateLimit, async (req, res, next) => {
       sendError(res, 400, "VALIDATION_ERROR", "Email or password is invalid");
       return;
     }
-    const email = parsed.data.email.trim().toLowerCase();
-    const [user] = await db
-      .select({
-        id: usersTable.id,
-        email: usersTable.email,
-        passwordHash: usersTable.passwordHash,
-        firstName: usersTable.firstName,
-        lastName: usersTable.lastName,
-        isActive: usersTable.isActive,
-        isBlocked: usersTable.isBlocked,
-      })
-      .from(usersTable)
-      .where(
-        and(
-          sql`lower(${usersTable.email}) = ${email}`,
-          isNull(usersTable.deletedAt),
-        ),
-      )
-      .limit(1);
+    const authenticated = await loginCustomer.execute(parsed.data);
+    const email = authenticated.emailIdentity?.email;
+    if (!email) {
+      sendError(res, 401, "AUTH_FAILED", "Invalid email or password");
+      return;
+    }
+    res.json(
+      await issueTokens({
+        id: authenticated.user.id,
+        email,
+        name: authenticated.displayName,
+      }),
+    );
+  } catch (error) {
     if (
-      !user?.passwordHash ||
-      !user.isActive ||
-      user.isBlocked ||
-      !(await bcrypt.compare(parsed.data.password, user.passwordHash))
+      error instanceof InvalidCredentialsError ||
+      error instanceof AccountUnavailableError
     ) {
       sendError(res, 401, "AUTH_FAILED", "Invalid email or password");
       return;
     }
-    await db
-      .update(usersTable)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(usersTable.id, user.id));
-    res.json(
-      await issueTokens({
-        id: user.id,
-        email: user.email!,
-        name: [user.firstName, user.lastName].filter(Boolean).join(" "),
-      }),
-    );
-  } catch (error) {
     next(error);
   }
 });
+
+router.post(
+  "/auth/link/telegram",
+  authRateLimit,
+  requireWebAuth,
+  async (req, res, next) => {
+    const parsed = telegramLoginWidgetProofBody.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        "Invalid Telegram identity proof",
+      );
+      return;
+    }
+
+    try {
+      await linkExternalIdentity.execute({
+        userId: req.user!.id,
+        sessionId: req.webSessionId ?? "",
+        proof: parsed.data,
+      });
+      res.json({ success: true, provider: "telegram" });
+    } catch (error) {
+      if (error instanceof CurrentAccountProofRequiredError) {
+        sendError(
+          res,
+          401,
+          "UNAUTHORIZED",
+          "A current customer session is required",
+        );
+        return;
+      }
+      if (error instanceof AccountUnavailableError) {
+        sendError(res, 401, "UNAUTHORIZED", "Account is unavailable");
+        return;
+      }
+      if (error instanceof InvalidExternalIdentityProofError) {
+        sendError(
+          res,
+          401,
+          "INVALID_PROVIDER_PROOF",
+          "Telegram proof is invalid or expired",
+        );
+        return;
+      }
+      if (error instanceof ExternalIdentityAlreadyOwnedError) {
+        sendError(
+          res,
+          409,
+          "IDENTITY_ALREADY_LINKED",
+          "Telegram identity is already linked",
+        );
+        return;
+      }
+      if (error instanceof ExternalIdentityConflictError) {
+        sendError(
+          res,
+          409,
+          "IDENTITY_CONFLICT",
+          "Account already has a different Telegram identity",
+        );
+        return;
+      }
+      if (error instanceof ExternalIdentityProofConfigurationError) {
+        sendError(
+          res,
+          503,
+          "IDENTITY_PROOF_UNAVAILABLE",
+          "Telegram identity verification is unavailable",
+        );
+        return;
+      }
+      next(error);
+    }
+  },
+);
 
 router.post("/auth/change-password", authRateLimit, requireWebAuth, async (req, res, next) => {
   try {

@@ -52,6 +52,21 @@ suite("identity auth end-to-end", () => {
     });
     expect(register.status).toBe(201);
 
+    const customerRegister = await post("/api/web/auth/register", {
+      email,
+      name: "E2E Customer",
+      password,
+    });
+    expect(customerRegister.status).toBe(201);
+    const customerLogin = await post("/api/web/auth/login", {
+      email,
+      password,
+    });
+    expect(customerLogin.status).toBe(200);
+    expect(await customerLogin.json()).toMatchObject({
+      user: { role: "customer" },
+    });
+
     const login = await post("/api/identity/auth/login", { email, password });
     expect(login.status).toBe(200);
     const loginBody = (await login.json()) as {

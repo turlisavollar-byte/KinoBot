@@ -6,3 +6,11 @@ declare module "express" {
     log?: Logger;
   }
 }
+
+declare global {
+  namespace Express {
+    interface Request {
+      webSessionId?: string;
+    }
+  }
+}
