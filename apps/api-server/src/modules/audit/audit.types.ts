@@ -10,6 +10,7 @@ export type AuditAction =
   | "LOGOUT"
   | "LOGIN_FAILED"
   | "REGISTER"
+  | "LINK"
   | "VERIFY_EMAIL"
   | "RESET_PASSWORD"
   | "SUBSCRIPTION_CREATED"

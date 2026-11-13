@@ -1,6 +1,7 @@
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import {
   db,
+  userIdentitiesTable,
   userProfilesTable,
   usersTable,
   webRefreshSessionsTable,
@@ -66,9 +67,15 @@ export class DrizzleCustomerIdentityUnitOfWork implements CustomerIdentityUnitOf
     userId: string,
     passwordHash: string,
     at: Date,
+    replacementPasswordHash?: string,
   ): Promise<boolean> {
     return this.transaction((transaction) =>
-      transaction.recordSuccessfulLogin(userId, passwordHash, at),
+      transaction.recordSuccessfulLogin(
+        userId,
+        passwordHash,
+        at,
+        replacementPasswordHash,
+      ),
     );
   }
 
@@ -102,10 +109,75 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
       .where(eq(usersTable.id, userId))
       .limit(1);
 
-    return row ? mapRecord(row) : null;
+    if (!row) return null;
+
+    const [externalRow] = await this.tx
+      .select({
+        provider: userIdentitiesTable.provider,
+        subject: userIdentitiesTable.subject,
+        issuer: userIdentitiesTable.issuer,
+        verifiedAt: userIdentitiesTable.verifiedAt,
+      })
+      .from(userIdentitiesTable)
+      .where(
+        and(
+          eq(userIdentitiesTable.userId, userId),
+          eq(userIdentitiesTable.provider, "telegram"),
+          isNull(userIdentitiesTable.revokedAt),
+        ),
+      )
+      .limit(1);
+    const record = mapRecord(row);
+
+    return externalRow
+      ? {
+          ...record,
+          externalIdentity: externalRow.verifiedAt
+            ? ExternalIdentity.fromVerifiedProof(userId, {
+                provider: "telegram",
+                subject: externalRow.subject,
+                verifiedAt: externalRow.verifiedAt,
+              })
+            : ExternalIdentity.fromLegacyTelegram(userId, externalRow.subject),
+        }
+      : record;
   }
 
   async findByEmail(email: string): Promise<CustomerIdentityRecord | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const [identityRow] = await this.tx
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        passwordHash: usersTable.passwordHash,
+        status: usersTable.status,
+        isActive: usersTable.isActive,
+        isBlocked: usersTable.isBlocked,
+        deletedAt: usersTable.deletedAt,
+        telegramId: usersTable.telegramId,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        displayName: userProfilesTable.displayName,
+        emailIdentitySubject: userIdentitiesTable.subject,
+        emailIdentityVerifiedAt: userIdentitiesTable.verifiedAt,
+      })
+      .from(userIdentitiesTable)
+      .innerJoin(usersTable, eq(usersTable.id, userIdentitiesTable.userId))
+      .leftJoin(userProfilesTable, eq(userProfilesTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(userIdentitiesTable.provider, "email_password"),
+          eq(userIdentitiesTable.subject, normalizedEmail),
+          isNull(userIdentitiesTable.revokedAt),
+          isNull(usersTable.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (identityRow) {
+      return mapRecord(identityRow);
+    }
+
     const [row] = await this.tx
       .select({
         id: usersTable.id,
@@ -124,7 +196,7 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
       .leftJoin(userProfilesTable, eq(userProfilesTable.userId, usersTable.id))
       .where(
         and(
-          sql`lower(${usersTable.email}) = ${email.trim().toLowerCase()}`,
+          sql`lower(${usersTable.email}) = ${normalizedEmail}`,
           isNull(usersTable.deletedAt),
         ),
       )
@@ -138,6 +210,38 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
   ): Promise<ExternalIdentity | null> {
     if (identity.provider !== "telegram") {
       throw new UnsupportedExternalIdentityProviderError(identity.provider);
+    }
+
+    const [identityRow] = await this.tx
+      .select({
+        userId: userIdentitiesTable.userId,
+        verifiedAt: userIdentitiesTable.verifiedAt,
+      })
+      .from(userIdentitiesTable)
+      .where(
+        and(
+          eq(userIdentitiesTable.provider, identity.provider),
+          eq(userIdentitiesTable.subject, identity.subject),
+          identity.issuer
+            ? eq(userIdentitiesTable.issuer, identity.issuer)
+            : isNull(userIdentitiesTable.issuer),
+          isNull(userIdentitiesTable.revokedAt),
+        ),
+      )
+      .limit(1);
+
+    if (identityRow) {
+      return identityRow.verifiedAt
+        ? ExternalIdentity.fromVerifiedProof(identityRow.userId, {
+            provider: identity.provider,
+            subject: identity.subject,
+            ...(identity.issuer ? { issuer: identity.issuer } : {}),
+            verifiedAt: identityRow.verifiedAt,
+          })
+        : ExternalIdentity.fromLegacyTelegram(
+            identityRow.userId,
+            identity.subject,
+          );
     }
 
     const [row] = await this.tx
@@ -214,6 +318,11 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
     await this.tx
       .insert(userProfilesTable)
       .values({ userId: created.id, displayName: record.displayName });
+    await this.tx.insert(userIdentitiesTable).values({
+      userId: created.id,
+      provider: "email_password",
+      subject: email.email,
+    });
     if (!created.email || !created.passwordHash) {
       throw new Error(
         "Registered customer persistence returned incomplete credentials",
@@ -248,10 +357,16 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
     userId: string,
     passwordHash: string,
     at: Date,
+    replacementPasswordHash?: string,
   ): Promise<boolean> {
     const [updated] = await this.tx
       .update(usersTable)
-      .set({ lastLoginAt: at })
+      .set({
+        lastLoginAt: at,
+        ...(replacementPasswordHash
+          ? { passwordHash: replacementPasswordHash }
+          : {}),
+      })
       .where(
         and(
           eq(usersTable.id, userId),
@@ -273,6 +388,15 @@ class DrizzleCustomerIdentityTransaction implements CustomerIdentityTransaction 
     }
 
     try {
+      await this.tx.insert(userIdentitiesTable).values({
+        userId: identity.userId,
+        provider: identity.provider,
+        issuer: identity.issuer,
+        subject: identity.subject,
+        verifiedAt: identity.verifiedAt,
+        revokedAt: identity.revokedAt,
+      });
+
       const [updated] = await this.tx
         .update(usersTable)
         .set({ telegramId: identity.subject })
@@ -334,6 +458,8 @@ function mapRecord(row: {
   firstName: string | null;
   lastName: string | null;
   displayName: string | null;
+  emailIdentitySubject?: string;
+  emailIdentityVerifiedAt?: Date | null;
 }): CustomerIdentityRecord {
   const user = GlobalUser.fromLegacy({
     id: row.id,
@@ -342,7 +468,13 @@ function mapRecord(row: {
     isBlocked: row.isBlocked,
     deletedAt: row.deletedAt,
   });
-  const emailIdentity = EmailIdentity.fromLegacy(user.id, row.email);
+  const emailIdentity = row.emailIdentitySubject
+    ? EmailIdentity.create(
+        user.id,
+        row.emailIdentitySubject,
+        row.emailIdentityVerifiedAt ? "verified" : "unverified",
+      )
+    : EmailIdentity.fromLegacy(user.id, row.email);
   const passwordCredential = PasswordCredential.fromLegacy(
     user.id,
     row.passwordHash,
@@ -373,5 +505,7 @@ function isUniqueConstraintViolation(error: unknown): boolean {
     return false;
   }
 
-  return /users_telegram_id_(key|unique)/i.test(error.constraint);
+  return /(?:users_telegram_id_(key|unique)|user_identities_active_provider_subject_uidx)/i.test(
+    error.constraint,
+  );
 }

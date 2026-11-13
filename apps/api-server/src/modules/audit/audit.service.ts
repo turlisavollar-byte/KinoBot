@@ -1032,6 +1032,7 @@ export class AuditService {
         "LOGOUT",
         "LOGIN_FAILED",
         "REGISTER",
+        "LINK",
         "VERIFY_EMAIL",
         "RESET_PASSWORD",
       ],

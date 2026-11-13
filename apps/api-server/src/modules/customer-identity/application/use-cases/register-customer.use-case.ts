@@ -77,7 +77,7 @@ function isUniqueConstraintViolation(error: unknown): boolean {
     return false;
   }
 
-  return /users_(email|email_case_insensitive)_.*(key|unique|idx)/i.test(
+  return /(?:users_(email|email_case_insensitive)_.*(key|unique|idx)|user_identities_active_provider_subject_uidx)/i.test(
     error.constraint,
   );
 }

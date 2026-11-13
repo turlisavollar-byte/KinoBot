@@ -59,7 +59,7 @@ export function rateLimit(options: RateLimitOptions) {
     // Check if limit exceeded
     if (record.count >= maxRequests) {
       const resetAfter = Math.ceil((record.resetTime - now) / 1000);
-      
+
       logger.warn("Rate limit exceeded", {
         key,
         count: record.count,
@@ -85,21 +85,27 @@ export function rateLimit(options: RateLimitOptions) {
 
     // Setup response headers
     res.setHeader("X-RateLimit-Limit", maxRequests.toString());
-    res.setHeader("X-RateLimit-Remaining", (maxRequests - record.count).toString());
-    res.setHeader("X-RateLimit-Reset", new Date(record.resetTime).toISOString());
+    res.setHeader(
+      "X-RateLimit-Remaining",
+      (maxRequests - record.count).toString(),
+    );
+    res.setHeader(
+      "X-RateLimit-Reset",
+      new Date(record.resetTime).toISOString(),
+    );
 
     // Wrap response to track success/failure
     if (skipSuccessfulRequests || skipFailedRequests) {
       const originalJson = res.json.bind(res);
-      res.json = function(data: any) {
+      res.json = function (data: any) {
         const isSuccess = res.statusCode < 400;
-        
+
         if (skipSuccessfulRequests && isSuccess) {
           record.count--;
         } else if (skipFailedRequests && !isSuccess) {
           record.count--;
         }
-        
+
         return originalJson(data);
       };
     }
@@ -109,16 +115,6 @@ export function rateLimit(options: RateLimitOptions) {
 }
 
 // Pre-configured rate limiters for common use cases
-export const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 5, // 5 attempts per 15 minutes
-  keyGenerator: (req) => {
-    const ip = req.ip || req.connection.remoteAddress || "unknown";
-    const email = req.body?.email || "unknown";
-    return `auth:${ip}:${email}`;
-  },
-});
-
 export const generalRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 100, // 100 requests per minute

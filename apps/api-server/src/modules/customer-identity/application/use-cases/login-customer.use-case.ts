@@ -1,4 +1,5 @@
 import { EmailIdentity } from "../../domain/entities/email-identity.entity";
+import { PasswordCredential } from "../../domain/entities/password-credential.entity";
 import {
   AccountUnavailableError,
   InvalidCredentialsError,
@@ -37,17 +38,30 @@ export class LoginCustomerUseCase {
       throw new InvalidCredentialsError();
     }
 
+    const replacementPasswordHash =
+      credential.format === "legacy-sha256"
+        ? await this.passwordVerifier.hash(input.password)
+        : undefined;
     const updated = await this.unitOfWork.transaction((transaction) =>
       transaction.recordSuccessfulLogin(
         record.user.id,
         credential.hash,
         new Date(),
+        replacementPasswordHash,
       ),
     );
     if (!updated) {
       throw new InvalidCredentialsError();
     }
 
-    return record;
+    return replacementPasswordHash
+      ? {
+          ...record,
+          passwordCredential: PasswordCredential.create(
+            record.user.id,
+            replacementPasswordHash,
+          ),
+        }
+      : record;
   }
 }

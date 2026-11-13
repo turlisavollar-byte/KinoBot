@@ -87,9 +87,15 @@ class MemoryUnitOfWork implements CustomerIdentityUnitOfWork {
     userId: string,
     passwordHash: string,
     at: Date,
+    replacementPasswordHash?: string,
   ): Promise<boolean> {
     return this.transaction((transaction) =>
-      transaction.recordSuccessfulLogin(userId, passwordHash, at),
+      transaction.recordSuccessfulLogin(
+        userId,
+        passwordHash,
+        at,
+        replacementPasswordHash,
+      ),
     );
   }
 
@@ -129,12 +135,29 @@ class MemoryUnitOfWork implements CustomerIdentityUnitOfWork {
         }
         return record;
       },
-      recordSuccessfulLogin: async (userId, passwordHash) => {
+      recordSuccessfulLogin: async (
+        userId,
+        passwordHash,
+        _at,
+        replacementPasswordHash,
+      ) => {
         const record = records.get(userId);
-        return Boolean(
+        const valid = Boolean(
           record?.user.canAuthenticate &&
           record.passwordCredential?.hash === passwordHash,
         );
+        if (valid && record) {
+          records.set(userId, {
+            ...record,
+            passwordCredential: record.passwordCredential
+              ? PasswordCredential.create(
+                  userId,
+                  replacementPasswordHash ?? record.passwordCredential.hash,
+                )
+              : null,
+          });
+        }
+        return valid;
       },
       attachExternalIdentity: async (identity) => {
         const owned = [...records.values()].some(
@@ -325,7 +348,7 @@ describe("customer identity use cases", () => {
     ).toHaveLength(1);
   });
 
-  it("logs in with a legacy customer hash without changing its stored bytes", async () => {
+  it("rehashes a legacy customer password to bcrypt after successful login", async () => {
     const unitOfWork = new MemoryUnitOfWork();
     const password = "LegacyPassword1!";
     const legacyHash = createHash("sha256")
@@ -344,7 +367,15 @@ describe("customer identity use cases", () => {
     });
 
     expect(result.user.id).toBe("legacy-customer");
-    expect(result.passwordCredential?.hash).toBe(legacyHash);
+    expect(result.passwordCredential?.format).toBe("bcrypt");
+    expect(
+      unitOfWork.records.get("legacy-customer")?.passwordCredential,
+    ).toMatchObject({
+      format: "bcrypt",
+    });
+    expect(
+      unitOfWork.records.get("legacy-customer")?.passwordCredential?.hash,
+    ).not.toBe(legacyHash);
   });
 
   it("rejects login for unavailable accounts and incorrect credentials", async () => {

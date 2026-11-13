@@ -25,6 +25,7 @@ export interface CustomerIdentityTransaction {
     userId: string,
     passwordHash: string,
     at: Date,
+    replacementPasswordHash?: string,
   ): Promise<boolean>;
   attachExternalIdentity(identity: ExternalIdentity): Promise<void>;
 }
