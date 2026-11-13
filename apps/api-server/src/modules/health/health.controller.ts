@@ -74,11 +74,14 @@ export class HealthController {
     const telegramMediaPipeline = isTelegramMediaPipelineRunning()
       ? "running"
       : "stopped";
+    const telegramPipelineHealthy =
+      process.env.TELEGRAM_POLLING_ENABLED === "false" ||
+      telegramMediaPipeline === "running";
     const status =
       database === "ok" &&
       queueStatus !== "error" &&
       storageStatus !== "error" &&
-      telegramMediaPipeline === "running"
+      telegramPipelineHealthy
         ? "ok"
         : "degraded";
 
