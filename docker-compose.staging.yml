@@ -51,7 +51,7 @@ services:
       - staging
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -68,7 +68,7 @@ services:
       - staging
 
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/aistor/mc:latest
     restart: "no"
     entrypoint:
       - /bin/sh
