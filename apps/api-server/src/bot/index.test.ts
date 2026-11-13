@@ -54,6 +54,17 @@ vi.mock("@workspace/db", () => ({
     }),
   },
   telegramConfigTable: { id: "id", isActive: "is_active" },
+  telegramMediaTable: {
+    id: "id",
+    attempts: "attempts",
+    status: "status",
+    updatedAt: "updated_at",
+  },
+}));
+
+vi.mock("@/modules/telegram-media/telegram-media.pipeline", () => ({
+  startTelegramMediaPipeline: vi.fn(),
+  stopTelegramMediaPipeline: vi.fn(),
 }));
 
 vi.mock("@/lib/logger", () => ({
