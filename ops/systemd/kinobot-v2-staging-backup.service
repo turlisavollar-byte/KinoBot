@@ -1,0 +1,13 @@
+[Unit]
+Description=Back up isolated KinoBot V2 staging PostgreSQL and MinIO data
+Requires=docker.service
+After=docker.service
+ConditionPathExists=/opt/kinobot-v2-staging/.env.staging
+ConditionPathExists=/opt/kinobot-v2-staging/docker-compose.staging.yml
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+TimeoutStartSec=2h
+ExecStart=/opt/kinobot-v2-staging/ops/staging-backup.sh
