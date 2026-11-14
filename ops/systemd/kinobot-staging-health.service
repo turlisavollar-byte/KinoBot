@@ -1,0 +1,14 @@
+[Unit]
+Description=Check isolated KinoBot V2 staging health and alert administrators
+After=network-online.target docker.service
+Wants=network-online.target
+ConditionPathExists=/opt/kinobot-v2-staging/.env.staging
+ConditionPathExists=/opt/kinobot-v2-staging/docker-compose.staging.yml
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+TimeoutStartSec=90s
+WorkingDirectory=/opt/kinobot-v2-staging
+ExecStart=/opt/kinobot-v2-staging/ops/staging-health-check.sh
