@@ -1,0 +1,13 @@
+[Unit]
+Description=Renew the isolated staging.streamx.uz certificate
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/opt/kinobot-v2-staging/acme/config/renewal/staging.streamx.uz.conf
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+WorkingDirectory=/opt/kinobot-v2-staging
+TimeoutStartSec=70m
+ExecStart=/usr/bin/certbot -q renew --no-random-sleep-on-renew --cert-name staging.streamx.uz --config-dir=/opt/kinobot-v2-staging/acme/config --work-dir=/opt/kinobot-v2-staging/acme/work --logs-dir=/opt/kinobot-v2-staging/acme/logs

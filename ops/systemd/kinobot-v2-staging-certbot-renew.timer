@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the isolated staging certificate twice daily
+
+[Timer]
+OnCalendar=*-*-* 00,12:00:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=kinobot-v2-staging-certbot-renew.service
+
+[Install]
+WantedBy=timers.target
